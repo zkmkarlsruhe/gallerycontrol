@@ -152,7 +152,6 @@
       border-bottom: 1px solid #dee2e6;
       align-items: center;
       min-height: 60px;
-      grid-template-areas: "name devices controls";
     }
 
     .artwork-row:nth-child(even) {
@@ -171,7 +170,6 @@
       font-weight: 600;
       color: #212529;
       font-size: 0.9rem;
-      grid-area: name;
     }
 
     .artwork-name-manual {
@@ -209,7 +207,6 @@
       flex-wrap: wrap;
       gap: 0.25rem;
       align-items: center;
-      grid-area: devices;
     }
 
     .device-badge {
@@ -282,8 +279,6 @@
       display: flex;
       gap: 0.25rem;
       align-items: center;
-      justify-content: flex-end;
-      grid-area: controls;
     }
 
     .artwork-controls .btn-group {
@@ -373,15 +368,11 @@
     @media (max-width: 768px) {
       .artwork-row {
         grid-template-columns: 1fr;
-        grid-template-areas:
-          "name"
-          "devices"
-          "controls";
         gap: 0.5rem;
       }
 
       .artwork-controls {
-        justify-content: flex-end;
+        justify-content: flex-start;
       }
 
       .exhibition-card {
