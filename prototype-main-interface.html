@@ -823,8 +823,29 @@
       'beamer-1': { name: 'Beamer Nord', host: '192.168.10.50', type: 'PJLink', state: 'ON', cooldown: '28s' },
       'beamer-2': { name: 'Beamer Süd', host: '192.168.10.51', type: 'PJLink', state: 'Cooling', cooldown: '8s' },
       'audio-1': { name: 'Audio System', host: '192.168.15.20:1', type: 'NETIO', state: 'ON', cooldown: '-' },
-      'media-1': { name: 'Media Server', host: '192.168.1.100', type: 'Shell', state: 'OFF', cooldown: '-' },
-      'backup-1': { name: 'Backup Server', host: '192.168.1.101', type: 'Shell', state: 'ON', cooldown: '-' },
+      'media-1': {
+        name: 'Media Server',
+        host: '192.168.1.100',
+        type: 'Shell',
+        state: 'OFF',
+        cooldown: '-',
+        customCommands: [
+          { label: 'Restart', action: 'restart', btnClass: 'btn-primary' },
+          { label: 'Backup', action: 'backup', btnClass: 'btn-warning' },
+          { label: 'Status', action: 'status', btnClass: 'btn-info' }
+        ]
+      },
+      'backup-1': {
+        name: 'Backup Server',
+        host: '192.168.1.101',
+        type: 'Shell',
+        state: 'ON',
+        cooldown: '-',
+        customCommands: [
+          { label: 'Run Backup', action: 'backup', btnClass: 'btn-primary' },
+          { label: 'Check Status', action: 'status', btnClass: 'btn-info' }
+        ]
+      },
       'touch-1': { name: 'Touch Display', host: '192.168.10.70', type: 'PJLink', state: 'ERROR', cooldown: '-' },
       'pc-1': { name: 'PC Station 1', host: '192.168.1.80', type: 'Shell', state: 'ON', cooldown: '-' },
       'pc-2': { name: 'PC Station 2', host: '192.168.1.81', type: 'Shell', state: 'ON', cooldown: '-' },
@@ -884,7 +905,16 @@
 
         // Show manual commands if device type is Shell with custom commands
         const manualCommandsEl = document.getElementById('manual-commands-' + artworkId);
-        if (manualCommandsEl && device.type === 'Shell') {
+        if (manualCommandsEl && device.type === 'Shell' && device.customCommands) {
+          // Build command buttons
+          manualCommandsEl.innerHTML = '';
+          device.customCommands.forEach(cmd => {
+            const btn = document.createElement('button');
+            btn.className = 'btn ' + cmd.btnClass + ' btn-sm';
+            btn.textContent = cmd.label;
+            btn.onclick = () => sendCommand(cmd.action);
+            manualCommandsEl.appendChild(btn);
+          });
           manualCommandsEl.style.display = 'flex';
         } else if (manualCommandsEl) {
           manualCommandsEl.style.display = 'none';
