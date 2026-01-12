@@ -526,6 +526,38 @@ if not any(re.match(pattern, command.cmd) for pattern in ALLOWED_PATTERNS):
 
 ---
 
+## ANEL Runner Status
+
+**Current Implementation:** ⚠️ **Placeholder only**
+
+The ANEL runner currently has placeholder responses but needs full UDP implementation:
+
+**What's Missing:**
+```python
+# Currently returns fake data:
+@app.post("/devices/{ip}/on")
+async def turn_device_on(ip: str, port: int, authorization: str):
+    # TODO: Implement pypwrctrl integration
+    return {"success": True, "state": 1}  # Fake response
+```
+
+**What's Needed:**
+1. **UDP Broadcast Listener** - Listen on port 9977 for device broadcasts
+2. **UDP Command Sender** - Send commands on port 9975
+3. **Status Cache** - Store latest state from broadcasts
+4. **Event System** - Emit status updates to main service (optional SSE)
+
+**Why This Matters:**
+- ANEL devices **PUSH** status via UDP broadcasts (no polling!)
+- Enables real-time updates (sub-second latency)
+- Runner must use `network_mode: host` for network access
+
+**See:** `/workspace/ANEL_ARCHITECTURE.md` for complete implementation details
+
+**Priority:** High for ANEL device support, but can start frontend without it (use other device types for testing)
+
+---
+
 ## Conclusion
 
 **Current Status:** ✅ **Backend has core CRUD complete**
@@ -536,10 +568,13 @@ if not any(re.match(pattern, command.cmd) for pattern in ALLOWED_PATTERNS):
 1. GET single device (can work around with list filtering)
 2. Shell command testing (should implement for security + UX)
 
+**ANEL Runner:** Needs UDP implementation but doesn't block frontend development
+
 **Recommendation:**
 - Start frontend development now
 - Implement the 4 "Immediate" endpoints in parallel
 - Use client-side workarounds for batch/bulk operations
+- Implement ANEL runner UDP functionality for production
 - Defer templates database until needed
 
 ---
