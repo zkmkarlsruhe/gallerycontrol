@@ -342,6 +342,88 @@
     </ol>
   </div>
 
+  <!-- SECTION 0: System Architecture Overview -->
+  <div class="test-section">
+    <h3>Section 0: System Architecture Overview</h3>
+    <p class="text-muted">Understanding the two-subnet deployment</p>
+
+    <div class="alert alert-info">
+      <strong>ℹ️ New:</strong> The ANEL runner is deployed in a separate subnet for security and UDP broadcast isolation.
+      <a href="prototype-architecture.html" target="_blank" class="alert-link">View full architecture prototype →</a>
+    </div>
+
+    <div class="row">
+      <div class="col-md-5">
+        <div class="card border-primary">
+          <div class="card-header bg-primary text-white">
+            <strong>Subnet A - Main Application</strong><br>
+            <small>192.168.1.0/24</small>
+          </div>
+          <div class="card-body">
+            <div class="mb-2">
+              <strong>🌐 Frontend</strong><br>
+              <small class="text-muted">React + TypeScript UI</small>
+            </div>
+            <div class="mb-2">
+              <strong>⚙️ Main Service</strong><br>
+              <small class="text-muted">FastAPI control logic</small>
+            </div>
+            <div>
+              <strong>🗄️ PostgreSQL</strong><br>
+              <small class="text-muted">Database</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-2 d-flex align-items-center justify-content-center">
+        <div class="text-center">
+          <div style="font-size: 2em;">↔️</div>
+          <small class="text-muted">HTTP REST</small>
+        </div>
+      </div>
+
+      <div class="col-md-5">
+        <div class="card border-success">
+          <div class="card-header bg-success text-white">
+            <strong>Subnet B - Control Network</strong><br>
+            <small>192.168.50.0/24</small>
+          </div>
+          <div class="card-body">
+            <div class="mb-2">
+              <strong>🔌 ANEL Runner</strong><br>
+              <small class="text-muted">UDP gateway (192.168.50.2)</small>
+              <br>
+              <span class="badge bg-success mt-1">network_mode: host</span>
+            </div>
+            <div class="mb-2">
+              <strong>📡 UDP Broadcasts</strong><br>
+              <small class="text-muted">Real-time status (port 9977)</small>
+            </div>
+            <div>
+              <strong>💡 ANEL Devices</strong><br>
+              <small class="text-muted">Power control outlets</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row mt-3">
+      <div class="col-md-12">
+        <div class="alert alert-warning">
+          <strong>⚡ Why Separate Subnets?</strong>
+          <ul class="mb-0 mt-2">
+            <li><strong>Security:</strong> Power control devices isolated from application network</li>
+            <li><strong>UDP Broadcasts:</strong> ANEL devices push status updates - broadcasts stay in control network</li>
+            <li><strong>Real-time:</strong> Sub-second latency from device action to UI update (no polling!)</li>
+            <li><strong>Network Isolation:</strong> Only ANEL runner has access to control devices</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- SECTION 1: Exhibition Overview Cards -->
   <div class="test-section">
     <h3>Section 1: Exhibition Overview Cards</h3>

@@ -361,6 +361,97 @@
     </ul>
   </div>
 
+  <!-- SECTION 0: System Architecture -->
+  <div class="test-section">
+    <h3>Section 0: System Architecture Context</h3>
+    <p class="text-muted">Two-subnet deployment for security and network isolation</p>
+
+    <div class="alert alert-primary">
+      <strong>🏗️ Architecture Update:</strong> Forms will interact with the Main Service API, which communicates with ANEL Runner on a separate control network.
+      <a href="prototype-architecture.html" target="_blank" class="alert-link">View interactive architecture diagram →</a>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-header bg-primary text-white">
+            <strong>Frontend Forms</strong> (This Prototype)
+          </div>
+          <div class="card-body">
+            <h6>Device Types Supported:</h6>
+            <ul>
+              <li><strong>PJLink:</strong> Projectors with password auth</li>
+              <li><strong>NETIO:</strong> Power outlets (HTTP API)</li>
+              <li><strong>ANEL:</strong> Power outlets (UDP, separate subnet)</li>
+              <li><strong>Shell:</strong> Custom shell commands</li>
+            </ul>
+            <h6 class="mt-3">Key Features:</h6>
+            <ul class="mb-0">
+              <li>Visual port selection (toggle buttons)</li>
+              <li>Shell command templates library</li>
+              <li>Clone device with pre-filled settings</li>
+              <li>Move device between artworks</li>
+              <li>No manual JSON editing</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-header bg-success text-white">
+            <strong>Backend API Endpoints</strong>
+          </div>
+          <div class="card-body">
+            <h6>CRUD Operations:</h6>
+            <pre class="bg-light p-2 rounded small"><code>GET/POST/PUT/DELETE /api/admin/exhibitions
+GET/POST/PUT/DELETE /api/admin/artworks
+GET/POST/PUT/DELETE /api/admin/devices</code></pre>
+
+            <h6 class="mt-3">Device-Specific:</h6>
+            <ul>
+              <li><strong>PJLink/NETIO:</strong> Direct connection from Main Service</li>
+              <li><strong>ANEL:</strong> Main Service → ANEL Runner (192.168.50.2) → Devices</li>
+              <li><strong>Shell:</strong> Execute on Main Service host</li>
+            </ul>
+
+            <div class="alert alert-warning mb-0 mt-3">
+              <strong>⚠️ ANEL Note:</strong> Runner on separate subnet receives UDP broadcasts for real-time status
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <div class="card">
+        <div class="card-header bg-info text-white">
+          <strong>Form Design Principles</strong>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-3">
+              <strong>📱 Mobile-First</strong>
+              <p class="small text-muted mb-0">Touch-friendly, vertical layouts, collapsible sections</p>
+            </div>
+            <div class="col-md-3">
+              <strong>🚫 No JSON</strong>
+              <p class="small text-muted mb-0">Structured inputs, visual selection, templates</p>
+            </div>
+            <div class="col-md-3">
+              <strong>♻️ Reusable</strong>
+              <p class="small text-muted mb-0">Clone devices, template library, variable substitution</p>
+            </div>
+            <div class="col-md-3">
+              <strong>✨ Progressive</strong>
+              <p class="small text-muted mb-0">Simple by default, advanced features when needed</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- SECTION 1: Layout Variations -->
   <div class="test-section">
     <h3>Section 1: Form Layout Variations</h3>
