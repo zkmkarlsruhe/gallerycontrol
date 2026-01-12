@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MuTech Control - Museum Device Control System</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: white;
+      padding: 20px 30px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 24px;
+      color: #333;
+    }
+
+    .status {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .status-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #4CAF50;
+      animation: pulse 2s infinite;
+    }
+
+    .status-indicator.offline {
+      background: #f44336;
+      animation: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .exhibitions {
+      display: grid;
+      gap: 20px;
+    }
+
+    .exhibition {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .exhibition-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .exhibition-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .exhibition-controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-on {
+      background: #4CAF50;
+      color: white;
+    }
+
+    .btn-off {
+      background: #f44336;
+      color: white;
+    }
+
+    .btn-on:hover {
+      background: #45a049;
+    }
+
+    .btn-off:hover {
+      background: #da190b;
+    }
+
+    .artwork {
+      margin-bottom: 15px;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 6px;
+      border-left: 4px solid #2196F3;
+    }
+
+    .artwork-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .artwork-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: #555;
+    }
+
+    .artwork-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 13px;
+    }
+
+    .devices {
+      display: grid;
+      gap: 10px;
+      padding-left: 15px;
+    }
+
+    .device {
+      background: white;
+      padding: 12px;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-left: 3px solid #ccc;
+    }
+
+    .device.state-on {
+      border-left-color: #4CAF50;
+    }
+
+    .device.state-off {
+      border-left-color: #9E9E9E;
+    }
+
+    .device.state-error {
+      border-left-color: #f44336;
+    }
+
+    .device.state-cooling, .device.state-warming {
+      border-left-color: #FF9800;
+    }
+
+    .device-info {
+      flex: 1;
+    }
+
+    .device-name {
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .device-details {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .device-state {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-right: 10px;
+    }
+
+    .device-state.on {
+      background: #E8F5E9;
+      color: #2E7D32;
+    }
+
+    .device-state.off {
+      background: #F5F5F5;
+      color: #616161;
+    }
+
+    .device-state.error {
+      background: #FFEBEE;
+      color: #C62828;
+    }
+
+    .device-state.cooling, .device-state.warming {
+      background: #FFF3E0;
+      color: #E65100;
+    }
+
+    .device-controls {
+      display: flex;
+      gap: 6px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+
+    .error-message {
+      background: #FFEBEE;
+      color: #C62828;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #323232;
+      color: white;
+      padding: 16px 24px;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 1000;
+      opacity: 0;
+      transform: translateY(-20px);
+      transition: all 0.3s;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.success {
+      background: #4CAF50;
+    }
+
+    .toast.error {
+      background: #f44336;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .refresh-info {
+      font-size: 12px;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>🎨 MuTech Control</h1>
+        <div class="refresh-info" id="lastUpdate">Last updated: Never</div>
+      </div>
+      <div class="status">
+        <span id="statusText">Connecting...</span>
+        <div class="status-indicator" id="statusIndicator"></div>
+      </div>
+    </header>
+
+    <div id="error" class="error-message" style="display: none;"></div>
+    <div id="loading" class="loading">Loading exhibitions...</div>
+    <div id="exhibitions" class="exhibitions"></div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const API_BASE = '';  // Same origin
+    let pollInterval = null;
+
+    // Toast notification
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast ${type}`;
+      setTimeout(() => toast.classList.add('show'), 10);
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // Format device state
+    function formatState(state) {
+      const states = {
+        '-1': 'error',
+        '0': 'off',
+        '1': 'on',
+        '2': 'cooling',
+        '3': 'warming'
+      };
+      return states[state.toString()] || 'unknown';
+    }
+
+    // Control device
+    async function controlDevice(deviceId, command, deviceName) {
+      try {
+        const response = await fetch(`${API_BASE}/api/control/device/${deviceId}/${command}`, {
+          method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          showToast(`${command.toUpperCase()} command sent to ${deviceName}`, 'success');
+          // Refresh state immediately
+          setTimeout(loadExhibitions, 1000);
+        } else {
+          showToast(`Failed to control ${deviceName}`, 'error');
+        }
+      } catch (error) {
+        console.error('Control error:', error);
+        showToast(`Error controlling ${deviceName}`, 'error');
+      }
+    }
+
+    // Control artwork
+    async function controlArtwork(artworkId, command, artworkName) {
+      try {
+        const response = await fetch(`${API_BASE}/api/control/artwork/${artworkId}/${command}`, {
+          method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          showToast(`${command.toUpperCase()} command sent to ${artworkName}`, 'success');
+          setTimeout(loadExhibitions, 1000);
+        } else {
+          showToast(`Failed to control ${artworkName}`, 'error');
+        }
+      } catch (error) {
+        console.error('Control error:', error);
+        showToast(`Error controlling ${artworkName}`, 'error');
+      }
+    }
+
+    // Control exhibition
+    async function controlExhibition(exhibitionId, command, exhibitionName) {
+      try {
+        const response = await fetch(`${API_BASE}/api/control/exhibition/${exhibitionId}/${command}`, {
+          method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          showToast(`${command.toUpperCase()} command sent to ${exhibitionName}`, 'success');
+          setTimeout(loadExhibitions, 2000);
+        } else {
+          showToast(`Failed to control ${exhibitionName}`, 'error');
+        }
+      } catch (error) {
+        console.error('Control error:', error);
+        showToast(`Error controlling ${exhibitionName}`, 'error');
+      }
+    }
+
+    // Load exhibitions
+    async function loadExhibitions() {
+      try {
+        const response = await fetch(`${API_BASE}/api/state/exhibitions`);
+        const exhibitions = await response.json();
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'none';
+        document.getElementById('statusIndicator').classList.remove('offline');
+        document.getElementById('statusText').textContent = 'Connected';
+
+        const container = document.getElementById('exhibitions');
+        container.innerHTML = exhibitions.map(ex => `
+          <div class="exhibition">
+            <div class="exhibition-header">
+              <div class="exhibition-title">${ex.name}</div>
+              <div class="exhibition-controls">
+                <button class="btn btn-on" onclick="controlExhibition('${ex.id}', 'on', '${ex.name}')">
+                  Turn All ON
+                </button>
+                <button class="btn btn-off" onclick="controlExhibition('${ex.id}', 'off', '${ex.name}')">
+                  Turn All OFF
+                </button>
+              </div>
+            </div>
+            ${ex.artworks.map(aw => `
+              <div class="artwork">
+                <div class="artwork-header">
+                  <div class="artwork-title">${aw.name}</div>
+                  <div class="artwork-controls">
+                    <button class="btn btn-on btn-sm" onclick="controlArtwork('${aw.id}', 'on', '${aw.name}')">
+                      ON
+                    </button>
+                    <button class="btn btn-off btn-sm" onclick="controlArtwork('${aw.id}', 'off', '${aw.name}')">
+                      OFF
+                    </button>
+                  </div>
+                </div>
+                <div class="devices">
+                  ${aw.devices.map(dev => {
+                    const stateClass = formatState(dev.state);
+                    return `
+                      <div class="device state-${stateClass}">
+                        <div class="device-info">
+                          <div class="device-name">${dev.name}</div>
+                          <div class="device-details">
+                            <span class="device-state ${stateClass}">${stateClass}</span>
+                            ${dev.device_type} @ ${dev.host}${dev.port ? ':' + dev.port : ''}
+                          </div>
+                        </div>
+                        <div class="device-controls">
+                          <button class="btn btn-on btn-sm" onclick="controlDevice('${dev.id}', 'on', '${dev.name}')">
+                            ON
+                          </button>
+                          <button class="btn btn-off btn-sm" onclick="controlDevice('${dev.id}', 'off', '${dev.name}')">
+                            OFF
+                          </button>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `).join('');
+
+        // Update last update time
+        const now = new Date();
+        document.getElementById('lastUpdate').textContent =
+          `Last updated: ${now.toLocaleTimeString()}`;
+
+      } catch (error) {
+        console.error('Load error:', error);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent =
+          'Failed to connect to backend service. Make sure the service is running on port 8000.';
+        document.getElementById('statusIndicator').classList.add('offline');
+        document.getElementById('statusText').textContent = 'Offline';
+      }
+    }
+
+    // Initialize
+    loadExhibitions();
+
+    // Poll for updates every 5 seconds
+    pollInterval = setInterval(loadExhibitions, 5000);
+  </script>
+</body>
+</html>

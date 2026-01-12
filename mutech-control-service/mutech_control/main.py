@@ -2,9 +2,12 @@
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from mutech_control.api import admin, control, fast, state
 from mutech_control.config import get_config
@@ -129,11 +132,19 @@ app.include_router(fast.router)
 app.include_router(state.router)
 app.include_router(admin.router)
 
+# Mount static files directory if it exists
+static_dir = Path(__file__).parent.parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-# Root endpoint
+
+# Root endpoint - serve web interface
 @app.get("/")
 async def root():
-    """Root endpoint."""
+    """Serve web interface."""
+    index_path = static_dir / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path)
     return {"service": "MuTech Control Service", "version": "1.0.0", "status": "running"}
 
 
