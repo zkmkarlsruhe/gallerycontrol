@@ -1,0 +1,334 @@
+"""Command orchestrator - coordinates device control operations."""
+
+import asyncio
+import logging
+from datetime import datetime
+from typing import Dict, List, Literal
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
+from mutech_control.database.models import Artwork, CommandLog, Device, Exhibition
+from mutech_control.orchestrator.state_verifier import StateVerifier
+
+logger = logging.getLogger(__name__)
+
+
+class CommandOrchestrator:
+    """Orchestrate device control commands with staggering and verification."""
+
+    def __init__(self, db_manager, device_managers: Dict, config: dict):
+        self.db_manager = db_manager
+        self.device_managers = device_managers
+        self.config = config
+        self.state_verifier = StateVerifier(db_manager, device_managers, config)
+
+        orchestrator_config = config.get("orchestrator", {})
+        max_concurrent = orchestrator_config.get("max_concurrent_on_commands", 10)
+        self._on_semaphore = asyncio.Semaphore(max_concurrent)
+
+    async def execute_control_command(
+        self,
+        target_type: Literal["exhibition", "artwork", "device"],
+        target_id: str,
+        command: Literal["on", "off"],
+        source: Literal["web", "fast"],
+    ) -> dict:
+        """
+        Main entry point for control commands.
+
+        Args:
+            target_type: Type of target (exhibition, artwork, or device)
+            target_id: UUID of target
+            command: Command to execute (on or off)
+            source: Source of command (web UI or fast lane)
+
+        Returns:
+            dict with success status and results
+        """
+        logger.info(
+            f"Executing {command.upper()} command for {target_type} {target_id} (source: {source})"
+        )
+
+        try:
+            # 1. Resolve target to list of devices
+            devices = await self._resolve_target(target_type, target_id)
+
+            if not devices:
+                logger.warning(f"No devices found for {target_type} {target_id}")
+                return {"success": True, "devices_targeted": 0, "results": []}
+
+            # 2. Filter devices based on enabled flags
+            devices = self._filter_devices(devices, command)
+
+            logger.info(f"Filtered to {len(devices)} devices for execution")
+
+            # 3. Execute command based on source and command type
+            if source == "web":
+                if command == "on":
+                    results = await self._execute_on_staggered(devices)
+                else:
+                    results = await self._execute_off_with_verification(devices)
+            else:  # fast lane
+                results = await self._execute_fast(devices, command)
+
+            successful = sum(1 for r in results if r.get("success"))
+
+            return {
+                "success": True,
+                "devices_targeted": len(devices),
+                "devices_successful": successful,
+                "results": results,
+                "source": source,
+            }
+
+        except Exception as e:
+            logger.error(f"Error executing control command: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def _resolve_target(
+        self, target_type: str, target_id: str
+    ) -> List[Device]:
+        """Resolve target to list of devices."""
+        try:
+            target_uuid = UUID(target_id)
+
+            async with self.db_manager.session() as session:
+                if target_type == "exhibition":
+                    # Get all devices in exhibition
+                    stmt = (
+                        select(Device)
+                        .join(Artwork)
+                        .join(Exhibition)
+                        .where(Exhibition.id == target_uuid)
+                        .options(selectinload(Device.artwork))
+                    )
+                    result = await session.execute(stmt)
+                    devices = result.scalars().all()
+
+                elif target_type == "artwork":
+                    # Get all devices in artwork
+                    stmt = (
+                        select(Device)
+                        .where(Device.artwork_id == target_uuid)
+                        .options(selectinload(Device.artwork))
+                    )
+                    result = await session.execute(stmt)
+                    devices = result.scalars().all()
+
+                elif target_type == "device":
+                    # Get single device
+                    stmt = select(Device).where(Device.id == target_uuid).options(selectinload(Device.artwork))
+                    result = await session.execute(stmt)
+                    device = result.scalar_one_or_none()
+                    devices = [device] if device else []
+
+                else:
+                    logger.error(f"Unknown target type: {target_type}")
+                    return []
+
+                return list(devices)
+
+        except Exception as e:
+            logger.error(f"Error resolving target {target_type} {target_id}: {e}")
+            return []
+
+    def _filter_devices(self, devices: List[Device], command: str) -> List[Device]:
+        """Filter devices based on enabled flags."""
+        filtered = []
+
+        for device in devices:
+            # Skip disabled devices
+            if not device.enabled:
+                logger.debug(f"Skipping disabled device: {device.name}")
+                continue
+
+            # Skip devices excluded from auto on/off (shell reboot commands, etc.)
+            if device.exclude_from_auto_onoff and command in ["on", "off"]:
+                logger.debug(
+                    f"Skipping device excluded from auto on/off: {device.name}"
+                )
+                continue
+
+            filtered.append(device)
+
+        return filtered
+
+    async def _execute_on_staggered(self, devices: List[Device]) -> List[dict]:
+        """Execute ON commands with 1 second stagger and limited concurrency."""
+        orchestrator_config = self.config.get("orchestrator", {})
+        stagger_delay = orchestrator_config.get("on_stagger_delay_seconds", 1.0)
+
+        results = []
+
+        for device in devices:
+            # Limit concurrent ON operations
+            async with self._on_semaphore:
+                result = await self._execute_single_device(device, "on", "web")
+                results.append(result)
+
+                # Stagger delay between devices
+                await asyncio.sleep(stagger_delay)
+
+        return results
+
+    async def _execute_off_with_verification(
+        self, devices: List[Device]
+    ) -> List[dict]:
+        """Execute OFF commands - broadcast in parallel, then verify."""
+        # 1. Send OFF to all devices in parallel
+        tasks = [
+            self._execute_single_device(device, "off", "web") for device in devices
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Convert exceptions to error results
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                processed_results.append(
+                    {
+                        "device_id": str(devices[i].id),
+                        "success": False,
+                        "error": str(result),
+                    }
+                )
+            else:
+                processed_results.append(result)
+
+        # 2. Start verification tasks for successful devices (excluding shell)
+        orchestrator_config = self.config.get("orchestrator", {})
+        if orchestrator_config.get("enable_off_verification", True):
+            devices_to_verify = [
+                device
+                for device, result in zip(devices, processed_results)
+                if result.get("success") and device.device_type != "shell"
+            ]
+
+            if devices_to_verify:
+                logger.info(f"Starting OFF verification for {len(devices_to_verify)} devices")
+                asyncio.create_task(self.state_verifier.verify_devices_off(devices_to_verify))
+
+        return processed_results
+
+    async def _execute_fast(
+        self, devices: List[Device], command: str
+    ) -> List[dict]:
+        """Execute commands in fast lane - fire once, no verification."""
+        tasks = [
+            self._execute_single_device(device, command, "fast") for device in devices
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Convert exceptions to error results
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                processed_results.append(
+                    {
+                        "device_id": str(devices[i].id),
+                        "success": False,
+                        "error": str(result),
+                    }
+                )
+            else:
+                processed_results.append(result)
+
+        return processed_results
+
+    async def _execute_single_device(
+        self, device: Device, command: str, source: str
+    ) -> dict:
+        """Execute command on single device."""
+        manager = self.device_managers.get(device.device_type)
+
+        if not manager:
+            error = f"No manager available for device type {device.device_type}"
+            logger.error(error)
+            return {
+                "device_id": str(device.id),
+                "device_name": device.name,
+                "device_type": device.device_type,
+                "success": False,
+                "error": error,
+            }
+
+        try:
+            # Execute command
+            result = await manager.set_power(device, command == "on")
+
+            # Update database state if successful
+            if result.success:
+                await self._update_device_state(device.id, result.state)
+
+            # Log command
+            await self._log_command(
+                device_id=device.id,
+                command=command,
+                source=source,
+                success=result.success,
+                error=result.error,
+                duration_ms=result.duration_ms,
+            )
+
+            return {
+                "device_id": str(device.id),
+                "device_name": device.name,
+                "device_type": device.device_type,
+                "success": result.success,
+                "state": result.state,
+                "error": result.error,
+                "duration_ms": result.duration_ms,
+            }
+
+        except Exception as e:
+            logger.error(f"Error executing command on {device.name}: {e}")
+            return {
+                "device_id": str(device.id),
+                "device_name": device.name,
+                "device_type": device.device_type,
+                "success": False,
+                "error": str(e),
+            }
+
+    async def _update_device_state(self, device_id: UUID, new_state: int) -> None:
+        """Update device state in database."""
+        try:
+            from sqlalchemy import update
+
+            async with self.db_manager.session() as session:
+                stmt = (
+                    update(Device)
+                    .where(Device.id == device_id)
+                    .values(state=new_state, last_checked_at=datetime.utcnow())
+                )
+                await session.execute(stmt)
+
+        except Exception as e:
+            logger.error(f"Error updating device state: {e}")
+
+    async def _log_command(
+        self,
+        device_id: UUID,
+        command: str,
+        source: str,
+        success: bool,
+        error: str | None,
+        duration_ms: int | None,
+    ) -> None:
+        """Log command execution to database."""
+        try:
+            async with self.db_manager.session() as session:
+                log = CommandLog(
+                    device_id=device_id,
+                    command=command,
+                    source=source,
+                    success=success,
+                    error_message=error,
+                    duration_ms=duration_ms,
+                )
+                session.add(log)
+
+        except Exception as e:
+            logger.error(f"Error logging command: {e}")

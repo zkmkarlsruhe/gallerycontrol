@@ -1,0 +1,18 @@
+# Database
+DATABASE_URL=postgresql://mutech:password@localhost:5432/mutech
+
+# ANEL Runner
+ANEL_RUNNER_URL=http://localhost:8001
+ANEL_API_KEY=your-secure-api-key-here
+
+# Server
+PORT=8000
+HOST=0.0.0.0
+RELOAD=false
+
+# Logging
+LOG_LEVEL=INFO
+LOG_FORMAT=json
+
+# CORS
+CORS_ORIGINS=http://localhost:3000,http://localhost:8080

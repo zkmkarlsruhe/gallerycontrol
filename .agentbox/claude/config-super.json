@@ -1,0 +1,60 @@
+{
+  "permissions": {
+    "additionalDirectories": ["/context"],
+    "defaultMode": "acceptEdits"
+  },
+  "model": "sonnet",
+  "display": {
+    "show_tool_results": true,
+    "show_thinking": false
+  },
+  "auto_approve": {
+    "Bash": "always",
+    "Read": "always",
+    "Write": "always",
+    "Edit": "always",
+    "Glob": "always",
+    "Grep": "always",
+    "NotebookEdit": "always",
+    "Task": "always",
+    "WebFetch": "always",
+    "WebSearch": "always",
+    "LSP": "always",
+    "TodoWrite": "always",
+    "AskUserQuestion": "never",
+    "EnterPlanMode": "never",
+    "ExitPlanMode": "always"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/local/bin/notify-enhanced 'Claude Code' 'Task completed' 'normal' \"${AGENTBOX_CONTAINER}\" \"${AGENTBOX_SESSION_NAME}\""
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/local/bin/notify-enhanced 'Claude Code' 'Needs permission' 'critical' \"${AGENTBOX_CONTAINER}\" \"${AGENTBOX_SESSION_NAME}\""
+          }
+        ]
+      },
+      {
+        "matcher": "idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/local/bin/notify-enhanced 'Claude Code' 'Waiting for input' 'normal' \"${AGENTBOX_CONTAINER}\" \"${AGENTBOX_SESSION_NAME}\""
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,69 @@
+server:
+  host: "0.0.0.0"
+  port: 8000
+  reload: false
+
+database:
+  url: "${DATABASE_URL}"
+  pool_size: 20
+  pool_pre_ping: true
+  echo: false
+
+device_types:
+  pjlink:
+    cooldown_seconds: 30
+    request_timeout: 10
+    off_verify:
+      enabled: true
+      interval_seconds: 30
+      max_duration_seconds: 300
+      retry_on_states: [1, -1]
+      success_states: [0, 2]
+
+  netio:
+    cooldown_seconds: 5
+    request_timeout: 5
+    off_verify:
+      enabled: true
+      interval_seconds: 30
+      max_duration_seconds: 180
+      retry_on_states: [1, -1]
+      success_states: [0]
+
+  anel:
+    cooldown_seconds: 5
+    request_timeout: 5
+    runner_url: "${ANEL_RUNNER_URL}"
+    runner_api_key: "${ANEL_API_KEY}"
+    off_verify:
+      enabled: true
+      interval_seconds: 30
+      max_duration_seconds: 180
+      retry_on_states: [1, -1]
+      success_states: [0]
+
+  shell:
+    cooldown_seconds: 2
+    request_timeout: 30
+    off_verify:
+      enabled: false
+
+orchestrator:
+  on_stagger_delay_seconds: 1.0
+  max_concurrent_on_commands: 10
+  max_concurrent_off_commands: 50
+  enable_off_verification: true
+  off_verification_task_interval: 10
+
+logging:
+  level: "INFO"
+  format: "json"
+  file: null
+
+api:
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://localhost:8080"
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60

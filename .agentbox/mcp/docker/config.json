@@ -1,0 +1,19 @@
+{
+  "name": "docker",
+  "description": "Docker MCP Server - manage containers, images, and networks",
+  "config": {
+    "command": "bash",
+    "args": ["-c", "exec node $(npm root -g 2>/dev/null || npm root)/@0xshariq/docker-mcp-server/dist/index.js"]
+  },
+  "install": {
+    "npm": ["@0xshariq/docker-mcp-server"]
+  },
+  "mounts": [
+    {
+      "host": "/var/run/docker.sock",
+      "container": "/var/run/docker.sock",
+      "mode": "rw"
+    }
+  ],
+  "notes": "Provides Docker container and image management capabilities."
+}
