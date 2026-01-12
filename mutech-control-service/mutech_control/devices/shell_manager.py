@@ -5,7 +5,7 @@ import logging
 import re
 
 from mutech_control.devices.base import ConnectionResult, DeviceManager, DeviceResult
-from mutech_control.orchestrator.cooldown_manager import CooldownManager
+from mutech_control.devices.cooldown_manager import CooldownManager
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +20,9 @@ class ShellManager(DeviceManager):
     async def get_state(self, device) -> DeviceResult:
         """Execute status command and parse output."""
         # Check cooldown
-        if not self.cooldown_manager.is_allowed(str(device.id)):
-            next_time = self.cooldown_manager.next_allowed(str(device.id))
-            remaining = self.cooldown_manager.get_remaining_cooldown(str(device.id))
+        if not self.cooldown_manager.is_allowed(device.id):
+            next_time = self.cooldown_manager.next_allowed_time(device.id)
+            remaining = self.cooldown_manager.get_remaining_seconds(device.id)
             return DeviceResult(
                 success=False,
                 state=device.state,
@@ -63,7 +63,7 @@ class ShellManager(DeviceManager):
 
             # Record successful request
             cooldown = self.config.get("cooldown_seconds", 2)
-            self.cooldown_manager.record_request(str(device.id), cooldown)
+            self.cooldown_manager.record_request(device.id, cooldown)
 
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
@@ -84,9 +84,9 @@ class ShellManager(DeviceManager):
     async def set_power(self, device, on: bool) -> DeviceResult:
         """Execute on/off command."""
         # Check cooldown
-        if not self.cooldown_manager.is_allowed(str(device.id)):
-            next_time = self.cooldown_manager.next_allowed(str(device.id))
-            remaining = self.cooldown_manager.get_remaining_cooldown(str(device.id))
+        if not self.cooldown_manager.is_allowed(device.id):
+            next_time = self.cooldown_manager.next_allowed_time(device.id)
+            remaining = self.cooldown_manager.get_remaining_seconds(device.id)
             return DeviceResult(
                 success=False,
                 state=device.state,
@@ -123,7 +123,7 @@ class ShellManager(DeviceManager):
 
                 # Record successful request
                 cooldown = self.config.get("cooldown_seconds", 2)
-                self.cooldown_manager.record_request(str(device.id), cooldown)
+                self.cooldown_manager.record_request(device.id, cooldown)
 
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 

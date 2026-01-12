@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from mutech_control.api import admin, control, fast, state
 from mutech_control.config import get_config
 from mutech_control.database.connection import get_db_manager
-from mutech_control.devices.anel_client import ANELClient
+from mutech_control.devices.anel_manager import ANELManager
 from mutech_control.devices.netio_manager import NETIOManager
 from mutech_control.devices.pjlink_manager import PJLinkManager
 from mutech_control.devices.shell_manager import ShellManager
@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     device_managers = {
         "pjlink": PJLinkManager(device_types_config.get("pjlink", {})),
         "netio": NETIOManager(device_types_config.get("netio", {})),
-        "anel": ANELClient(device_types_config.get("anel", {})),
+        "anel": ANELManager(device_types_config.get("anel", {})),
         "shell": ShellManager(device_types_config.get("shell", {})),
     }
     logger.info(f"Initialized device managers: {list(device_managers.keys())}")

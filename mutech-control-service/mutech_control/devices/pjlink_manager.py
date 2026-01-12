@@ -1,11 +1,13 @@
 """PJLink device manager for projector control."""
 
 import asyncio
+import hashlib
 import logging
+import socket
 from typing import Dict
 
 from mutech_control.devices.base import ConnectionResult, DeviceManager, DeviceResult
-from mutech_control.orchestrator.cooldown_manager import CooldownManager
+from mutech_control.devices.cooldown_manager import CooldownManager
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +20,63 @@ class PJLinkManager(DeviceManager):
         self.cooldown_manager = CooldownManager()
         self._connections: Dict[str, object] = {}  # IP -> projector connection pool
 
+    async def _send_command(self, host: str, port: int, command: str, password: str | None = None) -> str:
+        """
+        Send PJLink command and get response.
+
+        Args:
+            host: Projector IP address
+            port: PJLink port (default 4352)
+            command: PJLink command (e.g., "POWR ?")
+            password: Optional password for authentication
+
+        Returns:
+            Response string from projector
+        """
+        loop = asyncio.get_event_loop()
+
+        # Create socket connection
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5)
+
+        try:
+            # Connect
+            await loop.run_in_executor(None, sock.connect, (host, port))
+
+            # Receive greeting (contains auth challenge if password required)
+            greeting = await loop.run_in_executor(None, sock.recv, 1024)
+            greeting = greeting.decode('utf-8').strip()
+
+            # Build command with authentication if needed
+            if password and "PJLINK 1" in greeting:
+                # Extract challenge from greeting: "PJLINK 1 <challenge>"
+                parts = greeting.split()
+                if len(parts) >= 3:
+                    challenge = parts[2]
+                    # MD5 hash of challenge + password
+                    auth_hash = hashlib.md5((challenge + password).encode()).hexdigest()
+                    full_command = f"{auth_hash}%1{command}\r"
+                else:
+                    full_command = f"%1{command}\r"
+            else:
+                full_command = f"%1{command}\r"
+
+            # Send command
+            await loop.run_in_executor(None, sock.sendall, full_command.encode('utf-8'))
+
+            # Receive response
+            response = await loop.run_in_executor(None, sock.recv, 1024)
+            return response.decode('utf-8').strip()
+
+        finally:
+            sock.close()
+
     async def get_state(self, device) -> DeviceResult:
         """Get projector power state."""
         # Check cooldown
-        if not self.cooldown_manager.is_allowed(str(device.id)):
-            next_time = self.cooldown_manager.next_allowed(str(device.id))
-            remaining = self.cooldown_manager.get_remaining_cooldown(str(device.id))
+        if not self.cooldown_manager.is_allowed(device.id):
+            next_time = self.cooldown_manager.next_allowed_time(device.id)
+            remaining = self.cooldown_manager.get_remaining_seconds(device.id)
             return DeviceResult(
                 success=False,
                 state=device.state,
@@ -34,25 +87,26 @@ class PJLinkManager(DeviceManager):
 
         try:
             timeout = self.config.get("request_timeout", 10)
+            port = device.config.get("port", 4352)
+            password = device.config.get("password")
 
             async with asyncio.timeout(timeout):
-                # TODO: Implement pypjlink integration
-                # For now, simulate PJLink response
                 logger.info(f"PJLink: Getting state for {device.host}")
 
-                # Placeholder - in real implementation:
-                # from pypjlink import Projector
-                # projector = Projector.from_address(device.host, device.config.get('password'))
-                # power_state = await projector.get_power()
-                # state = self._map_pjlink_state(power_state)
+                # Send power query command
+                response = await self._send_command(device.host, port, "POWR ?", password)
 
-                # Simulate response
-                await asyncio.sleep(0.1)  # Simulate network delay
-                state = device.state  # Keep current state for now
+                # Parse response: "%1POWR=<state>"
+                if "POWR=" in response:
+                    state_str = response.split("=")[1]
+                    state = self._map_pjlink_state(state_str)
+                else:
+                    logger.warning(f"PJLink: Unexpected response: {response}")
+                    state = -1
 
                 # Record successful request
                 cooldown = self.config.get("cooldown_seconds", 30)
-                self.cooldown_manager.record_request(str(device.id), cooldown)
+                self.cooldown_manager.record_request(device.id, cooldown)
 
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
@@ -73,9 +127,9 @@ class PJLinkManager(DeviceManager):
     async def set_power(self, device, on: bool) -> DeviceResult:
         """Set projector power state."""
         # Check cooldown
-        if not self.cooldown_manager.is_allowed(str(device.id)):
-            next_time = self.cooldown_manager.next_allowed(str(device.id))
-            remaining = self.cooldown_manager.get_remaining_cooldown(str(device.id))
+        if not self.cooldown_manager.is_allowed(device.id):
+            next_time = self.cooldown_manager.next_allowed_time(device.id)
+            remaining = self.cooldown_manager.get_remaining_seconds(device.id)
             return DeviceResult(
                 success=False,
                 state=device.state,
@@ -86,22 +140,28 @@ class PJLinkManager(DeviceManager):
 
         try:
             timeout = self.config.get("request_timeout", 10)
-            command = "on" if on else "off"
+            port = device.config.get("port", 4352)
+            password = device.config.get("password")
+            command_str = "on" if on else "off"
 
             async with asyncio.timeout(timeout):
-                logger.info(f"PJLink: Setting {device.host} to {command}")
+                logger.info(f"PJLink: Setting {device.host} to {command_str}")
 
-                # TODO: Implement pypjlink integration
-                # projector = Projector.from_address(device.host, device.config.get('password'))
-                # await projector.set_power(on)
+                # Send power command: "POWR 1" for on, "POWR 0" for off
+                pjlink_cmd = "POWR 1" if on else "POWR 0"
+                response = await self._send_command(device.host, port, pjlink_cmd, password)
 
-                # Simulate response
-                await asyncio.sleep(0.2)  # Projectors are slower
-                new_state = 1 if on else 0
+                # Response should be "%1POWR=OK"
+                if "OK" in response:
+                    # Projectors go to warming/cooling states
+                    new_state = 3 if on else 2  # 3=warming, 2=cooling
+                else:
+                    logger.warning(f"PJLink: Unexpected response: {response}")
+                    new_state = device.state
 
                 # Record successful request
                 cooldown = self.config.get("cooldown_seconds", 30)
-                self.cooldown_manager.record_request(str(device.id), cooldown)
+                self.cooldown_manager.record_request(device.id, cooldown)
 
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
@@ -128,17 +188,19 @@ class PJLinkManager(DeviceManager):
         """Test connection to projector."""
         try:
             timeout = self.config.get("request_timeout", 10)
+            port = device.config.get("port", 4352)
+            password = device.config.get("password")
 
             async with asyncio.timeout(timeout):
                 logger.info(f"PJLink: Testing connection to {device.host}")
 
-                # TODO: Implement pypjlink connection test
-                # projector = Projector.from_address(device.host, device.config.get('password'))
-                # await projector.authenticate()
+                # Try to get power state as a connection test
+                response = await self._send_command(device.host, port, "POWR ?", password)
 
-                await asyncio.sleep(0.1)
-
-                return ConnectionResult(success=True)
+                if "POWR=" in response or "OK" in response:
+                    return ConnectionResult(success=True)
+                else:
+                    return ConnectionResult(success=False, error=f"Unexpected response: {response}")
 
         except asyncio.TimeoutError:
             logger.error(f"PJLink: Connection timeout for {device.host}")

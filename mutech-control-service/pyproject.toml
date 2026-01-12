@@ -17,9 +17,6 @@ pydantic = "^2.5.0"
 pydantic-settings = "^2.1.0"
 httpx = "^0.26.0"
 pyyaml = "^6.0"
-pypwrctrl = "^0.1.0"
-pypjlink = "^1.1.1"
-netio = "^1.0.15"
 python-dotenv = "^1.0.0"
 watchdog = "^3.0.0"
 
@@ -52,3 +49,9 @@ disallow_untyped_defs = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]
