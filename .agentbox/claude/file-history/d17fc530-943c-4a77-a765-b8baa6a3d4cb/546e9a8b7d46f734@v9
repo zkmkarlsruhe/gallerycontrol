@@ -166,24 +166,15 @@
       min-height: 60px;
     }
 
-    /* Use counter for proper alternating colors (accordion breaks nth-child) */
-    .artwork-table {
-      counter-reset: artwork-counter;
-    }
-
-    .artwork-row {
-      counter-increment: artwork-counter;
-    }
-
-    .artwork-row:nth-of-type(odd) {
+    .artwork-row:nth-child(odd) {
       background: white;
     }
 
-    .artwork-row:nth-of-type(even) {
+    .artwork-row:nth-child(even) {
       background: #f8f9fa;
     }
 
-    .artwork-row:last-of-type {
+    .artwork-row:last-child {
       border-bottom: none;
     }
 
@@ -382,30 +373,11 @@
       font-size: 0.7rem;
     }
 
-    /* Manual command buttons - in accordion only */
+    /* Manual command buttons - visible without accordion */
     .manual-commands {
       display: flex;
       gap: 0.25rem;
       flex-wrap: wrap;
-    }
-
-    /* Disabled devices - only visible in edit mode */
-    .device-disabled {
-      display: none;
-    }
-
-    body.edit-mode .device-disabled {
-      display: flex;
-      opacity: 0.5;
-    }
-
-    .artwork-row-disabled {
-      display: none;
-    }
-
-    body.edit-mode .artwork-row-disabled {
-      display: flex;
-      opacity: 0.5;
     }
 
     .manual-commands .btn {
@@ -523,7 +495,6 @@
           <span id="device-cooldown-wrapper-artwork-1"><strong>Cooldown:</strong> <span id="device-cooldown-artwork-1">-</span></span>
         </div>
         <div class="device-actions">
-          <div class="manual-commands" id="manual-commands-artwork-1" style="display: none; width: 100%; margin-bottom: 0.5rem;"></div>
           <button class="btn btn-success btn-sm" onclick="sendCommand('on')">ON</button>
           <button class="btn btn-danger btn-sm" onclick="sendCommand('off')">OFF</button>
           <button class="btn btn-info btn-sm" onclick="sendCommand('state')">State</button>
@@ -570,7 +541,6 @@
           <span id="device-cooldown-wrapper-artwork-2"><strong>Cooldown:</strong> <span id="device-cooldown-artwork-2">-</span></span>
         </div>
         <div class="device-actions">
-          <div class="manual-commands" id="manual-commands-artwork-1" style="display: none; width: 100%; margin-bottom: 0.5rem;"></div>
           <button class="btn btn-success btn-sm" onclick="sendCommand('on')">ON</button>
           <button class="btn btn-danger btn-sm" onclick="sendCommand('off')">OFF</button>
           <button class="btn btn-info btn-sm" onclick="sendCommand('state')">State</button>
@@ -587,7 +557,11 @@
             <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
           </div>
           <div class="artwork-controls">
-            <!-- No artwork-level controls for manual -->
+            <div class="manual-commands">
+              <button class="btn btn-primary btn-sm" onclick="sendCommand('restart')">Restart</button>
+              <button class="btn btn-warning btn-sm" onclick="sendCommand('backup')">Backup</button>
+              <button class="btn btn-secondary btn-sm" onclick="sendCommand('status')">Status</button>
+            </div>
           </div>
         </div>
         <div class="devices-container">
@@ -602,18 +576,13 @@
 
       <!-- Accordion for Artwork 3 -->
       <div class="device-accordion" id="accordion-artwork-3">
-        <div class="accordion-header" id="accordion-title-artwork-3">Device Controls</div>
+        <div class="accordion-header" id="accordion-title-artwork-3">Device Info</div>
         <div class="device-info-compact">
           <span><strong>Host:</strong> <span id="device-host-artwork-3">-</span></span>
           <span><strong>Type:</strong> <span id="device-type-artwork-3">-</span></span>
           <span><strong>State:</strong> <span id="device-state-artwork-3">-</span></span>
         </div>
         <div class="device-actions">
-          <div class="manual-commands" id="manual-commands-artwork-3" style="display: none; width: 100%; margin-bottom: 0.5rem;">
-            <button class="btn btn-primary btn-sm" onclick="sendCommand('restart')">Restart</button>
-            <button class="btn btn-warning btn-sm" onclick="sendCommand('backup')">Backup</button>
-            <button class="btn btn-secondary btn-sm" onclick="sendCommand('status')">Status</button>
-          </div>
           <button class="btn btn-secondary btn-sm" onclick="openDeviceSettings()">Settings</button>
         </div>
       </div>
@@ -654,7 +623,6 @@
           <span><strong>State:</strong> <span id="device-state-artwork-4">-</span></span>
         </div>
         <div class="device-actions">
-          <div class="manual-commands" id="manual-commands-artwork-1" style="display: none; width: 100%; margin-bottom: 0.5rem;"></div>
           <button class="btn btn-success btn-sm" onclick="sendCommand('on')">ON</button>
           <button class="btn btn-danger btn-sm" onclick="sendCommand('off')">OFF</button>
           <button class="btn btn-info btn-sm" onclick="sendCommand('state')">State</button>
@@ -711,7 +679,6 @@
           <span id="device-cooldown-wrapper-artwork-5"><strong>Cooldown:</strong> <span id="device-cooldown-artwork-5">-</span></span>
         </div>
         <div class="device-actions">
-          <div class="manual-commands" id="manual-commands-artwork-1" style="display: none; width: 100%; margin-bottom: 0.5rem;"></div>
           <button class="btn btn-success btn-sm" onclick="sendCommand('on')">ON</button>
           <button class="btn btn-danger btn-sm" onclick="sendCommand('off')">OFF</button>
           <button class="btn btn-info btn-sm" onclick="sendCommand('state')">State</button>
@@ -758,7 +725,6 @@
           <span><strong>State:</strong> <span id="device-state-artwork-6">-</span></span>
         </div>
         <div class="device-actions">
-          <div class="manual-commands" id="manual-commands-artwork-1" style="display: none; width: 100%; margin-bottom: 0.5rem;"></div>
           <button class="btn btn-success btn-sm" onclick="sendCommand('on')">ON</button>
           <button class="btn btn-danger btn-sm" onclick="sendCommand('off')">OFF</button>
           <button class="btn btn-info btn-sm" onclick="sendCommand('state')">State</button>
@@ -768,8 +734,8 @@
     </div>
   </div>
 
-  <!-- Exhibition 3: Archiv (Disabled) - Only visible in edit mode -->
-  <div class="exhibition-section device-disabled" id="exhibition-3">
+  <!-- Exhibition 3: Archiv (Disabled) -->
+  <div class="exhibition-section" id="exhibition-3" style="opacity: 0.6;">
     <div class="exhibition-header" style="background: #6c757d;">
       <span>Archiv <span class="badge bg-dark">Disabled</span></span>
       <div class="exhibition-header-controls">
@@ -782,10 +748,10 @@
         <div class="artwork-header-row">
           <div class="artwork-name">
             Raum 3.1 - Lagerraum
-            <button class="btn btn-outline-secondary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
+            <button class="btn btn-outline-secondary btn-sm btn-add-device" disabled>+ Add</button>
           </div>
           <div class="artwork-controls">
-            <!-- Empty for disabled -->
+            <button class="btn btn-secondary btn-sm" disabled>Manual</button>
           </div>
         </div>
         <div class="devices-container">
@@ -880,14 +846,6 @@
         const cooldownEl = document.getElementById('device-cooldown-' + artworkId);
         if (cooldownEl) {
           cooldownEl.textContent = device.cooldown !== '-' ? device.cooldown + ' remaining' : 'Ready';
-        }
-
-        // Show manual commands if device type is Shell with custom commands
-        const manualCommandsEl = document.getElementById('manual-commands-' + artworkId);
-        if (manualCommandsEl && device.type === 'Shell') {
-          manualCommandsEl.style.display = 'flex';
-        } else if (manualCommandsEl) {
-          manualCommandsEl.style.display = 'none';
         }
       }
 
