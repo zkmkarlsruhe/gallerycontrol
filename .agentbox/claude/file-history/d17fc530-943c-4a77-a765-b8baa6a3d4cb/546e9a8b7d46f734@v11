@@ -69,14 +69,12 @@
     .exhibition-card {
       flex: 1;
       min-width: 200px;
-      max-width: 350px;
       background: #f8f9fa;
       border: 1px solid #dee2e6;
       border-radius: 0.5rem;
       padding: 0.75rem;
+      cursor: pointer;
       transition: all 0.2s;
-      display: flex;
-      flex-direction: column;
     }
 
     .exhibition-card:hover {
@@ -88,10 +86,6 @@
       font-weight: 600;
       font-size: 0.9rem;
       margin-bottom: 0.5rem;
-      cursor: pointer;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
 
     .exhibition-card-stats {
@@ -104,14 +98,12 @@
     .exhibition-card-controls {
       display: flex;
       gap: 0.25rem;
-      margin-top: auto;
     }
 
     .exhibition-card-controls .btn {
       padding: 0.25rem 0.5rem;
       font-size: 0.7rem;
       flex: 1;
-      white-space: nowrap;
     }
 
     .stat-dot {
@@ -241,9 +233,9 @@
 
     .device-with-commands {
       display: flex;
-      flex-direction: column;
       gap: 0.25rem;
-      align-items: flex-start;
+      align-items: center;
+      flex-wrap: wrap;
     }
 
     .device-badge {
@@ -524,7 +516,6 @@
           <span id="device-cooldown-wrapper-artwork-1"><strong>Cooldown:</strong> <span id="device-cooldown-artwork-1">-</span></span>
         </div>
         <div class="device-actions">
-          <div class="device-custom-commands" id="accordion-commands-artwork-1" style="display: none; width: 100%; margin-bottom: 0.5rem;"></div>
           <button class="btn btn-success btn-sm" onclick="sendCommand('on')">ON</button>
           <button class="btn btn-danger btn-sm" onclick="sendCommand('off')">OFF</button>
           <button class="btn btn-info btn-sm" onclick="sendCommand('state')">State</button>
@@ -618,14 +609,13 @@
 
       <!-- Accordion for Artwork 3 -->
       <div class="device-accordion" id="accordion-artwork-3">
-        <div class="accordion-header" id="accordion-title-artwork-3">Device Controls</div>
+        <div class="accordion-header" id="accordion-title-artwork-3">Device Info</div>
         <div class="device-info-compact">
           <span><strong>Host:</strong> <span id="device-host-artwork-3">-</span></span>
           <span><strong>Type:</strong> <span id="device-type-artwork-3">-</span></span>
           <span><strong>State:</strong> <span id="device-state-artwork-3">-</span></span>
         </div>
         <div class="device-actions">
-          <div class="device-custom-commands" id="accordion-commands-artwork-3" style="display: none; width: 100%; margin-bottom: 0.5rem;"></div>
           <button class="btn btn-secondary btn-sm" onclick="openDeviceSettings()">Settings</button>
         </div>
       </div>
@@ -913,22 +903,6 @@
         const cooldownEl = document.getElementById('device-cooldown-' + artworkId);
         if (cooldownEl) {
           cooldownEl.textContent = device.cooldown !== '-' ? device.cooldown + ' remaining' : 'Ready';
-        }
-
-        // Show manual commands in accordion if Shell device with custom commands
-        const accordionCommandsEl = document.getElementById('accordion-commands-' + artworkId);
-        if (accordionCommandsEl && device.type === 'Shell' && device.customCommands) {
-          accordionCommandsEl.innerHTML = '';
-          device.customCommands.forEach(cmd => {
-            const btn = document.createElement('button');
-            btn.className = 'btn ' + cmd.btnClass + ' btn-sm';
-            btn.textContent = cmd.label;
-            btn.onclick = () => sendCommand(cmd.action);
-            accordionCommandsEl.appendChild(btn);
-          });
-          accordionCommandsEl.style.display = 'flex';
-        } else if (accordionCommandsEl) {
-          accordionCommandsEl.style.display = 'none';
         }
       }
 
