@@ -2,14 +2,14 @@
 
 import asyncio
 import hashlib
-import logging
 import socket
 from typing import Dict
 
 from mutech_control.devices.base import ConnectionResult, DeviceManager, DeviceResult
 from mutech_control.devices.cooldown_manager import CooldownManager
+from mutech_control.utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PJLinkManager(DeviceManager):
@@ -91,7 +91,10 @@ class PJLinkManager(DeviceManager):
             password = device.config.get("password")
 
             async with asyncio.timeout(timeout):
-                logger.info(f"PJLink: Getting state for {device.host}")
+                logger.info("Getting device state",
+                           device=device.name if hasattr(device, 'name') else 'unknown',
+                           host=device.host,
+                           type="pjlink")
 
                 # Send power query command
                 response = await self._send_command(device.host, port, "POWR ?", password)
@@ -100,8 +103,14 @@ class PJLinkManager(DeviceManager):
                 if "POWR=" in response:
                     state_str = response.split("=")[1]
                     state = self._map_pjlink_state(state_str)
+                    logger.debug("State query successful",
+                                host=device.host,
+                                state=state,
+                                response=response[:50])
                 else:
-                    logger.warning(f"PJLink: Unexpected response: {response}")
+                    logger.warning("Unexpected response from device",
+                                  host=device.host,
+                                  response=response[:100])
                     state = -1
 
                 # Record successful request
@@ -114,14 +123,23 @@ class PJLinkManager(DeviceManager):
 
         except asyncio.TimeoutError:
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
-            logger.error(f"PJLink: Timeout getting state for {device.host}")
+            logger.error("Device state request timeout",
+                        device=device.name if hasattr(device, 'name') else 'unknown',
+                        host=device.host,
+                        type="pjlink",
+                        duration_ms=duration_ms)
             return DeviceResult(
                 success=False, state=-1, error="Request timeout", duration_ms=duration_ms
             )
 
         except Exception as e:
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
-            logger.error(f"PJLink: Error getting state for {device.host}: {e}")
+            logger.error("Device state request failed",
+                        device=device.name if hasattr(device, 'name') else 'unknown',
+                        host=device.host,
+                        type="pjlink",
+                        error=str(e),
+                        duration_ms=duration_ms)
             return DeviceResult(success=False, state=-1, error=str(e), duration_ms=duration_ms)
 
     async def set_power(self, device, on: bool) -> DeviceResult:
@@ -145,7 +163,11 @@ class PJLinkManager(DeviceManager):
             command_str = "on" if on else "off"
 
             async with asyncio.timeout(timeout):
-                logger.info(f"PJLink: Setting {device.host} to {command_str}")
+                logger.info(f"Setting device power {command_str}",
+                           device=device.name if hasattr(device, 'name') else 'unknown',
+                           host=device.host,
+                           type="pjlink",
+                           command=command_str)
 
                 # Send power command: "POWR 1" for on, "POWR 0" for off
                 pjlink_cmd = "POWR 1" if on else "POWR 0"
@@ -155,8 +177,13 @@ class PJLinkManager(DeviceManager):
                 if "OK" in response:
                     # Projectors go to warming/cooling states
                     new_state = 3 if on else 2  # 3=warming, 2=cooling
+                    logger.debug("Power command successful",
+                                host=device.host,
+                                new_state=new_state)
                 else:
-                    logger.warning(f"PJLink: Unexpected response: {response}")
+                    logger.warning("Unexpected response to power command",
+                                  host=device.host,
+                                  response=response[:100])
                     new_state = device.state
 
                 # Record successful request

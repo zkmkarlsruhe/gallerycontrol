@@ -1,10 +1,11 @@
 """State verifier - handles OFF command verification with retries."""
 
 import asyncio
-import logging
 from typing import Dict
 
-logger = logging.getLogger(__name__)
+from mutech_control.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class StateVerifier:
@@ -18,12 +19,18 @@ class StateVerifier:
 
     async def verify_devices_off(self, devices: list) -> None:
         """Start verification tasks for multiple devices."""
+        logger.info("Starting OFF verification tasks",
+                   device_count=len(devices))
+
         for device in devices:
             device_id = str(device.id)
             if device_id not in self._active_verifications:
                 task = asyncio.create_task(self._verify_single_device(device))
                 self._active_verifications[device_id] = task
-                logger.info(f"Started OFF verification for device {device.name} ({device_id})")
+                logger.info("OFF verification task started",
+                           device=device.name,
+                           device_id=device_id[:8],
+                           type=device.device_type)
 
     async def _verify_single_device(self, device) -> None:
         """Verify a single device turned off with retries."""
@@ -55,30 +62,37 @@ class StateVerifier:
                 await asyncio.sleep(interval)
                 attempts += 1
 
-                logger.info(f"OFF verification check #{attempts} for {device.name}")
+                logger.debug("OFF verification check",
+                            device=device.name,
+                            attempt=attempts,
+                            type=device.device_type)
 
                 # Check state
                 result = await manager.get_state(device)
 
                 if not result.success:
-                    logger.warning(
-                        f"Verification check failed for {device.name}: {result.error}"
-                    )
+                    logger.warning("Verification check failed",
+                                  device=device.name,
+                                  attempt=attempts,
+                                  error=result.error)
                     continue
 
                 if result.state in success_states:
-                    logger.info(
-                        f"Device {device.name} verified OFF after {attempts} checks (state={result.state})"
-                    )
+                    logger.info("Device verified OFF successfully",
+                               device=device.name,
+                               type=device.device_type,
+                               attempts=attempts,
+                               final_state=result.state)
                     # Update database
                     await self._update_device_state(device_id, result.state)
                     return
 
                 if result.state in retry_on_states:
                     # Still on or error - resend OFF command
-                    logger.warning(
-                        f"Device {device.name} still in state {result.state}, resending OFF"
-                    )
+                    logger.warning("Device still not OFF, retrying",
+                                  device=device.name,
+                                  current_state=result.state,
+                                  attempt=attempts)
                     retry_result = await manager.set_power(device, False)
 
                     # Log retry command
@@ -92,13 +106,18 @@ class StateVerifier:
                     )
 
             # Max duration exceeded
-            logger.error(
-                f"Device {device.name} failed to verify OFF after {max_duration}s ({attempts} attempts)"
-            )
+            logger.error("Device OFF verification failed - max duration exceeded",
+                        device=device.name,
+                        type=device.device_type,
+                        max_duration_seconds=max_duration,
+                        total_attempts=attempts)
             await self._update_device_state(device_id, -1)  # Mark as error
 
         except Exception as e:
-            logger.error(f"Error in OFF verification for {device.name}: {e}")
+            logger.error("Error in OFF verification task",
+                        device=device.name,
+                        type=device.device_type,
+                        error=str(e))
 
         finally:
             # Clean up

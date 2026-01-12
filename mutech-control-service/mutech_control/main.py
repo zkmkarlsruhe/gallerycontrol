@@ -13,6 +13,7 @@ from mutech_control.devices.anel_manager import ANELManager
 from mutech_control.devices.netio_manager import NETIOManager
 from mutech_control.devices.pjlink_manager import PJLinkManager
 from mutech_control.devices.shell_manager import ShellManager
+from mutech_control.monitoring.state_monitor import StateMonitor
 from mutech_control.orchestrator.command_orchestrator import CommandOrchestrator
 
 # Configure logging
@@ -50,10 +51,15 @@ async def lifespan(app: FastAPI):
     orchestrator = CommandOrchestrator(db_manager, device_managers, orchestrator_config)
     logger.info("Command orchestrator initialized")
 
+    # Initialize state monitor
+    state_monitor = StateMonitor(db_manager, device_managers, orchestrator_config)
+    logger.info("State monitor initialized")
+
     # Store in app state
     app.state.db_manager = db_manager
     app.state.device_managers = device_managers
     app.state.orchestrator = orchestrator
+    app.state.state_monitor = state_monitor
 
     # Start config watching (hot-reload)
     def on_config_change(loader):
@@ -65,6 +71,9 @@ async def lifespan(app: FastAPI):
     config.start_watching(callback=on_config_change)
     logger.info("Configuration hot-reload enabled")
 
+    # Start state monitoring
+    await state_monitor.start()
+
     logger.info("MuTech Control Service started successfully")
     logger.info("API documentation available at /docs")
 
@@ -72,6 +81,9 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down MuTech Control Service...")
+
+    # Stop state monitoring
+    await state_monitor.stop()
 
     config.stop_watching()
 

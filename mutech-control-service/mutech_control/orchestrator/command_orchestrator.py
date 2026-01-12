@@ -1,7 +1,6 @@
 """Command orchestrator - coordinates device control operations."""
 
 import asyncio
-import logging
 from datetime import datetime
 from typing import Dict, List, Literal
 from uuid import UUID
@@ -11,8 +10,9 @@ from sqlalchemy.orm import selectinload
 
 from mutech_control.database.models import Artwork, CommandLog, Device, Exhibition
 from mutech_control.orchestrator.state_verifier import StateVerifier
+from mutech_control.utils.logging import get_logger, set_request_id
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CommandOrchestrator:
@@ -47,22 +47,32 @@ class CommandOrchestrator:
         Returns:
             dict with success status and results
         """
-        logger.info(
-            f"Executing {command.upper()} command for {target_type} {target_id} (source: {source})"
-        )
+        # Generate request ID for tracing
+        request_id = set_request_id()
+        start_time = asyncio.get_event_loop().time()
+
+        logger.info("Command execution started",
+                   command=command.upper(),
+                   target_type=target_type,
+                   target_id=target_id[:8],
+                   source=source)
 
         try:
             # 1. Resolve target to list of devices
             devices = await self._resolve_target(target_type, target_id)
 
             if not devices:
-                logger.warning(f"No devices found for {target_type} {target_id}")
-                return {"success": True, "devices_targeted": 0, "results": []}
+                logger.warning("No devices found for target",
+                              target_type=target_type,
+                              target_id=target_id[:8])
+                return {"success": True, "devices_targeted": 0, "results": [], "request_id": request_id}
 
             # 2. Filter devices based on enabled flags
             devices = self._filter_devices(devices, command)
 
-            logger.info(f"Filtered to {len(devices)} devices for execution")
+            logger.info("Devices resolved and filtered",
+                       total_devices=len(devices),
+                       command=command)
 
             # 3. Execute command based on source and command type
             if source == "web":
@@ -74,6 +84,14 @@ class CommandOrchestrator:
                 results = await self._execute_fast(devices, command)
 
             successful = sum(1 for r in results if r.get("success"))
+            duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
+
+            logger.info("Command execution completed",
+                       command=command.upper(),
+                       devices_targeted=len(devices),
+                       devices_successful=successful,
+                       duration_ms=duration_ms,
+                       success_rate=f"{successful}/{len(devices)}")
 
             return {
                 "success": True,
@@ -81,11 +99,17 @@ class CommandOrchestrator:
                 "devices_successful": successful,
                 "results": results,
                 "source": source,
+                "request_id": request_id,
+                "duration_ms": duration_ms,
             }
 
         except Exception as e:
-            logger.error(f"Error executing control command: {e}")
-            return {"success": False, "error": str(e)}
+            duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
+            logger.error("Command execution failed",
+                        command=command.upper(),
+                        error=str(e),
+                        duration_ms=duration_ms)
+            return {"success": False, "error": str(e), "request_id": request_id}
 
     async def _resolve_target(
         self, target_type: str, target_id: str

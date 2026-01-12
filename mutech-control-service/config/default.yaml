@@ -55,6 +55,12 @@ orchestrator:
   enable_off_verification: true
   off_verification_task_interval: 10
 
+monitoring:
+  enabled: true
+  poll_interval_seconds: 60  # Poll devices every 60 seconds
+  batch_size: 10              # Process 10 devices in parallel
+  batch_delay_seconds: 1.0    # Wait 1s between batches
+
 logging:
   level: "INFO"
   format: "json"
