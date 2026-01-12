@@ -11202,3 +11202,22 @@
 2026-01-12T10:28:13.165Z [DEBUG] [API:auth] OAuth token check starting
 2026-01-12T10:28:13.166Z [DEBUG] [API:auth] OAuth token check complete
 2026-01-12T10:28:13.167Z [DEBUG] [API:auth] OAuth token check complete
+2026-01-12T10:28:13.840Z [DEBUG] Stream started - received first chunk
+2026-01-12T10:28:14.007Z [DEBUG] Stream started - received first chunk
+2026-01-12T10:28:14.431Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-01-12T10:28:14.432Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-01-12T10:28:14.432Z [DEBUG] [API:auth] OAuth token check starting
+2026-01-12T10:28:14.432Z [DEBUG] [API:auth] OAuth token check complete
+2026-01-12T10:28:14.633Z [DEBUG] Getting matching hook commands for PostToolUse with query: Bash
+2026-01-12T10:28:14.633Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:28:14.633Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-01-12T10:28:14.776Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-01-12T10:28:14.776Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-01-12T10:28:14.776Z [DEBUG] Hooks: Found 0 total hooks in registry
+2026-01-12T10:28:14.776Z [DEBUG] Hooks: checkForNewResponses returning 0 responses
+2026-01-12T10:28:14.842Z [DEBUG] Tool search disabled: MCPSearchTool is not available (may have been disallowed via disallowedTools).
+2026-01-12T10:28:14.857Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-01-12T10:28:14.857Z [DEBUG] [API:auth] OAuth token check starting
+2026-01-12T10:28:14.857Z [DEBUG] [API:auth] OAuth token check complete
+2026-01-12T10:28:15.096Z [DEBUG] Stream started - received first chunk
+2026-01-12T10:28:17.229Z [DEBUG] Stream started - received first chunk
