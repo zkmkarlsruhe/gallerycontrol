@@ -939,15 +939,7 @@ export function useControlCommand() {
 
 ### 5.1 Docker Compose
 
-**Network Architecture:**
-- Main service, PostgreSQL, and frontend run on **Subnet A** (192.168.1.0/24)
-- ANEL runner runs on **Subnet B** (192.168.50.0/24) - separate control network
-- See `/workspace/ANEL_ARCHITECTURE.md` for network topology details
-
-**Main Service Deployment (Subnet A - 192.168.1.x):**
 ```yaml
-# docker-compose.yml
-# Deploy on main application network (192.168.1.0/24)
 version: '3.8'
 
 services:
@@ -966,8 +958,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - app-network
 
   main-service:
     build:
@@ -976,8 +966,7 @@ services:
     environment:
       DATABASE_URL: postgresql://mutech:${DB_PASSWORD}@postgres:5432/mutech
       ANEL_API_KEY: ${ANEL_API_KEY}
-      # ANEL runner is on different subnet - use IP address
-      ANEL_RUNNER_URL: http://192.168.50.2:8001
+      ANEL_RUNNER_URL: http://anel-runner:8001
     volumes:
       - ./mutech-control-service/config:/app/config
       - ./logs:/app/logs
@@ -986,8 +975,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - app-network
+    restart: unless-stopped
+
+  anel-runner:
+    build:
+      context: ./anel-runner-service
+      dockerfile: Dockerfile
+    environment:
+      API_KEY: ${ANEL_API_KEY}
+    network_mode: host  # Access ANEL network segment
     restart: unless-stopped
 
   frontend:
@@ -1000,52 +996,11 @@ services:
       - "80:80"
     depends_on:
       - main-service
-    networks:
-      - app-network
     restart: unless-stopped
-
-networks:
-  app-network:
-    driver: bridge
 
 volumes:
   postgres_data:
 ```
-
-**ANEL Runner Deployment (Subnet B - 192.168.50.x):**
-```yaml
-# docker-compose-anel.yml
-# Deploy on separate host with access to control network (192.168.50.0/24)
-# OR on same host with multiple NICs
-version: '3.8'
-
-services:
-  anel-runner:
-    build:
-      context: ./anel-runner-service
-      dockerfile: Dockerfile
-    environment:
-      API_KEY: ${ANEL_API_KEY}
-      # Bind to control network interface
-      BIND_ADDRESS: 192.168.50.2
-      # UDP ports for ANEL communication
-      UDP_SEND_PORT: 9975
-      UDP_RECEIVE_PORT: 9977
-    # Use host network to access control network subnet and receive UDP broadcasts
-    network_mode: host
-    restart: unless-stopped
-
-# Note: With network_mode: host, container uses host's network stack
-# Host must have network interface on 192.168.50.0/24
-# Container will bind to 192.168.50.2:8001 (host's IP)
-```
-
-**Deployment Notes:**
-1. **Separate hosts:** Deploy ANEL runner on different physical host with access to control network
-2. **Same host, multiple NICs:** Host must have eth0 (192.168.1.x) and eth1 (192.168.50.x)
-3. **Firewall rules:** Allow HTTP from 192.168.1.0/24 to 192.168.50.2:8001
-4. **Routing:** Ensure routes exist between subnets
-5. **Security:** ANEL runner does NOT need access back to main service (one-way communication)
 
 ### 5.2 Dockerfiles
 

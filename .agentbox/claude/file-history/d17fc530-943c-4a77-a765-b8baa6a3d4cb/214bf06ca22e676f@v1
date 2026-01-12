@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MuTech Control - Device Forms</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body {
+      font-size: 14px;
+      background: #f8f9fa;
+      padding-bottom: 100px;
+    }
+
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: white;
+      border-bottom: 2px solid #dee2e6;
+      padding: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .form-container {
+      max-width: 800px;
+      margin: 2rem auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .device-type-selector {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .device-type-btn {
+      padding: 1.5rem 1rem;
+      border: 2px solid #dee2e6;
+      background: white;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .device-type-btn:hover {
+      background: #e9ecef;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .device-type-btn.active {
+      background: #0d6efd;
+      color: white;
+      border-color: #0d6efd;
+    }
+
+    .device-type-btn i {
+      font-size: 2em;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    .form-section {
+      margin-bottom: 2rem;
+    }
+
+    .section-title {
+      font-size: 1.2em;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #e9ecef;
+    }
+
+    .port-selector {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .port-btn {
+      padding: 0.75rem;
+      border: 2px solid #dee2e6;
+      background: white;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .port-btn:hover {
+      background: #e9ecef;
+    }
+
+    .port-btn.active {
+      background: #0d6efd;
+      color: white;
+      border-color: #0d6efd;
+    }
+
+    .shell-mode-switch {
+      background: #f8f9fa;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .command-input-group {
+      background: #f8f9fa;
+      padding: 1rem;
+      border-radius: 0.375rem;
+      margin-bottom: 1rem;
+    }
+
+    .test-btn {
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+
+    .test-output {
+      margin-top: 0.5rem;
+      padding: 0.75rem;
+      background: #f8f9fa;
+      border-left: 4px solid #0dcaf0;
+      border-radius: 0.25rem;
+      font-family: monospace;
+      font-size: 0.85em;
+      display: none;
+    }
+
+    .test-output.show {
+      display: block;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 767px) {
+      .form-container {
+        padding: 1rem;
+        margin: 1rem;
+      }
+
+      .device-type-selector {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="container-fluid">
+    <h4 class="mb-0">Device Configuration</h4>
+  </div>
+</div>
+
+<div class="form-container">
+
+  <!-- Device Type Selector -->
+  <div class="device-type-selector">
+    <div class="device-type-btn active" onclick="showDeviceType('pjlink')">
+      <i class="bi bi-projector"></i>
+      <div>PJLink</div>
+    </div>
+    <div class="device-type-btn" onclick="showDeviceType('netio')">
+      <i class="bi bi-plug"></i>
+      <div>NETIO</div>
+    </div>
+    <div class="device-type-btn" onclick="showDeviceType('anel')">
+      <i class="bi bi-outlet"></i>
+      <div>ANEL</div>
+    </div>
+    <div class="device-type-btn" onclick="showDeviceType('shell')">
+      <i class="bi bi-terminal"></i>
+      <div>Shell</div>
+    </div>
+  </div>
+
+  <!-- PJLink Form -->
+  <form id="form-pjlink" class="device-form">
+    <div class="form-section">
+      <div class="section-title">Basic Information</div>
+
+      <div class="mb-3">
+        <label class="form-label">Exhibition</label>
+        <select class="form-select">
+          <option>Permanente Ausstellung</option>
+          <option>Sonderausstellung 2026</option>
+          <option>Interaktive Zone</option>
+          <option>Foyer & Eingang</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Artwork</label>
+        <select class="form-select">
+          <option>Raum 1.1 - Hauptgalerie</option>
+          <option>Raum 1.2 - Seitengalerie</option>
+          <option>Raum 1.3 - Medienraum</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Device Name</label>
+        <input type="text" class="form-control" placeholder="e.g. Projektor Links" value="Projektor Links">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">Connection</div>
+
+      <div class="row">
+        <div class="col-md-8">
+          <div class="mb-3">
+            <label class="form-label">Host / IP Address</label>
+            <input type="text" class="form-control" placeholder="192.168.10.45" value="192.168.10.45">
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="mb-3">
+            <label class="form-label">Port</label>
+            <input type="number" class="form-control" placeholder="4352" value="4352">
+            <small class="form-text text-muted">Default: 4352</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Password (optional)</label>
+        <input type="password" class="form-control" placeholder="Leave empty if no password">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">Settings</div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="pjlink-enabled" checked>
+        <label class="form-check-label" for="pjlink-enabled">
+          Device Enabled
+        </label>
+      </div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="pjlink-automation" checked>
+        <label class="form-check-label" for="pjlink-automation">
+          Automation Enabled (allow in automated sequences)
+        </label>
+      </div>
+
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="pjlink-exclude">
+        <label class="form-check-label" for="pjlink-exclude">
+          Exclude from "ALL ON/OFF" commands
+        </label>
+      </div>
+    </div>
+
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+      <button type="button" class="btn btn-secondary" onclick="history.back()">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save Device</button>
+    </div>
+  </form>
+
+  <!-- NETIO Form -->
+  <form id="form-netio" class="device-form hidden">
+    <div class="form-section">
+      <div class="section-title">Basic Information</div>
+
+      <div class="mb-3">
+        <label class="form-label">Exhibition</label>
+        <select class="form-select">
+          <option>Permanente Ausstellung</option>
+          <option>Sonderausstellung 2026</option>
+          <option>Interaktive Zone</option>
+          <option>Foyer & Eingang</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Artwork</label>
+        <select class="form-select">
+          <option>Raum 1.1 - Hauptgalerie</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Device Name</label>
+        <input type="text" class="form-control" placeholder="e.g. Licht Galerie" value="Licht Galerie">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">Connection</div>
+
+      <div class="mb-3">
+        <label class="form-label">Host / IP Address</label>
+        <input type="text" class="form-control" placeholder="192.168.50.12" value="192.168.50.12">
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Port Number (1-4)</label>
+        <div class="port-selector">
+          <div class="port-btn active" onclick="selectPort(this, 1)">1</div>
+          <div class="port-btn" onclick="selectPort(this, 2)">2</div>
+          <div class="port-btn" onclick="selectPort(this, 3)">3</div>
+          <div class="port-btn" onclick="selectPort(this, 4)">4</div>
+        </div>
+        <input type="hidden" id="netio-port" value="1">
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Username</label>
+        <input type="text" class="form-control" value="admin">
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" value="admin">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">Settings</div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" checked>
+        <label class="form-check-label">Device Enabled</label>
+      </div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" checked>
+        <label class="form-check-label">Automation Enabled</label>
+      </div>
+    </div>
+
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+      <button type="button" class="btn btn-secondary" onclick="history.back()">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save Device</button>
+    </div>
+  </form>
+
+  <!-- ANEL Form -->
+  <form id="form-anel" class="device-form hidden">
+    <div class="form-section">
+      <div class="section-title">Basic Information</div>
+
+      <div class="mb-3">
+        <label class="form-label">Exhibition</label>
+        <select class="form-select">
+          <option>Sonderausstellung 2026</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Artwork</label>
+        <select class="form-select">
+          <option>Installation A - Lichtkunst</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Device Name</label>
+        <input type="text" class="form-control" placeholder="e.g. LED Panel 1" value="LED Panel 1">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">Connection</div>
+
+      <div class="mb-3">
+        <label class="form-label">Host / IP Address</label>
+        <input type="text" class="form-control" placeholder="192.168.50.20" value="192.168.50.20">
+        <small class="form-text text-muted">ANEL device on control network (subnet B)</small>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Port Number (1-8)</label>
+        <div class="port-selector">
+          <div class="port-btn active" onclick="selectPort(this, 1)">1</div>
+          <div class="port-btn" onclick="selectPort(this, 2)">2</div>
+          <div class="port-btn" onclick="selectPort(this, 3)">3</div>
+          <div class="port-btn" onclick="selectPort(this, 4)">4</div>
+          <div class="port-btn" onclick="selectPort(this, 5)">5</div>
+          <div class="port-btn" onclick="selectPort(this, 6)">6</div>
+          <div class="port-btn" onclick="selectPort(this, 7)">7</div>
+          <div class="port-btn" onclick="selectPort(this, 8)">8</div>
+        </div>
+        <input type="hidden" id="anel-port" value="1">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">Settings</div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" checked>
+        <label class="form-check-label">Device Enabled</label>
+      </div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" checked>
+        <label class="form-check-label">Automation Enabled</label>
+      </div>
+    </div>
+
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+      <button type="button" class="btn btn-secondary" onclick="history.back()">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save Device</button>
+    </div>
+  </form>
+
+  <!-- Shell Form -->
+  <form id="form-shell" class="device-form hidden">
+    <div class="form-section">
+      <div class="section-title">Basic Information</div>
+
+      <div class="mb-3">
+        <label class="form-label">Exhibition</label>
+        <select class="form-select">
+          <option>Permanente Ausstellung</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Artwork</label>
+        <select class="form-select">
+          <option>Raum 1.3 - Medienraum</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Device Name</label>
+        <input type="text" class="form-control" placeholder="e.g. Media Server" value="Media Server">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">Automation Mode</div>
+
+      <div class="shell-mode-switch">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="shell-automation" checked onchange="toggleShellMode(this)">
+          <label class="form-check-label" for="shell-automation">
+            <strong>Automation Enabled</strong>
+          </label>
+        </div>
+        <small class="text-muted" id="shell-mode-help">
+          System will poll status and control device automatically
+        </small>
+      </div>
+
+      <!-- Automation ON: Fixed Commands -->
+      <div id="shell-auto-on">
+        <div class="command-input-group">
+          <label class="form-label"><strong>Reachable Command</strong> <span class="text-muted">(optional)</span></label>
+          <input type="text" class="form-control mb-2" placeholder="ping -c 1 server.local" value="ping -c 1 server.local">
+          <button type="button" class="btn btn-sm btn-outline-info test-btn" onclick="testCommand(this)">Test Command</button>
+          <div class="test-output">
+            PING server.local (192.168.1.50) 56(84) bytes of data.<br>
+            64 bytes from server.local: icmp_seq=1 ttl=64 time=0.5 ms<br>
+            <strong class="text-success">✓ Success (exit code: 0)</strong>
+          </div>
+        </div>
+
+        <div class="command-input-group">
+          <label class="form-label"><strong>Status Command</strong> <span class="text-danger">(required)</span></label>
+          <input type="text" class="form-control mb-2" placeholder="systemctl status myapp" value="systemctl status myapp">
+          <div class="row mb-2">
+            <div class="col-md-6">
+              <label class="form-label small">ON Pattern (regex)</label>
+              <input type="text" class="form-control form-control-sm" placeholder="active \\(running\\)" value="active \\(running\\)">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">OFF Pattern (regex)</label>
+              <input type="text" class="form-control form-control-sm" placeholder="inactive" value="inactive">
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-info test-btn" onclick="testCommand(this)">Test Command</button>
+          <div class="test-output">
+            ● myapp.service - My Application Service<br>
+            &nbsp;&nbsp;Loaded: loaded (/etc/systemd/system/myapp.service)<br>
+            &nbsp;&nbsp;<strong>Active: active (running)</strong> since Sun 2026-01-12 10:30:00<br>
+            <strong class="text-success">✓ Matched ON pattern</strong>
+          </div>
+        </div>
+
+        <div class="command-input-group">
+          <label class="form-label"><strong>ON Command</strong></label>
+          <input type="text" class="form-control mb-2" placeholder="systemctl start myapp" value="systemctl start myapp">
+          <button type="button" class="btn btn-sm btn-outline-info test-btn" onclick="testCommand(this)">Test Command</button>
+          <div class="test-output">
+            <strong class="text-success">✓ Command executed (exit code: 0)</strong>
+          </div>
+        </div>
+
+        <div class="command-input-group">
+          <label class="form-label"><strong>OFF Command</strong></label>
+          <input type="text" class="form-control mb-2" placeholder="systemctl stop myapp" value="systemctl stop myapp">
+          <button type="button" class="btn btn-sm btn-outline-info test-btn" onclick="testCommand(this)">Test Command</button>
+          <div class="test-output">
+            <strong class="text-success">✓ Command executed (exit code: 0)</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Automation OFF: Custom Commands -->
+      <div id="shell-auto-off" class="hidden">
+        <div class="alert alert-info">
+          <strong>Manual Control Mode:</strong> Define custom commands with labels. No automatic state detection.
+        </div>
+
+        <div class="command-input-group">
+          <label class="form-label"><strong>Command 1</strong></label>
+          <input type="text" class="form-control mb-2" placeholder="Button label" value="Restart Service">
+          <input type="text" class="form-control mb-2" placeholder="Command" value="systemctl restart myapp">
+          <button type="button" class="btn btn-sm btn-outline-info test-btn" onclick="testCommand(this)">Test Command</button>
+          <div class="test-output"></div>
+        </div>
+
+        <div class="command-input-group">
+          <label class="form-label"><strong>Command 2</strong></label>
+          <input type="text" class="form-control mb-2" placeholder="Button label" value="View Logs">
+          <input type="text" class="form-control mb-2" placeholder="Command" value="journalctl -u myapp -n 50">
+          <button type="button" class="btn btn-sm btn-outline-info test-btn" onclick="testCommand(this)">Test Command</button>
+          <div class="test-output"></div>
+        </div>
+
+        <button type="button" class="btn btn-outline-secondary btn-sm">+ Add Command</button>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">Settings</div>
+
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" checked>
+        <label class="form-check-label">Device Enabled</label>
+      </div>
+
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" checked>
+        <label class="form-check-label">Exclude from "ALL ON/OFF" commands</label>
+        <small class="form-text d-block text-muted">Recommended for reboot/maintenance commands</small>
+      </div>
+    </div>
+
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+      <button type="button" class="btn btn-secondary" onclick="history.back()">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save Device</button>
+    </div>
+  </form>
+
+</div>
+
+<script>
+  function showDeviceType(type) {
+    // Hide all forms
+    document.querySelectorAll('.device-form').forEach(form => form.classList.add('hidden'));
+    document.querySelectorAll('.device-type-btn').forEach(btn => btn.classList.remove('active'));
+
+    // Show selected form
+    document.getElementById('form-' + type).classList.remove('hidden');
+    event.target.closest('.device-type-btn').classList.add('active');
+  }
+
+  function selectPort(element, portNum) {
+    // Deselect all ports in same group
+    element.parentElement.querySelectorAll('.port-btn').forEach(btn => btn.classList.remove('active'));
+
+    // Select clicked port
+    element.classList.add('active');
+
+    // Update hidden input if exists
+    const hiddenInput = element.parentElement.nextElementSibling;
+    if (hiddenInput && hiddenInput.type === 'hidden') {
+      hiddenInput.value = portNum;
+    }
+  }
+
+  function toggleShellMode(checkbox) {
+    const autoOn = document.getElementById('shell-auto-on');
+    const autoOff = document.getElementById('shell-auto-off');
+    const helpText = document.getElementById('shell-mode-help');
+
+    if (checkbox.checked) {
+      autoOn.classList.remove('hidden');
+      autoOff.classList.add('hidden');
+      helpText.textContent = 'System will poll status and control device automatically';
+    } else {
+      autoOn.classList.add('hidden');
+      autoOff.classList.remove('hidden');
+      helpText.textContent = 'Manual control only - no automatic state detection';
+    }
+  }
+
+  function testCommand(button) {
+    // Show output
+    const output = button.nextElementSibling;
+    output.classList.add('show');
+
+    // Simulate loading
+    button.disabled = true;
+    button.textContent = 'Testing...';
+
+    setTimeout(() => {
+      button.disabled = false;
+      button.textContent = 'Test Command';
+    }, 1000);
+  }
+
+  // Prevent form submission for demo
+  document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      alert('Form submitted! (Demo mode - no actual save)');
+    });
+  });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
