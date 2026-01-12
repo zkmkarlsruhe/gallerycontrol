@@ -11,11 +11,12 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
 
 
@@ -84,7 +85,7 @@ class Device(Base):
     exclude_from_auto_onoff = Column(Boolean, default=False, nullable=False)
 
     # Configuration (device-specific JSON)
-    config = Column(JSONB, default=dict, nullable=False)
+    config = Column(JSON, default=dict, nullable=False)
 
     # State management
     state = Column(Integer, default=-1, nullable=False)  # -1=error, 0=off, 1=on, 2=cooling, 3=warming

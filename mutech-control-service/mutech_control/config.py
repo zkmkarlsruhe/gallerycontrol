@@ -6,8 +6,12 @@ from pathlib import Path
 from typing import Any, Dict
 
 import yaml
+from dotenv import load_dotenv
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
+
+# Load .env file at module import time
+load_dotenv()
 
 
 class ConfigLoader:
