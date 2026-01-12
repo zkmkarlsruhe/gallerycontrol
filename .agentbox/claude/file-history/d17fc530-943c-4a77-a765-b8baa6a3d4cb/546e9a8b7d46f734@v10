@@ -202,15 +202,23 @@
       min-width: 0;
     }
 
-    .device-custom-commands {
-      display: flex;
-      gap: 0.25rem;
-      flex-wrap: wrap;
+    .artwork-name-manual {
+      opacity: 0.6;
     }
 
-    .device-custom-commands .btn {
-      padding: 0.25rem 0.5rem;
-      font-size: 0.7rem;
+    .artwork-name-manual::before {
+      content: '⊘ ';
+    }
+
+    .manual-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      padding: 0.1rem 0.4rem;
+      background: #ffc107;
+      color: #000;
+      border-radius: 0.25rem;
+      margin-left: 0.5rem;
+      font-weight: 500;
     }
 
     .btn-add-device {
@@ -227,15 +235,8 @@
     .devices-container {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.5rem;
-      align-items: center;
-    }
-
-    .device-with-commands {
-      display: flex;
       gap: 0.25rem;
       align-items: center;
-      flex-wrap: wrap;
     }
 
     .device-badge {
@@ -381,6 +382,12 @@
       font-size: 0.7rem;
     }
 
+    /* Manual command buttons - in accordion only */
+    .manual-commands {
+      display: flex;
+      gap: 0.25rem;
+      flex-wrap: wrap;
+    }
 
     /* Disabled devices - only visible in edit mode */
     .device-disabled {
@@ -516,6 +523,7 @@
           <span id="device-cooldown-wrapper-artwork-1"><strong>Cooldown:</strong> <span id="device-cooldown-artwork-1">-</span></span>
         </div>
         <div class="device-actions">
+          <div class="manual-commands" id="manual-commands-artwork-1" style="display: none; width: 100%; margin-bottom: 0.5rem;"></div>
           <button class="btn btn-success btn-sm" onclick="sendCommand('on')">ON</button>
           <button class="btn btn-danger btn-sm" onclick="sendCommand('off')">OFF</button>
           <button class="btn btn-info btn-sm" onclick="sendCommand('state')">State</button>
@@ -570,52 +578,38 @@
         </div>
       </div>
 
-      <!-- Artwork Row 3 -->
+      <!-- Artwork Row 3 - Manual Only -->
       <div class="artwork-row">
         <div class="artwork-header-row">
-          <div class="artwork-name">
+          <div class="artwork-name artwork-name-manual">
             Raum 1.3 - Medienraum
+            <span class="manual-badge">Manual</span>
             <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
           </div>
           <div class="artwork-controls">
-            <div class="btn-group">
-              <button class="btn btn-success btn-sm">ON</button>
-              <button class="btn btn-danger btn-sm">OFF</button>
-            </div>
+            <!-- No artwork-level controls for manual -->
           </div>
         </div>
         <div class="devices-container">
-          <div class="device-with-commands">
-            <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-3', 'media-1')">
-              Media Server
-            </div>
-            <div class="device-custom-commands">
-              <button class="btn btn-primary btn-sm" onclick="sendCommand('restart')">Restart</button>
-              <button class="btn btn-warning btn-sm" onclick="sendCommand('backup')">Backup</button>
-              <button class="btn btn-info btn-sm" onclick="sendCommand('status')">Status</button>
-            </div>
+          <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-3', 'media-1')">
+            Media Server
           </div>
-          <div class="device-with-commands">
-            <div class="device-badge device-on" onclick="openDeviceAccordion(this, 'artwork-3', 'backup-1')">
-              Backup Server
-            </div>
-            <div class="device-custom-commands">
-              <button class="btn btn-primary btn-sm" onclick="sendCommand('backup')">Run Backup</button>
-              <button class="btn btn-info btn-sm" onclick="sendCommand('status')">Check Status</button>
-            </div>
+          <div class="device-badge device-on" onclick="openDeviceAccordion(this, 'artwork-3', 'backup-1')">
+            Backup Server
           </div>
         </div>
       </div>
 
       <!-- Accordion for Artwork 3 -->
       <div class="device-accordion" id="accordion-artwork-3">
-        <div class="accordion-header" id="accordion-title-artwork-3">Device Info</div>
+        <div class="accordion-header" id="accordion-title-artwork-3">Device Controls</div>
         <div class="device-info-compact">
           <span><strong>Host:</strong> <span id="device-host-artwork-3">-</span></span>
           <span><strong>Type:</strong> <span id="device-type-artwork-3">-</span></span>
           <span><strong>State:</strong> <span id="device-state-artwork-3">-</span></span>
         </div>
         <div class="device-actions">
+          <div class="manual-commands" id="manual-commands-artwork-3" style="display: none; width: 100%; margin-bottom: 0.5rem;"></div>
           <button class="btn btn-secondary btn-sm" onclick="openDeviceSettings()">Settings</button>
         </div>
       </div>
@@ -903,6 +897,23 @@
         const cooldownEl = document.getElementById('device-cooldown-' + artworkId);
         if (cooldownEl) {
           cooldownEl.textContent = device.cooldown !== '-' ? device.cooldown + ' remaining' : 'Ready';
+        }
+
+        // Show manual commands if device type is Shell with custom commands
+        const manualCommandsEl = document.getElementById('manual-commands-' + artworkId);
+        if (manualCommandsEl && device.type === 'Shell' && device.customCommands) {
+          // Build command buttons
+          manualCommandsEl.innerHTML = '';
+          device.customCommands.forEach(cmd => {
+            const btn = document.createElement('button');
+            btn.className = 'btn ' + cmd.btnClass + ' btn-sm';
+            btn.textContent = cmd.label;
+            btn.onclick = () => sendCommand(cmd.action);
+            manualCommandsEl.appendChild(btn);
+          });
+          manualCommandsEl.style.display = 'flex';
+        } else if (manualCommandsEl) {
+          manualCommandsEl.style.display = 'none';
         }
       }
 

@@ -11221,3 +11221,209 @@
 2026-01-12T10:28:14.857Z [DEBUG] [API:auth] OAuth token check complete
 2026-01-12T10:28:15.096Z [DEBUG] Stream started - received first chunk
 2026-01-12T10:28:17.229Z [DEBUG] Stream started - received first chunk
+2026-01-12T10:28:25.770Z [DEBUG] executePreToolHooks called for tool: Edit
+2026-01-12T10:28:25.777Z [DEBUG] Getting matching hook commands for PreToolUse with query: Edit
+2026-01-12T10:28:25.777Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:28:25.778Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:28:25.785Z [DEBUG] Writing to temp file: /workspace/prototype-main-interface.html.tmp.127.1768213705785
+2026-01-12T10:28:25.785Z [DEBUG] Preserving file permissions: 100644
+2026-01-12T10:28:25.785Z [DEBUG] Temp file written successfully, size: 33484 bytes
+2026-01-12T10:28:25.785Z [DEBUG] Applied original permissions to temp file
+2026-01-12T10:28:25.785Z [DEBUG] Renaming /workspace/prototype-main-interface.html.tmp.127.1768213705785 to /workspace/prototype-main-interface.html
+2026-01-12T10:28:25.785Z [DEBUG] File /workspace/prototype-main-interface.html written atomically
+2026-01-12T10:28:25.795Z [DEBUG] Getting matching hook commands for PostToolUse with query: Edit
+2026-01-12T10:28:25.795Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:28:25.795Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:28:25.804Z [DEBUG] executePreToolHooks called for tool: Bash
+2026-01-12T10:28:25.836Z [DEBUG] Getting matching hook commands for PreToolUse with query: Bash
+2026-01-12T10:28:25.836Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:28:25.836Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-01-12T10:28:25.850Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-01-12T10:28:25.850Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-01-12T10:28:25.851Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-01-12T10:28:25.851Z [DEBUG] [API:auth] OAuth token check starting
+2026-01-12T10:28:25.851Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-01-12T10:28:25.851Z [DEBUG] [API:auth] OAuth token check starting
+2026-01-12T10:28:25.851Z [DEBUG] [API:auth] OAuth token check complete
+2026-01-12T10:28:25.851Z [DEBUG] [API:auth] OAuth token check complete
+2026-01-12T10:28:26.315Z [DEBUG] Stream started - received first chunk
+2026-01-12T10:28:26.430Z [DEBUG] Stream started - received first chunk
+2026-01-12T10:28:26.721Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-01-12T10:28:26.723Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-01-12T10:28:26.723Z [DEBUG] [API:auth] OAuth token check starting
+2026-01-12T10:28:26.724Z [DEBUG] [API:auth] OAuth token check complete
+2026-01-12T10:28:26.760Z [DEBUG] Getting matching hook commands for PostToolUse with query: Bash
+2026-01-12T10:28:26.760Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:28:26.760Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-01-12T10:28:26.803Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-01-12T10:28:26.803Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-01-12T10:28:26.803Z [DEBUG] Hooks: Found 0 total hooks in registry
+2026-01-12T10:28:26.803Z [DEBUG] Hooks: checkForNewResponses returning 0 responses
+2026-01-12T10:28:26.834Z [DEBUG] Tool search disabled: MCPSearchTool is not available (may have been disallowed via disallowedTools).
+2026-01-12T10:28:26.852Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-01-12T10:28:26.852Z [DEBUG] [API:auth] OAuth token check starting
+2026-01-12T10:28:26.852Z [DEBUG] [API:auth] OAuth token check complete
+2026-01-12T10:28:27.308Z [DEBUG] Stream started - received first chunk
+2026-01-12T10:28:29.690Z [DEBUG] Stream started - received first chunk
+2026-01-12T10:28:37.810Z [DEBUG] Getting matching hook commands for Stop with query: undefined
+2026-01-12T10:28:37.810Z [DEBUG] Found 1 hook matchers in settings
+2026-01-12T10:28:37.810Z [DEBUG] Matched 1 unique hooks for query "no match query" (1 before deduplication)
+2026-01-12T10:28:37.810Z [DEBUG] Tool search disabled: MCPSearchTool is not available (may have been disallowed via disallowedTools).
+2026-01-12T10:28:37.852Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-01-12T10:28:37.852Z [DEBUG] [API:auth] OAuth token check starting
+2026-01-12T10:28:37.852Z [DEBUG] [API:auth] OAuth token check complete
+2026-01-12T10:28:41.691Z [DEBUG] Stream started - received first chunk
+2026-01-12T10:28:45.523Z [DEBUG] Hook output does not start with {, treating as plain text
+2026-01-12T10:29:00.543Z [DEBUG] Getting matching hook commands for SubagentStop with query: undefined
+2026-01-12T10:29:00.543Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:29:00.543Z [DEBUG] Matched 0 unique hooks for query "no match query" (0 before deduplication)
+2026-01-12T10:29:45.625Z [DEBUG] Getting matching hook commands for Notification with query: idle_prompt
+2026-01-12T10:29:45.625Z [DEBUG] Found 2 hook matchers in settings
+2026-01-12T10:29:45.625Z [DEBUG] Matched 1 unique hooks for query "idle_prompt" (1 before deduplication)
+2026-01-12T10:29:55.604Z [DEBUG] Notification:idle_prompt [/usr/local/bin/notify-enhanced 'Claude Code' 'Waiting for input' 'normal' "${AGENTBOX_CONTAINER}" "${AGENTBOX_SESSION_NAME}"] completed with status 0
+2026-01-12T10:29:55.604Z [DEBUG] Hook output does not start with {, treating as plain text
+2026-01-12T10:30:42.003Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-01-12T10:30:42.003Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-01-12T10:30:42.003Z [DEBUG] Hooks: Found 0 total hooks in registry
+2026-01-12T10:30:42.003Z [DEBUG] Hooks: checkForNewResponses returning 0 responses
+2026-01-12T10:30:42.028Z [DEBUG] Getting matching hook commands for UserPromptSubmit with query: undefined
+2026-01-12T10:30:42.028Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:30:42.028Z [DEBUG] Matched 0 unique hooks for query "no match query" (0 before deduplication)
+2026-01-12T10:30:42.029Z [DEBUG] FileHistory: Making snapshot for message a6d89d07-9997-42bd-a617-fba5fffd8a4f
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: IMPLEMENTATION_SUMMARY.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: GETTING_STARTED.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: API_REFERENCE.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: TROUBLESHOOTING.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: PRODUCTION_DEPLOYMENT.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: SESSION_COMPLETION.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: QUICK_REFERENCE.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: frontend-design-concept.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: FRONTEND_DESIGN_NOTES.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: prototype-design-variations.html
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: FORMS_DESIGN.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: FORMS_LAYOUT_VARIATIONS.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: FORMS_ADDITIONAL_FEATURES.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: prototype-forms-complete.html
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: PROTOTYPE_TESTING_GUIDE.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: DESIGN_PHASE_SUMMARY.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: BACKEND_GAP_ANALYSIS.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: ANEL_ARCHITECTURE.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: PROJECT_STATUS.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: DEPLOYMENT_GUIDE.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: ANEL_DEPLOYMENT_SUMMARY.md
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: prototype-architecture.html
+2026-01-12T10:30:42.030Z [DEBUG] FileHistory: Missing tracked file: PROTOTYPES_GUIDE.md
+2026-01-12T10:30:42.035Z [DEBUG] FileHistory: Added snapshot for a6d89d07-9997-42bd-a617-fba5fffd8a4f, tracking 71 files
+2026-01-12T10:30:42.078Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-01-12T10:30:42.108Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-01-12T10:30:42.109Z [DEBUG] [API:auth] OAuth token check starting
+2026-01-12T10:30:42.109Z [DEBUG] [API:auth] OAuth token check complete
+2026-01-12T10:30:42.148Z [DEBUG] Tool search disabled: MCPSearchTool is not available (may have been disallowed via disallowedTools).
+2026-01-12T10:30:42.165Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-01-12T10:30:42.165Z [DEBUG] [API:auth] OAuth token check starting
+2026-01-12T10:30:42.165Z [DEBUG] [API:auth] OAuth token check complete
+2026-01-12T10:30:42.724Z [DEBUG] Stream started - received first chunk
+2026-01-12T10:30:44.821Z [DEBUG] Stream started - received first chunk
+2026-01-12T10:31:23.064Z [DEBUG] executePreToolHooks called for tool: Edit
+2026-01-12T10:31:23.068Z [DEBUG] Getting matching hook commands for PreToolUse with query: Edit
+2026-01-12T10:31:23.068Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:23.068Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:23.076Z [DEBUG] Writing to temp file: /workspace/prototype-main-interface.html.tmp.127.1768213883076
+2026-01-12T10:31:23.076Z [DEBUG] Preserving file permissions: 100644
+2026-01-12T10:31:23.076Z [DEBUG] Temp file written successfully, size: 33609 bytes
+2026-01-12T10:31:23.076Z [DEBUG] Applied original permissions to temp file
+2026-01-12T10:31:23.076Z [DEBUG] Renaming /workspace/prototype-main-interface.html.tmp.127.1768213883076 to /workspace/prototype-main-interface.html
+2026-01-12T10:31:23.076Z [DEBUG] File /workspace/prototype-main-interface.html written atomically
+2026-01-12T10:31:23.086Z [DEBUG] Getting matching hook commands for PostToolUse with query: Edit
+2026-01-12T10:31:23.086Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:23.086Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:23.132Z [DEBUG] executePreToolHooks called for tool: Edit
+2026-01-12T10:31:23.140Z [DEBUG] Getting matching hook commands for PreToolUse with query: Edit
+2026-01-12T10:31:23.140Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:23.140Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:23.150Z [DEBUG] Writing to temp file: /workspace/prototype-main-interface.html.tmp.127.1768213883150
+2026-01-12T10:31:23.150Z [DEBUG] Preserving file permissions: 100644
+2026-01-12T10:31:23.150Z [DEBUG] Temp file written successfully, size: 33452 bytes
+2026-01-12T10:31:23.150Z [DEBUG] Applied original permissions to temp file
+2026-01-12T10:31:23.150Z [DEBUG] Renaming /workspace/prototype-main-interface.html.tmp.127.1768213883150 to /workspace/prototype-main-interface.html
+2026-01-12T10:31:23.150Z [DEBUG] File /workspace/prototype-main-interface.html written atomically
+2026-01-12T10:31:23.158Z [DEBUG] Getting matching hook commands for PostToolUse with query: Edit
+2026-01-12T10:31:23.158Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:23.158Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:23.504Z [DEBUG] executePreToolHooks called for tool: Edit
+2026-01-12T10:31:23.605Z [DEBUG] Getting matching hook commands for PreToolUse with query: Edit
+2026-01-12T10:31:23.605Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:23.605Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:23.912Z [DEBUG] Writing to temp file: /workspace/prototype-main-interface.html.tmp.127.1768213883912
+2026-01-12T10:31:23.912Z [DEBUG] Preserving file permissions: 100644
+2026-01-12T10:31:23.913Z [DEBUG] Temp file written successfully, size: 33306 bytes
+2026-01-12T10:31:23.913Z [DEBUG] Applied original permissions to temp file
+2026-01-12T10:31:23.913Z [DEBUG] Renaming /workspace/prototype-main-interface.html.tmp.127.1768213883912 to /workspace/prototype-main-interface.html
+2026-01-12T10:31:23.913Z [DEBUG] File /workspace/prototype-main-interface.html written atomically
+2026-01-12T10:31:24.111Z [DEBUG] Getting matching hook commands for PostToolUse with query: Edit
+2026-01-12T10:31:24.111Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:24.111Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:24.442Z [DEBUG] executePreToolHooks called for tool: Edit
+2026-01-12T10:31:24.554Z [DEBUG] Getting matching hook commands for PreToolUse with query: Edit
+2026-01-12T10:31:24.554Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:24.554Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:24.893Z [DEBUG] Writing to temp file: /workspace/prototype-main-interface.html.tmp.127.1768213884893
+2026-01-12T10:31:24.893Z [DEBUG] Preserving file permissions: 100644
+2026-01-12T10:31:24.894Z [DEBUG] Temp file written successfully, size: 34129 bytes
+2026-01-12T10:31:24.894Z [DEBUG] Applied original permissions to temp file
+2026-01-12T10:31:24.894Z [DEBUG] Renaming /workspace/prototype-main-interface.html.tmp.127.1768213884893 to /workspace/prototype-main-interface.html
+2026-01-12T10:31:24.894Z [DEBUG] File /workspace/prototype-main-interface.html written atomically
+2026-01-12T10:31:25.172Z [DEBUG] Getting matching hook commands for PostToolUse with query: Edit
+2026-01-12T10:31:25.172Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:25.172Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:25.448Z [DEBUG] executePreToolHooks called for tool: Edit
+2026-01-12T10:31:25.549Z [DEBUG] Getting matching hook commands for PreToolUse with query: Edit
+2026-01-12T10:31:25.549Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:25.549Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:25.921Z [DEBUG] Writing to temp file: /workspace/prototype-main-interface.html.tmp.127.1768213885921
+2026-01-12T10:31:25.921Z [DEBUG] Preserving file permissions: 100644
+2026-01-12T10:31:25.921Z [DEBUG] Temp file written successfully, size: 33993 bytes
+2026-01-12T10:31:25.921Z [DEBUG] Applied original permissions to temp file
+2026-01-12T10:31:25.921Z [DEBUG] Renaming /workspace/prototype-main-interface.html.tmp.127.1768213885921 to /workspace/prototype-main-interface.html
+2026-01-12T10:31:25.921Z [DEBUG] File /workspace/prototype-main-interface.html written atomically
+2026-01-12T10:31:26.139Z [DEBUG] Getting matching hook commands for PostToolUse with query: Edit
+2026-01-12T10:31:26.139Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:26.139Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:26.420Z [DEBUG] executePreToolHooks called for tool: Edit
+2026-01-12T10:31:26.554Z [DEBUG] Getting matching hook commands for PreToolUse with query: Edit
+2026-01-12T10:31:26.554Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:26.554Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:26.929Z [DEBUG] Writing to temp file: /workspace/prototype-main-interface.html.tmp.127.1768213886929
+2026-01-12T10:31:26.929Z [DEBUG] Preserving file permissions: 100644
+2026-01-12T10:31:26.929Z [DEBUG] Temp file written successfully, size: 33853 bytes
+2026-01-12T10:31:26.929Z [DEBUG] Applied original permissions to temp file
+2026-01-12T10:31:26.929Z [DEBUG] Renaming /workspace/prototype-main-interface.html.tmp.127.1768213886929 to /workspace/prototype-main-interface.html
+2026-01-12T10:31:26.929Z [DEBUG] File /workspace/prototype-main-interface.html written atomically
+2026-01-12T10:31:27.153Z [DEBUG] Getting matching hook commands for PostToolUse with query: Edit
+2026-01-12T10:31:27.153Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:27.153Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:27.483Z [DEBUG] executePreToolHooks called for tool: Edit
+2026-01-12T10:31:27.596Z [DEBUG] Getting matching hook commands for PreToolUse with query: Edit
+2026-01-12T10:31:27.596Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:27.596Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:27.921Z [DEBUG] Writing to temp file: /workspace/prototype-main-interface.html.tmp.127.1768213887921
+2026-01-12T10:31:27.921Z [DEBUG] Preserving file permissions: 100644
+2026-01-12T10:31:27.922Z [DEBUG] Temp file written successfully, size: 33043 bytes
+2026-01-12T10:31:27.922Z [DEBUG] Applied original permissions to temp file
+2026-01-12T10:31:27.922Z [DEBUG] Renaming /workspace/prototype-main-interface.html.tmp.127.1768213887921 to /workspace/prototype-main-interface.html
+2026-01-12T10:31:27.922Z [DEBUG] File /workspace/prototype-main-interface.html written atomically
+2026-01-12T10:31:28.163Z [DEBUG] Getting matching hook commands for PostToolUse with query: Edit
+2026-01-12T10:31:28.163Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:28.163Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-01-12T10:31:28.337Z [DEBUG] executePreToolHooks called for tool: Bash
+2026-01-12T10:31:28.527Z [DEBUG] Getting matching hook commands for PreToolUse with query: Bash
+2026-01-12T10:31:28.527Z [DEBUG] Found 0 hook matchers in settings
+2026-01-12T10:31:28.527Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-01-12T10:31:28.925Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-01-12T10:31:28.926Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-01-12T10:31:28.926Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-01-12T10:31:28.926Z [DEBUG] [API:auth] OAuth token check starting
+2026-01-12T10:31:28.926Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-01-12T10:31:28.926Z [DEBUG] [API:auth] OAuth token check starting
+2026-01-12T10:31:28.927Z [DEBUG] [API:auth] OAuth token check complete
+2026-01-12T10:31:28.927Z [DEBUG] [API:auth] OAuth token check complete
