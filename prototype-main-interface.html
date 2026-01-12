@@ -14,7 +14,7 @@
     }
 
     body {
-      font-size: 14px;
+      font-size: 13px;
       background: #f8f9fa;
       padding-bottom: 2rem;
     }
@@ -26,120 +26,126 @@
       z-index: 1000;
       background: white;
       border-bottom: 2px solid #dee2e6;
-      padding: 1rem;
+      padding: 0.75rem 1rem;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    /* Exhibition Overview Cards - Option 1: Stacked */
-    .overview-section {
+    .app-header h1 {
+      font-size: 1.25rem;
+      margin: 0;
+    }
+
+    /* Exhibition Section */
+    .exhibition-section {
       background: white;
-      padding: 1rem;
-      margin-bottom: 1rem;
+      margin: 1rem;
       border-radius: 0.5rem;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-
-    .exhibition-cards {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .exhibition-card {
-      background: #f8f9fa;
-      border: 1px solid #dee2e6;
-      border-radius: 0.5rem;
-      padding: 0.75rem;
-    }
-
-    .exhibition-name {
-      font-weight: 600;
-      font-size: 1.1em;
-      margin-bottom: 0.5rem;
-    }
-
-    .exhibition-stats {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      margin-bottom: 0.5rem;
-      font-size: 0.9em;
-    }
-
-    .stat-badge {
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
-      font-weight: 500;
-    }
-
-    .stat-on { background: #d1e7dd; color: #0f5132; }
-    .stat-off { background: #e2e3e5; color: #41464b; }
-    .stat-error { background: #f8d7da; color: #842029; }
-
-    .exhibition-actions {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    /* Table View */
-    .table-section {
-      background: white;
-      padding: 1rem;
-      border-radius: 0.5rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
     }
 
     .exhibition-header {
-      background: #e9ecef;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       padding: 0.75rem 1rem;
-      border-left: 4px solid #0d6efd;
-      margin: 1rem 0 0.5rem 0;
-      border-radius: 0.25rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      background: #0d6efd;
+      color: white;
       font-weight: 600;
     }
 
-    .artwork-section {
-      margin: 0.75rem 0;
-      padding-left: 0.5rem;
+    .exhibition-name {
+      font-size: 1rem;
     }
 
-    .artwork-header {
-      font-weight: 600;
-      color: #495057;
-      margin-bottom: 0.5rem;
+    .exhibition-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .exhibition-controls .btn {
+      padding: 0.25rem 0.75rem;
+      font-size: 0.75rem;
+      min-width: 45px;
+      line-height: 1.2;
+    }
+
+    /* Artwork Rows - Alternating Backgrounds */
+    .artwork-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.95em;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #dee2e6;
+      min-height: 60px;
     }
 
+    .artwork-row:nth-child(even) {
+      background: #f8f9fa;
+    }
+
+    .artwork-row:nth-child(odd) {
+      background: white;
+    }
+
+    .artwork-row:last-child {
+      border-bottom: none;
+    }
+
+    .artwork-left {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .artwork-name {
+      font-weight: 600;
+      color: #212529;
+      font-size: 0.9rem;
+    }
+
+    .artwork-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 50px;
+    }
+
+    .artwork-controls .btn {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.7rem;
+      line-height: 1.2;
+    }
+
+    /* Device Badges - Compact */
     .devices-container {
       display: flex;
       flex-wrap: wrap;
       gap: 0.25rem;
     }
 
-    /* Device Badge */
     .device-badge {
       position: relative;
       display: inline-flex;
       flex-direction: column;
       align-items: center;
-      padding: 0.5rem 0.75rem;
-      border-radius: 0.5rem;
+      justify-content: center;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
       overflow: hidden;
-      min-width: 120px;
-      border: 2px solid;
+      min-width: 80px;
+      max-width: 120px;
+      border: 1px solid;
+      font-size: 0.75rem;
     }
 
     .device-badge:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      transform: scale(1.05);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
 
     /* Progress bar - drains from 100% to 0% */
@@ -147,7 +153,7 @@
       position: absolute;
       top: 0;
       left: 0;
-      height: 4px;
+      height: 3px;
       background: rgba(255,255,255,0.8);
       transition: width 1s linear;
     }
@@ -184,37 +190,47 @@
     }
 
     .device-name {
-      font-size: 0.85em;
+      font-size: 0.75rem;
       font-weight: 600;
       text-align: center;
-      margin-top: 0.25rem;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
     }
 
     .device-info {
-      font-size: 0.75em;
+      font-size: 0.65rem;
       opacity: 0.9;
       text-align: center;
+      line-height: 1.1;
     }
 
     .device-cooldown {
-      font-size: 0.7em;
-      opacity: 0.8;
-      margin-top: 0.25rem;
+      font-size: 0.65rem;
+      opacity: 0.85;
+      line-height: 1.1;
     }
 
-    /* Automation Disabled - Visual Indent + Striped Pattern */
-    .automation-disabled {
-      margin-left: 1.5rem;
+    /* Automation Disabled - Striped Pattern */
+    .automation-disabled .artwork-name::before {
+      content: '⊘ ';
+      opacity: 0.6;
+    }
+
+    .automation-disabled .devices-container {
+      margin-left: 1rem;
       position: relative;
     }
 
-    .automation-disabled::before {
+    .automation-disabled .devices-container::before {
       content: '';
       position: absolute;
-      left: -1rem;
+      left: -0.75rem;
       top: 0;
       bottom: 0;
-      width: 4px;
+      width: 3px;
       background: repeating-linear-gradient(
         45deg,
         #dee2e6,
@@ -224,532 +240,321 @@
       );
     }
 
-    .automation-disabled .device-badge {
-      opacity: 0.85;
-    }
-
     .automation-badge {
       display: inline-block;
-      font-size: 0.7em;
-      padding: 0.125rem 0.375rem;
-      background: #f8f9fa;
-      color: #6c757d;
+      font-size: 0.65rem;
+      padding: 0.1rem 0.4rem;
+      background: #ffc107;
+      color: #000;
       border-radius: 0.25rem;
       margin-left: 0.5rem;
-      font-weight: normal;
+      font-weight: 500;
     }
 
-    /* Buttons */
-    .btn-sm-mobile {
-      padding: 0.375rem 0.75rem;
-      font-size: 0.875rem;
+    /* Add Device Button */
+    .btn-add-device {
+      font-size: 0.7rem;
+      padding: 0.25rem 0.5rem;
+      margin-left: 0.5rem;
     }
 
-    @media (max-width: 575px) {
-      .btn-sm-mobile {
-        padding: 0.5rem 0.75rem;
-        min-height: 44px;
-      }
-
-      .device-badge {
-        min-width: 100px;
-        font-size: 0.9em;
-      }
-    }
-
-    /* IP Display - Remove 192.168 prefix on mobile */
-    @media (max-width: 767px) {
-      .ip-short::before {
+    /* Mobile Adjustments */
+    @media (max-width: 768px) {
+      .ip-short span::before {
         content: attr(data-short);
       }
       .ip-short span {
-        display: none;
+        font-size: 0;
       }
-    }
 
-    @media (min-width: 768px) {
-      .ip-short::before {
-        content: '';
+      .device-badge {
+        min-width: 70px;
+      }
+
+      .artwork-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+
+      .artwork-controls {
+        flex-direction: row;
+        width: 100%;
+        justify-content: flex-end;
       }
     }
   </style>
 </head>
 <body>
 
-<!-- Header -->
-<div class="app-header">
-  <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center">
-      <h4 class="mb-0">MuTech Control</h4>
-      <div>
-        <button class="btn btn-success btn-sm-mobile me-2">ALL ON</button>
-        <button class="btn btn-danger btn-sm-mobile">ALL OFF</button>
+  <!-- Header -->
+  <div class="app-header">
+    <h1>MuTech Control System</h1>
+  </div>
+
+  <!-- Exhibition 1: Permanente Ausstellung -->
+  <div class="exhibition-section">
+    <div class="exhibition-header">
+      <span class="exhibition-name">Permanente Ausstellung</span>
+      <div class="exhibition-controls">
+        <button class="btn btn-success btn-sm">ON</button>
+        <button class="btn btn-danger btn-sm">OFF</button>
+      </div>
+    </div>
+
+    <!-- Artwork Row 1 -->
+    <div class="artwork-row">
+      <div class="artwork-left">
+        <div class="artwork-name">
+          Raum 1.1 - Hauptgalerie
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add Device</button>
+        </div>
+        <div class="devices-container">
+          <div class="device-badge device-on cooldown-75" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Projektor Links</div>
+            <div class="device-info"><span data-short=".10.45">192.168.10.45</span></div>
+            <div class="device-cooldown">23s</div>
+          </div>
+          <div class="device-badge device-on cooldown-50" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Projektor Rechts</div>
+            <div class="device-info"><span data-short=".10.46">192.168.10.46</span></div>
+            <div class="device-cooldown">15s</div>
+          </div>
+          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">LED Panel 1</div>
+            <div class="device-info"><span data-short=".50.12:3">192.168.50.12:3</span></div>
+          </div>
+          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">LED Panel 2</div>
+            <div class="device-info"><span data-short=".50.12:2">192.168.50.12:2</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="artwork-controls">
+        <button class="btn btn-success btn-sm">ON</button>
+        <button class="btn btn-danger btn-sm">OFF</button>
+      </div>
+    </div>
+
+    <!-- Artwork Row 2 -->
+    <div class="artwork-row">
+      <div class="artwork-left">
+        <div class="artwork-name">
+          Raum 1.2 - Seitenflügel
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add Device</button>
+        </div>
+        <div class="devices-container">
+          <div class="device-badge device-on cooldown-100" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Beamer Nord</div>
+            <div class="device-info"><span data-short=".10.50">192.168.10.50</span></div>
+            <div class="device-cooldown">28s</div>
+          </div>
+          <div class="device-badge device-cooling cooldown-25" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Beamer Süd</div>
+            <div class="device-info"><span data-short=".10.51">192.168.10.51</span></div>
+            <div class="device-cooldown">8s</div>
+          </div>
+          <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Audio System</div>
+            <div class="device-info"><span data-short=".15.20:1">192.168.15.20:1</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="artwork-controls">
+        <button class="btn btn-success btn-sm">ON</button>
+        <button class="btn btn-danger btn-sm">OFF</button>
+      </div>
+    </div>
+
+    <!-- Artwork Row 3 - Automation Disabled -->
+    <div class="artwork-row automation-disabled">
+      <div class="artwork-left">
+        <div class="artwork-name">
+          Raum 1.3 - Medienraum
+          <span class="automation-badge">No Auto</span>
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add Device</button>
+        </div>
+        <div class="devices-container">
+          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Media Server</div>
+            <div class="device-info"><span data-short=".1.100">192.168.1.100</span></div>
+          </div>
+          <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Backup Server</div>
+            <div class="device-info"><span data-short=".1.101">192.168.1.101</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="artwork-controls">
+        <button class="btn btn-secondary btn-sm" disabled>Manual</button>
+      </div>
+    </div>
+
+    <!-- Artwork Row 4 -->
+    <div class="artwork-row">
+      <div class="artwork-left">
+        <div class="artwork-name">
+          Raum 1.4 - Interaktiv
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add Device</button>
+        </div>
+        <div class="devices-container">
+          <div class="device-badge device-error cooldown-0" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Touch Display</div>
+            <div class="device-info"><span data-short=".10.70">192.168.10.70</span></div>
+            <div class="device-cooldown">Error</div>
+          </div>
+          <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">PC Station 1</div>
+            <div class="device-info"><span data-short=".1.80">192.168.1.80</span></div>
+          </div>
+          <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">PC Station 2</div>
+            <div class="device-info"><span data-short=".1.81">192.168.1.81</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="artwork-controls">
+        <button class="btn btn-success btn-sm">ON</button>
+        <button class="btn btn-danger btn-sm">OFF</button>
       </div>
     </div>
   </div>
-</div>
 
-<div class="container-fluid mt-3">
+  <!-- Exhibition 2: Sonderausstellung Frühjahr -->
+  <div class="exhibition-section">
+    <div class="exhibition-header">
+      <span class="exhibition-name">Sonderausstellung Frühjahr</span>
+      <div class="exhibition-controls">
+        <button class="btn btn-success btn-sm">ON</button>
+        <button class="btn btn-danger btn-sm">OFF</button>
+      </div>
+    </div>
 
-  <!-- Exhibition Overview Cards (Option 1: Stacked) -->
-  <div class="overview-section">
-    <h5 class="mb-3">Exhibition Overview</h5>
-
-    <div class="exhibition-cards">
-      <!-- Exhibition 1: Permanente Ausstellung -->
-      <div class="exhibition-card">
-        <div class="exhibition-name">Permanente Ausstellung</div>
-        <div class="exhibition-stats">
-          <span class="stat-badge stat-on">10 ON</span>
-          <span class="stat-badge stat-off">2 OFF</span>
-          <span class="stat-badge stat-error">0 Errors</span>
+    <!-- Artwork Row 1 -->
+    <div class="artwork-row">
+      <div class="artwork-left">
+        <div class="artwork-name">
+          Raum 2.1 - Eingangshalle
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add Device</button>
         </div>
-        <div class="exhibition-actions">
-          <button class="btn btn-success btn-sm">ON</button>
-          <button class="btn btn-danger btn-sm">OFF</button>
+        <div class="devices-container">
+          <div class="device-badge device-on cooldown-100" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Projektor Mitte</div>
+            <div class="device-info"><span data-short=".10.90">192.168.10.90</span></div>
+            <div class="device-cooldown">30s</div>
+          </div>
+          <div class="device-badge device-on cooldown-75" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Licht System</div>
+            <div class="device-info"><span data-short=".50.20:1">192.168.50.20:1</span></div>
+            <div class="device-cooldown">22s</div>
+          </div>
         </div>
       </div>
+      <div class="artwork-controls">
+        <button class="btn btn-success btn-sm">ON</button>
+        <button class="btn btn-danger btn-sm">OFF</button>
+      </div>
+    </div>
 
-      <!-- Exhibition 2: Sonderausstellung -->
-      <div class="exhibition-card">
-        <div class="exhibition-name">Sonderausstellung 2026</div>
-        <div class="exhibition-stats">
-          <span class="stat-badge stat-on">8 ON</span>
-          <span class="stat-badge stat-off">4 OFF</span>
-          <span class="stat-badge stat-error">1 Error</span>
+    <!-- Artwork Row 2 -->
+    <div class="artwork-row">
+      <div class="artwork-left">
+        <div class="artwork-name">
+          Raum 2.2 - Hauptraum
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add Device</button>
         </div>
-        <div class="exhibition-actions">
-          <button class="btn btn-success btn-sm">ON</button>
-          <button class="btn btn-danger btn-sm">OFF</button>
+        <div class="devices-container">
+          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Video Wall 1</div>
+            <div class="device-info"><span data-short=".10.95">192.168.10.95</span></div>
+          </div>
+          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Video Wall 2</div>
+            <div class="device-info"><span data-short=".10.96">192.168.10.96</span></div>
+          </div>
+          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Audio System</div>
+            <div class="device-info"><span data-short=".15.30:1">192.168.15.30:1</span></div>
+          </div>
+          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Ambient Light</div>
+            <div class="device-info"><span data-short=".50.21:2">192.168.50.21:2</span></div>
+          </div>
         </div>
       </div>
-
-      <!-- Exhibition 3: Interaktive Zone -->
-      <div class="exhibition-card">
-        <div class="exhibition-name">Interaktive Zone</div>
-        <div class="exhibition-stats">
-          <span class="stat-badge stat-on">6 ON</span>
-          <span class="stat-badge stat-off">0 OFF</span>
-          <span class="stat-badge stat-error">0 Errors</span>
-        </div>
-        <div class="exhibition-actions">
-          <button class="btn btn-success btn-sm">ON</button>
-          <button class="btn btn-danger btn-sm">OFF</button>
-        </div>
-      </div>
-
-      <!-- Exhibition 4: Foyer & Eingang -->
-      <div class="exhibition-card">
-        <div class="exhibition-name">Foyer & Eingang</div>
-        <div class="exhibition-stats">
-          <span class="stat-badge stat-on">4 ON</span>
-          <span class="stat-badge stat-off">1 OFF</span>
-          <span class="stat-badge stat-error">0 Errors</span>
-        </div>
-        <div class="exhibition-actions">
-          <button class="btn btn-success btn-sm">ON</button>
-          <button class="btn btn-danger btn-sm">OFF</button>
-        </div>
+      <div class="artwork-controls">
+        <button class="btn btn-success btn-sm">ON</button>
+        <button class="btn btn-danger btn-sm">OFF</button>
       </div>
     </div>
   </div>
 
-  <!-- Table View: All Devices -->
-  <div class="table-section">
-    <h5 class="mb-3">All Devices</h5>
-
-    <!-- Exhibition 1: Permanente Ausstellung -->
-    <div class="exhibition-header">
-      <span>Permanente Ausstellung</span>
-      <div>
-        <button class="btn btn-success btn-sm me-2">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
+  <!-- Exhibition 3: Archiv (Disabled) -->
+  <div class="exhibition-section" style="opacity: 0.6;">
+    <div class="exhibition-header" style="background: #6c757d;">
+      <span class="exhibition-name">Archiv <span class="badge bg-dark">Disabled</span></span>
+      <div class="exhibition-controls">
+        <button class="btn btn-secondary btn-sm" disabled>OFF</button>
       </div>
     </div>
 
-    <!-- Artwork: Raum 1.1 - Hauptgalerie -->
-    <div class="artwork-section">
-      <div class="artwork-header">
-        <span>Raum 1.1 - Hauptgalerie</span>
-        <div>
-          <button class="btn btn-success btn-sm me-2">ON</button>
-          <button class="btn btn-danger btn-sm">OFF</button>
+    <!-- Artwork Row 1 -->
+    <div class="artwork-row">
+      <div class="artwork-left">
+        <div class="artwork-name">
+          Raum 3.1 - Lagerraum
+          <button class="btn btn-outline-secondary btn-sm btn-add-device" disabled>+ Add Device</button>
+        </div>
+        <div class="devices-container">
+          <div class="device-badge device-off cooldown-0">
+            <div class="progress-top-border"></div>
+            <div class="device-name">Storage PC</div>
+            <div class="device-info"><span data-short=".1.200">192.168.1.200</span></div>
+          </div>
         </div>
       </div>
-      <div class="devices-container">
-        <div class="device-badge device-on cooldown-75" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Projektor Links</div>
-          <div class="device-info ip-short" data-short=".10.45"><span>192.168.10.45</span></div>
-          <div class="device-cooldown">Next: 23s</div>
-        </div>
-
-        <div class="device-badge device-on cooldown-50" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Projektor Rechts</div>
-          <div class="device-info ip-short" data-short=".10.46"><span>192.168.10.46</span></div>
-          <div class="device-cooldown">Next: 15s</div>
-        </div>
-
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Licht Galerie</div>
-          <div class="device-info ip-short" data-short=".50.12:1"><span>192.168.50.12:1</span></div>
-        </div>
-
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Audio System</div>
-          <div class="device-info ip-short" data-short=".50.12:2"><span>192.168.50.12:2</span></div>
-        </div>
-
-        <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Vitrine Beleuchtung</div>
-          <div class="device-info ip-short" data-short=".50.12:3"><span>192.168.50.12:3</span></div>
-        </div>
+      <div class="artwork-controls">
+        <button class="btn btn-secondary btn-sm" disabled>Manual</button>
       </div>
     </div>
-
-    <!-- Artwork: Raum 1.2 - Seitengalerie -->
-    <div class="artwork-section">
-      <div class="artwork-header">
-        <span>Raum 1.2 - Seitengalerie</span>
-        <div>
-          <button class="btn btn-success btn-sm me-2">ON</button>
-          <button class="btn btn-danger btn-sm">OFF</button>
-        </div>
-      </div>
-      <div class="devices-container">
-        <div class="device-badge device-on cooldown-25" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Beamer Mitte</div>
-          <div class="device-info ip-short" data-short=".10.47"><span>192.168.10.47</span></div>
-          <div class="device-cooldown">Next: 8s</div>
-        </div>
-
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Wandbeleuchtung</div>
-          <div class="device-info ip-short" data-short=".50.13:1"><span>192.168.50.13:1</span></div>
-        </div>
-
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Vitrinen LEDs</div>
-          <div class="device-info ip-short" data-short=".50.13:2"><span>192.168.50.13:2</span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Artwork: Raum 1.3 - Medienraum -->
-    <div class="artwork-section">
-      <div class="artwork-header">
-        <span>Raum 1.3 - Medienraum <span class="automation-badge">Automation OFF</span></span>
-        <div>
-          <button class="btn btn-secondary btn-sm">Manual Control</button>
-        </div>
-      </div>
-      <div class="devices-container automation-disabled">
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Media Server</div>
-          <div class="device-info">Shell: systemctl</div>
-        </div>
-
-        <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Backup Server</div>
-          <div class="device-info">Shell: systemctl</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Exhibition 2: Sonderausstellung -->
-    <div class="exhibition-header">
-      <span>Sonderausstellung 2026</span>
-      <div>
-        <button class="btn btn-success btn-sm me-2">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
-      </div>
-    </div>
-
-    <!-- Artwork: Installation A -->
-    <div class="artwork-section">
-      <div class="artwork-header">
-        <span>Installation A - Lichtkunst</span>
-        <div>
-          <button class="btn btn-success btn-sm me-2">ON</button>
-          <button class="btn btn-danger btn-sm">OFF</button>
-        </div>
-      </div>
-      <div class="devices-container">
-        <div class="device-badge device-on cooldown-100" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">LED Panel 1</div>
-          <div class="device-info ip-short" data-short=".50.20:1"><span>192.168.50.20:1</span></div>
-          <div class="device-cooldown">Next: 30s</div>
-        </div>
-
-        <div class="device-badge device-on cooldown-90" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">LED Panel 2</div>
-          <div class="device-info ip-short" data-short=".50.20:2"><span>192.168.50.20:2</span></div>
-          <div class="device-cooldown">Next: 27s</div>
-        </div>
-
-        <div class="device-badge device-on cooldown-80" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">LED Panel 3</div>
-          <div class="device-info ip-short" data-short=".50.20:3"><span>192.168.50.20:3</span></div>
-          <div class="device-cooldown">Next: 24s</div>
-        </div>
-
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Steuerung</div>
-          <div class="device-info ip-short" data-short=".50.20:4"><span>192.168.50.20:4</span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Artwork: Installation B -->
-    <div class="artwork-section">
-      <div class="artwork-header">
-        <span>Installation B - Videokunst</span>
-        <div>
-          <button class="btn btn-success btn-sm me-2">ON</button>
-          <button class="btn btn-danger btn-sm">OFF</button>
-        </div>
-      </div>
-      <div class="devices-container">
-        <div class="device-badge device-on cooldown-50" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Projektor Wand 1</div>
-          <div class="device-info ip-short" data-short=".10.51"><span>192.168.10.51</span></div>
-          <div class="device-cooldown">Next: 15s</div>
-        </div>
-
-        <div class="device-badge device-on cooldown-50" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Projektor Wand 2</div>
-          <div class="device-info ip-short" data-short=".10.52"><span>192.168.10.52</span></div>
-          <div class="device-cooldown">Next: 15s</div>
-        </div>
-
-        <div class="device-badge device-error cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Projektor Decke</div>
-          <div class="device-info ip-short" data-short=".10.53"><span>192.168.10.53</span></div>
-          <div class="device-cooldown">Error: Timeout</div>
-        </div>
-
-        <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Audio Anlage</div>
-          <div class="device-info ip-short" data-short=".50.21:1"><span>192.168.50.21:1</span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Artwork: Installation C -->
-    <div class="artwork-section">
-      <div class="artwork-header">
-        <span>Installation C - Interaktiv</span>
-        <div>
-          <button class="btn btn-success btn-sm me-2">ON</button>
-          <button class="btn btn-danger btn-sm">OFF</button>
-        </div>
-      </div>
-      <div class="devices-container">
-        <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Touch Display 1</div>
-          <div class="device-info ip-short" data-short=".50.22:1"><span>192.168.50.22:1</span></div>
-        </div>
-
-        <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Touch Display 2</div>
-          <div class="device-info ip-short" data-short=".50.22:2"><span>192.168.50.22:2</span></div>
-        </div>
-
-        <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Sensor System</div>
-          <div class="device-info ip-short" data-short=".50.22:3"><span>192.168.50.22:3</span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Exhibition 3: Interaktive Zone -->
-    <div class="exhibition-header">
-      <span>Interaktive Zone</span>
-      <div>
-        <button class="btn btn-success btn-sm me-2">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
-      </div>
-    </div>
-
-    <!-- Artwork: Touchscreen Station -->
-    <div class="artwork-section">
-      <div class="artwork-header">
-        <span>Touchscreen Stationen</span>
-        <div>
-          <button class="btn btn-success btn-sm me-2">ON</button>
-          <button class="btn btn-danger btn-sm">OFF</button>
-        </div>
-      </div>
-      <div class="devices-container">
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Station 1</div>
-          <div class="device-info ip-short" data-short=".50.30:1"><span>192.168.50.30:1</span></div>
-        </div>
-
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Station 2</div>
-          <div class="device-info ip-short" data-short=".50.30:2"><span>192.168.50.30:2</span></div>
-        </div>
-
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Station 3</div>
-          <div class="device-info ip-short" data-short=".50.30:3"><span>192.168.50.30:3</span></div>
-        </div>
-
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Station 4</div>
-          <div class="device-info ip-short" data-short=".50.30:4"><span>192.168.50.30:4</span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Artwork: VR Bereich -->
-    <div class="artwork-section">
-      <div class="artwork-header">
-        <span>VR Bereich</span>
-        <div>
-          <button class="btn btn-success btn-sm me-2">ON</button>
-          <button class="btn btn-danger btn-sm">OFF</button>
-        </div>
-      </div>
-      <div class="devices-container">
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">VR Station 1</div>
-          <div class="device-info ip-short" data-short=".50.31:1"><span>192.168.50.31:1</span></div>
-        </div>
-
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">VR Station 2</div>
-          <div class="device-info ip-short" data-short=".50.31:2"><span>192.168.50.31:2</span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Exhibition 4: Foyer & Eingang -->
-    <div class="exhibition-header">
-      <span>Foyer & Eingang</span>
-      <div>
-        <button class="btn btn-success btn-sm me-2">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
-      </div>
-    </div>
-
-    <!-- Artwork: Eingangsbereich -->
-    <div class="artwork-section">
-      <div class="artwork-header">
-        <span>Eingangsbereich</span>
-        <div>
-          <button class="btn btn-success btn-sm me-2">ON</button>
-          <button class="btn btn-danger btn-sm">OFF</button>
-        </div>
-      </div>
-      <div class="devices-container">
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Info Display</div>
-          <div class="device-info ip-short" data-short=".50.40:1"><span>192.168.50.40:1</span></div>
-        </div>
-
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Ambient Licht</div>
-          <div class="device-info ip-short" data-short=".50.40:2"><span>192.168.50.40:2</span></div>
-        </div>
-
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Background Music</div>
-          <div class="device-info ip-short" data-short=".50.40:3"><span>192.168.50.40:3</span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Artwork: Kasse & Shop -->
-    <div class="artwork-section">
-      <div class="artwork-header">
-        <span>Kasse & Shop</span>
-        <div>
-          <button class="btn btn-success btn-sm me-2">ON</button>
-          <button class="btn btn-danger btn-sm">OFF</button>
-        </div>
-      </div>
-      <div class="devices-container">
-        <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Shop Display</div>
-          <div class="device-info ip-short" data-short=".50.41:1"><span>192.168.50.41:1</span></div>
-        </div>
-
-        <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-          <div class="progress-top-border"></div>
-          <div class="device-name">Vitrine Licht</div>
-          <div class="device-info ip-short" data-short=".50.41:2"><span>192.168.50.41:2</span></div>
-        </div>
-      </div>
-    </div>
-
   </div>
 
-</div>
-
-<script>
-  function toggleDevice(element) {
-    // Toggle between on/off states for demo
-    if (element.classList.contains('device-on')) {
-      element.classList.remove('device-on');
-      element.classList.add('device-off');
-    } else if (element.classList.contains('device-off')) {
-      element.classList.remove('device-off');
-      element.classList.add('device-on');
-      element.classList.add('cooldown-100');
-    }
-  }
-
-  // Simulate cooldown progress animation
-  function animateCooldowns() {
-    document.querySelectorAll('.device-badge').forEach(badge => {
-      if (badge.classList.contains('cooldown-100')) {
-        setTimeout(() => badge.classList.replace('cooldown-100', 'cooldown-75'), 1000);
-      } else if (badge.classList.contains('cooldown-75')) {
-        setTimeout(() => badge.classList.replace('cooldown-75', 'cooldown-50'), 1000);
-      } else if (badge.classList.contains('cooldown-50')) {
-        setTimeout(() => badge.classList.replace('cooldown-50', 'cooldown-25'), 1000);
-      } else if (badge.classList.contains('cooldown-25')) {
-        setTimeout(() => badge.classList.replace('cooldown-25', 'cooldown-0'), 1000);
+  <script>
+    function toggleDevice(element) {
+      // Demo: cycle through states
+      if (element.classList.contains('device-off')) {
+        element.classList.remove('device-off');
+        element.classList.add('device-on', 'cooldown-100');
+        element.querySelector('.device-cooldown').textContent = '30s';
+      } else if (element.classList.contains('device-on')) {
+        element.classList.remove('device-on', 'cooldown-100', 'cooldown-75', 'cooldown-50', 'cooldown-25');
+        element.classList.add('device-cooling', 'cooldown-50');
+        element.querySelector('.device-cooldown').textContent = '15s';
+      } else if (element.classList.contains('device-cooling')) {
+        element.classList.remove('device-cooling', 'cooldown-50');
+        element.classList.add('device-off', 'cooldown-0');
+        element.querySelector('.device-cooldown').textContent = '';
       }
-    });
-  }
+    }
+  </script>
 
-  // Run cooldown animation every second
-  setInterval(animateCooldowns, 1000);
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
