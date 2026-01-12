@@ -145,12 +145,14 @@
     }
 
     .artwork-row {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
+      display: grid;
+      grid-template-columns: minmax(150px, 1fr) 3fr auto;
+      gap: 1rem;
       padding: 0.75rem 1rem;
       border-bottom: 1px solid #dee2e6;
+      align-items: center;
       min-height: 60px;
+      grid-template-areas: "name devices controls";
     }
 
     .artwork-row:nth-child(even) {
@@ -165,19 +167,11 @@
       border-bottom: none;
     }
 
-    .artwork-header-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-    }
-
     .artwork-name {
       font-weight: 600;
       color: #212529;
       font-size: 0.9rem;
-      flex: 1;
-      min-width: 0;
+      grid-area: name;
     }
 
     .artwork-name-manual {
@@ -215,6 +209,7 @@
       flex-wrap: wrap;
       gap: 0.25rem;
       align-items: center;
+      grid-area: devices;
     }
 
     .device-badge {
@@ -287,7 +282,8 @@
       display: flex;
       gap: 0.25rem;
       align-items: center;
-      flex-shrink: 0;
+      justify-content: flex-end;
+      grid-area: controls;
     }
 
     .artwork-controls .btn-group {
@@ -365,6 +361,7 @@
       display: flex;
       gap: 0.25rem;
       flex-wrap: wrap;
+      margin-top: 0.5rem;
     }
 
     .manual-commands .btn {
@@ -374,6 +371,19 @@
 
     /* Mobile Adjustments */
     @media (max-width: 768px) {
+      .artwork-row {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "name"
+          "devices"
+          "controls";
+        gap: 0.5rem;
+      }
+
+      .artwork-controls {
+        justify-content: flex-end;
+      }
+
       .exhibition-card {
         min-width: 150px;
       }
@@ -436,17 +446,9 @@
     <div class="artwork-table">
       <!-- Artwork Row 1 -->
       <div class="artwork-row">
-        <div class="artwork-header-row">
-          <div class="artwork-name">
-            Raum 1.1 - Hauptgalerie
-            <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
-          </div>
-          <div class="artwork-controls">
-            <div class="btn-group">
-              <button class="btn btn-success btn-sm">ON</button>
-              <button class="btn btn-danger btn-sm">OFF</button>
-            </div>
-          </div>
+        <div class="artwork-name">
+          Raum 1.1 - Hauptgalerie
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
         </div>
         <div class="devices-container">
           <div class="device-badge device-on has-cooldown" onclick="openDeviceAccordion(this, 'artwork-1', 'proj-left')">
@@ -462,6 +464,12 @@
           </div>
           <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-1', 'led-2')">
             LED Panel 2
+          </div>
+        </div>
+        <div class="artwork-controls">
+          <div class="btn-group">
+            <button class="btn btn-success btn-sm">ON</button>
+            <button class="btn btn-danger btn-sm">OFF</button>
           </div>
         </div>
       </div>
@@ -485,17 +493,9 @@
 
       <!-- Artwork Row 2 -->
       <div class="artwork-row">
-        <div class="artwork-header-row">
-          <div class="artwork-name">
-            Raum 1.2 - Seitenflügel
-            <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
-          </div>
-          <div class="artwork-controls">
-            <div class="btn-group">
-              <button class="btn btn-success btn-sm">ON</button>
-              <button class="btn btn-danger btn-sm">OFF</button>
-            </div>
-          </div>
+        <div class="artwork-name">
+          Raum 1.2 - Seitenflügel
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
         </div>
         <div class="devices-container">
           <div class="device-badge device-on has-cooldown" onclick="openDeviceAccordion(this, 'artwork-2', 'beamer-1')">
@@ -508,6 +508,12 @@
           </div>
           <div class="device-badge device-on" onclick="openDeviceAccordion(this, 'artwork-2', 'audio-1')">
             Audio System
+          </div>
+        </div>
+        <div class="artwork-controls">
+          <div class="btn-group">
+            <button class="btn btn-success btn-sm">ON</button>
+            <button class="btn btn-danger btn-sm">OFF</button>
           </div>
         </div>
       </div>
@@ -531,18 +537,14 @@
 
       <!-- Artwork Row 3 - Manual Only -->
       <div class="artwork-row">
-        <div class="artwork-header-row">
-          <div class="artwork-name artwork-name-manual">
-            Raum 1.3 - Medienraum
-            <span class="manual-badge">Manual</span>
-            <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
-          </div>
-          <div class="artwork-controls">
-            <div class="manual-commands">
-              <button class="btn btn-primary btn-sm" onclick="sendCommand('restart')">Restart</button>
-              <button class="btn btn-warning btn-sm" onclick="sendCommand('backup')">Backup</button>
-              <button class="btn btn-secondary btn-sm" onclick="sendCommand('status')">Status</button>
-            </div>
+        <div class="artwork-name artwork-name-manual">
+          Raum 1.3 - Medienraum
+          <span class="manual-badge">Manual</span>
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
+          <div class="manual-commands">
+            <button class="btn btn-primary btn-sm" onclick="sendCommand('restart')">Restart</button>
+            <button class="btn btn-warning btn-sm" onclick="sendCommand('backup')">Backup</button>
+            <button class="btn btn-secondary btn-sm" onclick="sendCommand('status')">Status</button>
           </div>
         </div>
         <div class="devices-container">
@@ -552,6 +554,9 @@
           <div class="device-badge device-on" onclick="openDeviceAccordion(this, 'artwork-3', 'backup-1')">
             Backup Server
           </div>
+        </div>
+        <div class="artwork-controls">
+          <!-- No controls for manual -->
         </div>
       </div>
 
@@ -570,17 +575,9 @@
 
       <!-- Artwork Row 4 -->
       <div class="artwork-row">
-        <div class="artwork-header-row">
-          <div class="artwork-name">
-            Raum 1.4 - Interaktiv
-            <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
-          </div>
-          <div class="artwork-controls">
-            <div class="btn-group">
-              <button class="btn btn-success btn-sm">ON</button>
-              <button class="btn btn-danger btn-sm">OFF</button>
-            </div>
-          </div>
+        <div class="artwork-name">
+          Raum 1.4 - Interaktiv
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
         </div>
         <div class="devices-container">
           <div class="device-badge device-error" onclick="openDeviceAccordion(this, 'artwork-4', 'touch-1')">
@@ -591,6 +588,12 @@
           </div>
           <div class="device-badge device-on" onclick="openDeviceAccordion(this, 'artwork-4', 'pc-2')">
             PC Station 2
+          </div>
+        </div>
+        <div class="artwork-controls">
+          <div class="btn-group">
+            <button class="btn btn-success btn-sm">ON</button>
+            <button class="btn btn-danger btn-sm">OFF</button>
           </div>
         </div>
       </div>
@@ -620,17 +623,9 @@
     <div class="artwork-table">
       <!-- Artwork Row 1 -->
       <div class="artwork-row">
-        <div class="artwork-header-row">
-          <div class="artwork-name">
-            Raum 2.1 - Eingangshalle
-            <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
-          </div>
-          <div class="artwork-controls">
-            <div class="btn-group">
-              <button class="btn btn-success btn-sm">ON</button>
-              <button class="btn btn-danger btn-sm">OFF</button>
-            </div>
-          </div>
+        <div class="artwork-name">
+          Raum 2.1 - Eingangshalle
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
         </div>
         <div class="devices-container">
           <div class="device-badge device-on has-cooldown" onclick="openDeviceAccordion(this, 'artwork-5', 'proj-3')">
@@ -640,6 +635,12 @@
           <div class="device-badge device-on has-cooldown" onclick="openDeviceAccordion(this, 'artwork-5', 'light-1')">
             <span class="cooldown-indicator"></span>
             Licht System
+          </div>
+        </div>
+        <div class="artwork-controls">
+          <div class="btn-group">
+            <button class="btn btn-success btn-sm">ON</button>
+            <button class="btn btn-danger btn-sm">OFF</button>
           </div>
         </div>
       </div>
@@ -663,17 +664,9 @@
 
       <!-- Artwork Row 2 -->
       <div class="artwork-row">
-        <div class="artwork-header-row">
-          <div class="artwork-name">
-            Raum 2.2 - Hauptraum
-            <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
-          </div>
-          <div class="artwork-controls">
-            <div class="btn-group">
-              <button class="btn btn-success btn-sm">ON</button>
-              <button class="btn btn-danger btn-sm">OFF</button>
-            </div>
-          </div>
+        <div class="artwork-name">
+          Raum 2.2 - Hauptraum
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
         </div>
         <div class="devices-container">
           <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-6', 'video-1')">
@@ -687,6 +680,12 @@
           </div>
           <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-6', 'ambient-1')">
             Ambient Light
+          </div>
+        </div>
+        <div class="artwork-controls">
+          <div class="btn-group">
+            <button class="btn btn-success btn-sm">ON</button>
+            <button class="btn btn-danger btn-sm">OFF</button>
           </div>
         </div>
       </div>
@@ -715,19 +714,17 @@
 
     <div class="artwork-table">
       <div class="artwork-row">
-        <div class="artwork-header-row">
-          <div class="artwork-name">
-            Raum 3.1 - Lagerraum
-            <button class="btn btn-outline-secondary btn-sm btn-add-device" disabled>+ Add</button>
-          </div>
-          <div class="artwork-controls">
-            <button class="btn btn-secondary btn-sm" disabled>Manual</button>
-          </div>
+        <div class="artwork-name">
+          Raum 3.1 - Lagerraum
+          <button class="btn btn-outline-secondary btn-sm btn-add-device" disabled>+ Add</button>
         </div>
         <div class="devices-container">
           <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-7', 'storage-1')">
             Storage PC
           </div>
+        </div>
+        <div class="artwork-controls">
+          <button class="btn btn-secondary btn-sm" disabled>Manual</button>
         </div>
       </div>
 
