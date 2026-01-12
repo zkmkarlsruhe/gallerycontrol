@@ -16,7 +16,8 @@ Complete frontend design and backend analysis for the MuTech Control System Pyth
 ```
 /workspace/
 ├── ANEL_ARCHITECTURE.md           # UDP broadcast architecture & implementation
-├── DEPLOYMENT_GUIDE.md            # NEW: Network setup, Docker deployment, firewall
+├── DEPLOYMENT_GUIDE.md            # Network setup, Docker deployment, firewall
+├── ANEL_DEPLOYMENT_SUMMARY.md     # Quick reference for ANEL runner
 ├── BACKEND_GAP_ANALYSIS.md        # Backend readiness assessment
 ├── DESIGN_PHASE_SUMMARY.md        # Complete design phase summary
 ├── FRONTEND_DESIGN_NOTES.md       # Main design specification
@@ -24,10 +25,12 @@ Complete frontend design and backend analysis for the MuTech Control System Pyth
 ├── FORMS_LAYOUT_VARIATIONS.md     # 4 layout approaches
 ├── FORMS_ADDITIONAL_FEATURES.md   # Clone, move, templates
 ├── PROTOTYPE_TESTING_GUIDE.md     # Testing procedures
+├── PROTOTYPES_GUIDE.md            # NEW: Guide to all prototypes
 ├── QUICK_REFERENCE.md             # System operations reference
 ├── frontend-design-concept.md     # Initial design concepts
-├── prototype-design-variations.html   # Interactive visual design prototype
-├── prototype-forms-complete.html      # Interactive forms prototype
+├── prototype-architecture.html    # NEW: Network architecture & communication
+├── prototype-design-variations.html   # Interactive visual design (UPDATED)
+├── prototype-forms-complete.html      # Interactive forms (UPDATED)
 └── PROJECT_STATUS.md              # This file
 ```
 
@@ -43,11 +46,13 @@ Complete frontend design and backend analysis for the MuTech Control System Pyth
 - [x] Testing guide and decision framework
 - [x] Mobile-first responsive approach
 
-### Interactive Prototypes (2 files)
-- [x] Design variations prototype (responsive)
-- [x] Forms complete prototype (all CRUD operations)
-- [x] Both include realistic data and interactions
+### Interactive Prototypes (3 files - UPDATED)
+- [x] **NEW: Architecture prototype** - Network topology, UDP broadcasts, deployment scenarios
+- [x] Design variations prototype (responsive) - **UPDATED with architecture overview**
+- [x] Forms complete prototype (all CRUD operations) - **UPDATED with system context**
+- [x] All include realistic data and interactions
 - [x] Ready for mobile device testing
+- [x] Interactive demos and simulations
 
 ### Key Design Decisions Made
 - **Progress bars:** Top border, drains 100% → 0%
