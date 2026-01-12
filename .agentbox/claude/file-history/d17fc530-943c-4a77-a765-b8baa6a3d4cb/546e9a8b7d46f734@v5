@@ -92,18 +92,6 @@
       display: flex;
       gap: 0.5rem;
       align-items: center;
-      margin-bottom: 0.5rem;
-    }
-
-    .exhibition-card-controls {
-      display: flex;
-      gap: 0.25rem;
-    }
-
-    .exhibition-card-controls .btn {
-      padding: 0.25rem 0.5rem;
-      font-size: 0.7rem;
-      flex: 1;
     }
 
     .stat-dot {
@@ -277,12 +265,9 @@
 
     .artwork-controls {
       display: flex;
+      flex-direction: column;
       gap: 0.25rem;
-      align-items: center;
-    }
-
-    .artwork-controls .btn-group {
-      display: flex;
+      min-width: 50px;
     }
 
     .artwork-controls .btn {
@@ -291,13 +276,13 @@
       line-height: 1.2;
     }
 
-    /* Accordion Panel - Compact for mobile */
+    /* Accordion Panel - Opens below artwork row */
     .device-accordion {
       display: none;
       background: #e9ecef;
       border-top: 2px solid #0d6efd;
-      padding: 0.75rem;
-      animation: slideDown 0.15s ease-out;
+      padding: 1rem;
+      animation: slideDown 0.2s ease-out;
     }
 
     .device-accordion.open {
@@ -307,61 +292,64 @@
     @keyframes slideDown {
       from {
         opacity: 0;
-        max-height: 0;
+        transform: translateY(-10px);
       }
       to {
         opacity: 1;
-        max-height: 200px;
+        transform: translateY(0);
       }
     }
 
     .accordion-header {
       font-weight: 600;
-      font-size: 0.85rem;
-      margin-bottom: 0.5rem;
-      color: #212529;
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
-    .device-info-compact {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      font-size: 0.75rem;
-      margin-bottom: 0.5rem;
+    .accordion-close {
+      cursor: pointer;
+      font-size: 1.2rem;
       color: #6c757d;
+      line-height: 1;
     }
 
-    .device-info-compact > span {
-      display: flex;
-      gap: 0.25rem;
+    .accordion-close:hover {
+      color: #000;
     }
 
-    .device-info-compact strong {
-      color: #212529;
+    .device-info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .device-info-item {
+      background: white;
+      padding: 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.8rem;
+    }
+
+    .device-info-label {
+      font-weight: 600;
+      color: #6c757d;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      margin-bottom: 0.25rem;
     }
 
     .device-actions {
       display: flex;
-      gap: 0.25rem;
+      gap: 0.5rem;
       flex-wrap: wrap;
     }
 
     .device-actions .btn {
-      padding: 0.3rem 0.6rem;
-      font-size: 0.7rem;
-    }
-
-    /* Manual command buttons - visible without accordion */
-    .manual-commands {
-      display: flex;
-      gap: 0.25rem;
-      flex-wrap: wrap;
-      margin-top: 0.5rem;
-    }
-
-    .manual-commands .btn {
-      padding: 0.25rem 0.5rem;
-      font-size: 0.7rem;
+      flex: 1;
+      min-width: 100px;
     }
 
     /* Mobile Adjustments */
@@ -372,7 +360,8 @@
       }
 
       .artwork-controls {
-        justify-content: flex-start;
+        flex-direction: row;
+        justify-content: flex-end;
       }
 
       .exhibition-card {
@@ -394,38 +383,27 @@
 
   <!-- Exhibition Overview - Compact Cards with Dots -->
   <div class="overview-section">
-    <div class="exhibition-card">
-      <div class="exhibition-card-name" onclick="scrollToExhibition('exhibition-1')" style="cursor: pointer;">Permanente Ausstellung</div>
+    <div class="exhibition-card" onclick="scrollToExhibition('exhibition-1')">
+      <div class="exhibition-card-name">Permanente Ausstellung</div>
       <div class="exhibition-card-stats">
         <span class="stat-dot on"></span><span class="stat-count">12</span>
         <span class="stat-dot off"></span><span class="stat-count">3</span>
         <span class="stat-dot error"></span><span class="stat-count">1</span>
       </div>
-      <div class="exhibition-card-controls">
-        <button class="btn btn-success btn-sm">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
-      </div>
     </div>
 
-    <div class="exhibition-card">
-      <div class="exhibition-card-name" onclick="scrollToExhibition('exhibition-2')" style="cursor: pointer;">Sonderausstellung Frühjahr</div>
+    <div class="exhibition-card" onclick="scrollToExhibition('exhibition-2')">
+      <div class="exhibition-card-name">Sonderausstellung Frühjahr</div>
       <div class="exhibition-card-stats">
         <span class="stat-dot on"></span><span class="stat-count">2</span>
         <span class="stat-dot off"></span><span class="stat-count">4</span>
       </div>
-      <div class="exhibition-card-controls">
-        <button class="btn btn-success btn-sm">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
-      </div>
     </div>
 
-    <div class="exhibition-card" style="opacity: 0.6;">
-      <div class="exhibition-card-name" onclick="scrollToExhibition('exhibition-3')" style="cursor: pointer;">Archiv <span class="badge bg-secondary">Disabled</span></div>
+    <div class="exhibition-card" style="opacity: 0.6;" onclick="scrollToExhibition('exhibition-3')">
+      <div class="exhibition-card-name">Archiv <span class="badge bg-secondary">Disabled</span></div>
       <div class="exhibition-card-stats">
         <span class="stat-dot off"></span><span class="stat-count">1</span>
-      </div>
-      <div class="exhibition-card-controls">
-        <button class="btn btn-secondary btn-sm" disabled>OFF</button>
       </div>
     </div>
   </div>
@@ -458,27 +436,40 @@
           </div>
         </div>
         <div class="artwork-controls">
-          <div class="btn-group">
-            <button class="btn btn-success btn-sm">ON</button>
-            <button class="btn btn-danger btn-sm">OFF</button>
-          </div>
+          <button class="btn btn-success btn-sm">ON</button>
+          <button class="btn btn-danger btn-sm">OFF</button>
         </div>
       </div>
 
       <!-- Accordion for Artwork 1 -->
       <div class="device-accordion" id="accordion-artwork-1">
-        <div class="accordion-header" id="accordion-title-artwork-1">Device Controls</div>
-        <div class="device-info-compact">
-          <span><strong>Host:</strong> <span id="device-host-artwork-1">-</span></span>
-          <span><strong>Type:</strong> <span id="device-type-artwork-1">-</span></span>
-          <span><strong>State:</strong> <span id="device-state-artwork-1">-</span></span>
-          <span id="device-cooldown-wrapper-artwork-1"><strong>Cooldown:</strong> <span id="device-cooldown-artwork-1">-</span></span>
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-1">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-1')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-1">192.168.10.45</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-1">PJLink</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-1">ON</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Cooldown</div>
+            <div id="device-cooldown-artwork-1">23 seconds remaining</div>
+          </div>
         </div>
         <div class="device-actions">
-          <button class="btn btn-success btn-sm" onclick="sendCommand('on')">ON</button>
-          <button class="btn btn-danger btn-sm" onclick="sendCommand('off')">OFF</button>
-          <button class="btn btn-info btn-sm" onclick="sendCommand('state')">State</button>
-          <button class="btn btn-secondary btn-sm" onclick="openDeviceSettings()">Settings</button>
+          <button class="btn btn-success" onclick="sendCommand('on')">Turn ON</button>
+          <button class="btn btn-danger" onclick="sendCommand('off')">Turn OFF</button>
+          <button class="btn btn-info" onclick="sendCommand('state')">Check State</button>
+          <button class="btn btn-secondary" onclick="openDeviceSettings()">Settings</button>
         </div>
       </div>
 
@@ -502,27 +493,40 @@
           </div>
         </div>
         <div class="artwork-controls">
-          <div class="btn-group">
-            <button class="btn btn-success btn-sm">ON</button>
-            <button class="btn btn-danger btn-sm">OFF</button>
-          </div>
+          <button class="btn btn-success btn-sm">ON</button>
+          <button class="btn btn-danger btn-sm">OFF</button>
         </div>
       </div>
 
       <!-- Accordion for Artwork 2 -->
       <div class="device-accordion" id="accordion-artwork-2">
-        <div class="accordion-header" id="accordion-title-artwork-2">Device Controls</div>
-        <div class="device-info-compact">
-          <span><strong>Host:</strong> <span id="device-host-artwork-2">-</span></span>
-          <span><strong>Type:</strong> <span id="device-type-artwork-2">-</span></span>
-          <span><strong>State:</strong> <span id="device-state-artwork-2">-</span></span>
-          <span id="device-cooldown-wrapper-artwork-2"><strong>Cooldown:</strong> <span id="device-cooldown-artwork-2">-</span></span>
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-2">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-2')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-2">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-2">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-2">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Cooldown</div>
+            <div id="device-cooldown-artwork-2">-</div>
+          </div>
         </div>
         <div class="device-actions">
-          <button class="btn btn-success btn-sm" onclick="sendCommand('on')">ON</button>
-          <button class="btn btn-danger btn-sm" onclick="sendCommand('off')">OFF</button>
-          <button class="btn btn-info btn-sm" onclick="sendCommand('state')">State</button>
-          <button class="btn btn-secondary btn-sm" onclick="openDeviceSettings()">Settings</button>
+          <button class="btn btn-success" onclick="sendCommand('on')">Turn ON</button>
+          <button class="btn btn-danger" onclick="sendCommand('off')">Turn OFF</button>
+          <button class="btn btn-info" onclick="sendCommand('state')">Check State</button>
+          <button class="btn btn-secondary" onclick="openDeviceSettings()">Settings</button>
         </div>
       </div>
 
@@ -532,11 +536,6 @@
           Raum 1.3 - Medienraum
           <span class="manual-badge">Manual</span>
           <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
-          <div class="manual-commands">
-            <button class="btn btn-primary btn-sm" onclick="sendCommand('restart')">Restart</button>
-            <button class="btn btn-warning btn-sm" onclick="sendCommand('backup')">Backup</button>
-            <button class="btn btn-secondary btn-sm" onclick="sendCommand('status')">Status</button>
-          </div>
         </div>
         <div class="devices-container">
           <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-3', 'media-1')">
@@ -547,20 +546,35 @@
           </div>
         </div>
         <div class="artwork-controls">
-          <!-- No controls for manual -->
+          <button class="btn btn-secondary btn-sm" disabled>Manual</button>
         </div>
       </div>
 
       <!-- Accordion for Artwork 3 -->
       <div class="device-accordion" id="accordion-artwork-3">
-        <div class="accordion-header" id="accordion-title-artwork-3">Device Info</div>
-        <div class="device-info-compact">
-          <span><strong>Host:</strong> <span id="device-host-artwork-3">-</span></span>
-          <span><strong>Type:</strong> <span id="device-type-artwork-3">-</span></span>
-          <span><strong>State:</strong> <span id="device-state-artwork-3">-</span></span>
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-3">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-3')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-3">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-3">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-3">-</div>
+          </div>
         </div>
         <div class="device-actions">
-          <button class="btn btn-secondary btn-sm" onclick="openDeviceSettings()">Settings</button>
+          <button class="btn btn-success" onclick="sendCommand('on')">Turn ON</button>
+          <button class="btn btn-danger" onclick="sendCommand('off')">Turn OFF</button>
+          <button class="btn btn-info" onclick="sendCommand('state')">Check State</button>
+          <button class="btn btn-secondary" onclick="openDeviceSettings()">Settings</button>
         </div>
       </div>
 
@@ -582,26 +596,36 @@
           </div>
         </div>
         <div class="artwork-controls">
-          <div class="btn-group">
-            <button class="btn btn-success btn-sm">ON</button>
-            <button class="btn btn-danger btn-sm">OFF</button>
-          </div>
+          <button class="btn btn-success btn-sm">ON</button>
+          <button class="btn btn-danger btn-sm">OFF</button>
         </div>
       </div>
 
       <!-- Accordion for Artwork 4 -->
       <div class="device-accordion" id="accordion-artwork-4">
-        <div class="accordion-header" id="accordion-title-artwork-4">Device Controls</div>
-        <div class="device-info-compact">
-          <span><strong>Host:</strong> <span id="device-host-artwork-4">-</span></span>
-          <span><strong>Type:</strong> <span id="device-type-artwork-4">-</span></span>
-          <span><strong>State:</strong> <span id="device-state-artwork-4">-</span></span>
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-4">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-4')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-4">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-4">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-4">-</div>
+          </div>
         </div>
         <div class="device-actions">
-          <button class="btn btn-success btn-sm" onclick="sendCommand('on')">ON</button>
-          <button class="btn btn-danger btn-sm" onclick="sendCommand('off')">OFF</button>
-          <button class="btn btn-info btn-sm" onclick="sendCommand('state')">State</button>
-          <button class="btn btn-secondary btn-sm" onclick="openDeviceSettings()">Settings</button>
+          <button class="btn btn-success" onclick="sendCommand('on')">Turn ON</button>
+          <button class="btn btn-danger" onclick="sendCommand('off')">Turn OFF</button>
+          <button class="btn btn-info" onclick="sendCommand('state')">Check State</button>
+          <button class="btn btn-secondary" onclick="openDeviceSettings()">Settings</button>
         </div>
       </div>
     </div>
@@ -629,27 +653,36 @@
           </div>
         </div>
         <div class="artwork-controls">
-          <div class="btn-group">
-            <button class="btn btn-success btn-sm">ON</button>
-            <button class="btn btn-danger btn-sm">OFF</button>
-          </div>
+          <button class="btn btn-success btn-sm">ON</button>
+          <button class="btn btn-danger btn-sm">OFF</button>
         </div>
       </div>
 
       <!-- Accordion for Artwork 5 -->
       <div class="device-accordion" id="accordion-artwork-5">
-        <div class="accordion-header" id="accordion-title-artwork-5">Device Controls</div>
-        <div class="device-info-compact">
-          <span><strong>Host:</strong> <span id="device-host-artwork-5">-</span></span>
-          <span><strong>Type:</strong> <span id="device-type-artwork-5">-</span></span>
-          <span><strong>State:</strong> <span id="device-state-artwork-5">-</span></span>
-          <span id="device-cooldown-wrapper-artwork-5"><strong>Cooldown:</strong> <span id="device-cooldown-artwork-5">-</span></span>
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-5">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-5')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-5">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-5">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-5">-</div>
+          </div>
         </div>
         <div class="device-actions">
-          <button class="btn btn-success btn-sm" onclick="sendCommand('on')">ON</button>
-          <button class="btn btn-danger btn-sm" onclick="sendCommand('off')">OFF</button>
-          <button class="btn btn-info btn-sm" onclick="sendCommand('state')">State</button>
-          <button class="btn btn-secondary btn-sm" onclick="openDeviceSettings()">Settings</button>
+          <button class="btn btn-success" onclick="sendCommand('on')">Turn ON</button>
+          <button class="btn btn-danger" onclick="sendCommand('off')">Turn OFF</button>
+          <button class="btn btn-info" onclick="sendCommand('state')">Check State</button>
+          <button class="btn btn-secondary" onclick="openDeviceSettings()">Settings</button>
         </div>
       </div>
 
@@ -674,26 +707,36 @@
           </div>
         </div>
         <div class="artwork-controls">
-          <div class="btn-group">
-            <button class="btn btn-success btn-sm">ON</button>
-            <button class="btn btn-danger btn-sm">OFF</button>
-          </div>
+          <button class="btn btn-success btn-sm">ON</button>
+          <button class="btn btn-danger btn-sm">OFF</button>
         </div>
       </div>
 
       <!-- Accordion for Artwork 6 -->
       <div class="device-accordion" id="accordion-artwork-6">
-        <div class="accordion-header" id="accordion-title-artwork-6">Device Controls</div>
-        <div class="device-info-compact">
-          <span><strong>Host:</strong> <span id="device-host-artwork-6">-</span></span>
-          <span><strong>Type:</strong> <span id="device-type-artwork-6">-</span></span>
-          <span><strong>State:</strong> <span id="device-state-artwork-6">-</span></span>
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-6">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-6')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-6">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-6">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-6">-</div>
+          </div>
         </div>
         <div class="device-actions">
-          <button class="btn btn-success btn-sm" onclick="sendCommand('on')">ON</button>
-          <button class="btn btn-danger btn-sm" onclick="sendCommand('off')">OFF</button>
-          <button class="btn btn-info btn-sm" onclick="sendCommand('state')">State</button>
-          <button class="btn btn-secondary btn-sm" onclick="openDeviceSettings()">Settings</button>
+          <button class="btn btn-success" onclick="sendCommand('on')">Turn ON</button>
+          <button class="btn btn-danger" onclick="sendCommand('off')">Turn OFF</button>
+          <button class="btn btn-info" onclick="sendCommand('state')">Check State</button>
+          <button class="btn btn-secondary" onclick="openDeviceSettings()">Settings</button>
         </div>
       </div>
     </div>
@@ -721,14 +764,26 @@
 
       <!-- Accordion for Artwork 7 -->
       <div class="device-accordion" id="accordion-artwork-7">
-        <div class="accordion-header" id="accordion-title-artwork-7">Device Info</div>
-        <div class="device-info-compact">
-          <span><strong>Host:</strong> <span id="device-host-artwork-7">192.168.1.200</span></span>
-          <span><strong>Type:</strong> <span id="device-type-artwork-7">Shell</span></span>
-          <span><strong>State:</strong> <span id="device-state-artwork-7">OFF</span></span>
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-7">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-7')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-7">192.168.1.200</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-7">Shell</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-7">OFF</div>
+          </div>
         </div>
         <div class="device-actions">
-          <button class="btn btn-secondary btn-sm" disabled>Device Disabled</button>
+          <button class="btn btn-secondary" disabled>Device Disabled</button>
         </div>
       </div>
     </div>
@@ -770,15 +825,7 @@
     }
 
     function openDeviceAccordion(deviceElement, artworkId, deviceId) {
-      const accordion = document.getElementById('accordion-' + artworkId);
-
-      // Toggle: if clicking same device, close accordion
-      if (currentActiveDevice === deviceElement && accordion.classList.contains('open')) {
-        closeAccordion(artworkId);
-        return;
-      }
-
-      // Close current accordion if different artwork
+      // Close current accordion if open
       if (currentOpenAccordion && currentOpenAccordion !== artworkId) {
         closeAccordion(currentOpenAccordion);
       }
@@ -792,6 +839,7 @@
       deviceElement.classList.add('active');
       currentActiveDevice = deviceElement;
 
+      const accordion = document.getElementById('accordion-' + artworkId);
       const device = deviceData[deviceId];
 
       if (device) {
