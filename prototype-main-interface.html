@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MuTech Control</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="rel="stylesheet">
   <style>
     :root {
       --state-error: #dc3545;
@@ -13,10 +14,15 @@
       --state-cooling: #ffc107;
     }
 
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       font-size: 13px;
       background: #f8f9fa;
       padding-bottom: 2rem;
+      margin: 0;
     }
 
     /* Header */
@@ -28,6 +34,9 @@
       border-bottom: 2px solid #dee2e6;
       padding: 0.75rem 1rem;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
     .app-header h1 {
@@ -35,7 +44,74 @@
       margin: 0;
     }
 
-    /* Exhibition Section */
+    .edit-mode-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .edit-mode-toggle input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* Exhibition Overview - Compact Floating Cards */
+    .overview-section {
+      padding: 1rem;
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      background: white;
+      margin: 0;
+      border-bottom: 2px solid #dee2e6;
+    }
+
+    .exhibition-card {
+      flex: 1;
+      min-width: 200px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .exhibition-card:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transform: translateY(-2px);
+    }
+
+    .exhibition-card-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .exhibition-card-stats {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .stat-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .stat-dot.on { background: var(--state-on); }
+    .stat-dot.off { background: var(--state-off); }
+    .stat-dot.error { background: var(--state-error); }
+    .stat-dot.cooling { background: var(--state-cooling); }
+
+    .stat-count {
+      font-size: 0.75rem;
+      color: #6c757d;
+    }
+
+    /* Table View */
     .exhibition-section {
       background: white;
       margin: 1rem;
@@ -45,39 +121,24 @@
     }
 
     .exhibition-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
       padding: 0.75rem 1rem;
       background: #0d6efd;
       color: white;
       font-weight: 600;
-    }
-
-    .exhibition-name {
       font-size: 1rem;
     }
 
-    .exhibition-controls {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
+    .artwork-table {
+      width: 100%;
     }
 
-    .exhibition-controls .btn {
-      padding: 0.25rem 0.75rem;
-      font-size: 0.75rem;
-      min-width: 45px;
-      line-height: 1.2;
-    }
-
-    /* Artwork Rows - Alternating Backgrounds */
     .artwork-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      display: grid;
+      grid-template-columns: minmax(150px, 1fr) 3fr auto;
+      gap: 1rem;
       padding: 0.75rem 1rem;
       border-bottom: 1px solid #dee2e6;
+      align-items: center;
       min-height: 60px;
     }
 
@@ -93,154 +154,21 @@
       border-bottom: none;
     }
 
-    .artwork-left {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
     .artwork-name {
       font-weight: 600;
       color: #212529;
       font-size: 0.9rem;
     }
 
-    .artwork-controls {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-      min-width: 50px;
-    }
-
-    .artwork-controls .btn {
-      padding: 0.25rem 0.5rem;
-      font-size: 0.7rem;
-      line-height: 1.2;
-    }
-
-    /* Device Badges - Compact */
-    .devices-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.25rem;
-    }
-
-    .device-badge {
-      position: relative;
-      display: inline-flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
-      cursor: pointer;
-      transition: all 0.15s;
-      overflow: hidden;
-      min-width: 80px;
-      max-width: 120px;
-      border: 1px solid;
-      font-size: 0.75rem;
-    }
-
-    .device-badge:hover {
-      transform: scale(1.05);
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    }
-
-    /* Progress bar - drains from 100% to 0% */
-    .progress-top-border {
-      position: absolute;
-      top: 0;
-      left: 0;
-      height: 3px;
-      background: rgba(255,255,255,0.8);
-      transition: width 1s linear;
-    }
-
-    .cooldown-100 .progress-top-border { width: 100%; }
-    .cooldown-75 .progress-top-border { width: 75%; }
-    .cooldown-50 .progress-top-border { width: 50%; }
-    .cooldown-25 .progress-top-border { width: 25%; }
-    .cooldown-0 .progress-top-border { width: 0%; }
-
-    /* Device States */
-    .device-error {
-      background: var(--state-error);
-      color: white;
-      border-color: #b02a37;
-    }
-
-    .device-off {
-      background: var(--state-off);
-      color: white;
-      border-color: #565e64;
-    }
-
-    .device-on {
-      background: var(--state-on);
-      color: white;
-      border-color: #146c43;
-    }
-
-    .device-cooling {
-      background: var(--state-cooling);
-      color: #000;
-      border-color: #cc9a06;
-    }
-
-    .device-name {
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-align: center;
-      line-height: 1.2;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
-    }
-
-    .device-info {
-      font-size: 0.65rem;
-      opacity: 0.9;
-      text-align: center;
-      line-height: 1.1;
-    }
-
-    .device-cooldown {
-      font-size: 0.65rem;
-      opacity: 0.85;
-      line-height: 1.1;
-    }
-
-    /* Automation Disabled - Striped Pattern */
-    .automation-disabled .artwork-name::before {
-      content: '⊘ ';
+    .artwork-name-manual {
       opacity: 0.6;
     }
 
-    .automation-disabled .devices-container {
-      margin-left: 1rem;
-      position: relative;
+    .artwork-name-manual::before {
+      content: '⊘ ';
     }
 
-    .automation-disabled .devices-container::before {
-      content: '';
-      position: absolute;
-      left: -0.75rem;
-      top: 0;
-      bottom: 0;
-      width: 3px;
-      background: repeating-linear-gradient(
-        45deg,
-        #dee2e6,
-        #dee2e6 5px,
-        transparent 5px,
-        transparent 10px
-      );
-    }
-
-    .automation-badge {
+    .manual-badge {
       display: inline-block;
       font-size: 0.65rem;
       padding: 0.1rem 0.4rem;
@@ -251,36 +179,193 @@
       font-weight: 500;
     }
 
-    /* Add Device Button */
     .btn-add-device {
       font-size: 0.7rem;
       padding: 0.25rem 0.5rem;
       margin-left: 0.5rem;
+      display: none;
+    }
+
+    body.edit-mode .btn-add-device {
+      display: inline-block;
+    }
+
+    .devices-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      align-items: center;
+    }
+
+    .device-badge {
+      position: relative;
+      padding: 0.35rem 0.6rem;
+      border-radius: 0.3rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border: 2px solid;
+      background: white;
+      user-select: none;
+    }
+
+    .device-badge:hover {
+      transform: scale(1.05);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+
+    .device-badge.active {
+      box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.3);
+    }
+
+    /* Device States - Color on name only */
+    .device-badge.device-error {
+      color: var(--state-error);
+      border-color: var(--state-error);
+    }
+
+    .device-badge.device-off {
+      color: var(--state-off);
+      border-color: var(--state-off);
+    }
+
+    .device-badge.device-on {
+      color: var(--state-on);
+      border-color: var(--state-on);
+    }
+
+    .device-badge.device-cooling {
+      color: #cc9a06;
+      border-color: var(--state-cooling);
+      background: #fff9e6;
+    }
+
+    /* Progress indicator - small dot */
+    .cooldown-indicator {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0;
+    }
+
+    .device-badge.has-cooldown .cooldown-indicator {
+      opacity: 0.5;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.7; }
+    }
+
+    .artwork-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 50px;
+    }
+
+    .artwork-controls .btn {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.7rem;
+      line-height: 1.2;
+    }
+
+    /* Accordion Panel - Opens below artwork row */
+    .device-accordion {
+      display: none;
+      background: #e9ecef;
+      border-top: 2px solid #0d6efd;
+      padding: 1rem;
+      animation: slideDown 0.2s ease-out;
+    }
+
+    .device-accordion.open {
+      display: block;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .accordion-header {
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .accordion-close {
+      cursor: pointer;
+      font-size: 1.2rem;
+      color: #6c757d;
+      line-height: 1;
+    }
+
+    .accordion-close:hover {
+      color: #000;
+    }
+
+    .device-info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .device-info-item {
+      background: white;
+      padding: 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.8rem;
+    }
+
+    .device-info-label {
+      font-weight: 600;
+      color: #6c757d;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      margin-bottom: 0.25rem;
+    }
+
+    .device-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .device-actions .btn {
+      flex: 1;
+      min-width: 100px;
     }
 
     /* Mobile Adjustments */
     @media (max-width: 768px) {
-      .ip-short span::before {
-        content: attr(data-short);
-      }
-      .ip-short span {
-        font-size: 0;
-      }
-
-      .device-badge {
-        min-width: 70px;
-      }
-
       .artwork-row {
-        flex-direction: column;
-        align-items: flex-start;
+        grid-template-columns: 1fr;
         gap: 0.5rem;
       }
 
       .artwork-controls {
         flex-direction: row;
-        width: 100%;
         justify-content: flex-end;
+      }
+
+      .exhibition-card {
+        min-width: 150px;
       }
     }
   </style>
@@ -290,270 +375,526 @@
   <!-- Header -->
   <div class="app-header">
     <h1>MuTech Control System</h1>
+    <div class="edit-mode-toggle">
+      <label for="edit-mode-checkbox" style="margin: 0; font-size: 0.9rem;">Edit Mode</label>
+      <input type="checkbox" id="edit-mode-checkbox" onchange="toggleEditMode(this)">
+    </div>
+  </div>
+
+  <!-- Exhibition Overview - Compact Cards with Dots -->
+  <div class="overview-section">
+    <div class="exhibition-card" onclick="scrollToExhibition('exhibition-1')">
+      <div class="exhibition-card-name">Permanente Ausstellung</div>
+      <div class="exhibition-card-stats">
+        <span class="stat-dot on"></span><span class="stat-count">12</span>
+        <span class="stat-dot off"></span><span class="stat-count">3</span>
+        <span class="stat-dot error"></span><span class="stat-count">1</span>
+      </div>
+    </div>
+
+    <div class="exhibition-card" onclick="scrollToExhibition('exhibition-2')">
+      <div class="exhibition-card-name">Sonderausstellung Frühjahr</div>
+      <div class="exhibition-card-stats">
+        <span class="stat-dot on"></span><span class="stat-count">2</span>
+        <span class="stat-dot off"></span><span class="stat-count">4</span>
+      </div>
+    </div>
+
+    <div class="exhibition-card" style="opacity: 0.6;" onclick="scrollToExhibition('exhibition-3')">
+      <div class="exhibition-card-name">Archiv <span class="badge bg-secondary">Disabled</span></div>
+      <div class="exhibition-card-stats">
+        <span class="stat-dot off"></span><span class="stat-count">1</span>
+      </div>
+    </div>
   </div>
 
   <!-- Exhibition 1: Permanente Ausstellung -->
-  <div class="exhibition-section">
-    <div class="exhibition-header">
-      <span class="exhibition-name">Permanente Ausstellung</span>
-      <div class="exhibition-controls">
-        <button class="btn btn-success btn-sm">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
-      </div>
-    </div>
+  <div class="exhibition-section" id="exhibition-1">
+    <div class="exhibition-header">Permanente Ausstellung</div>
 
-    <!-- Artwork Row 1 -->
-    <div class="artwork-row">
-      <div class="artwork-left">
+    <div class="artwork-table">
+      <!-- Artwork Row 1 -->
+      <div class="artwork-row">
         <div class="artwork-name">
           Raum 1.1 - Hauptgalerie
-          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add Device</button>
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
         </div>
         <div class="devices-container">
-          <div class="device-badge device-on cooldown-75" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Projektor Links</div>
-            <div class="device-info"><span data-short=".10.45">192.168.10.45</span></div>
-            <div class="device-cooldown">23s</div>
+          <div class="device-badge device-on has-cooldown" onclick="openDeviceAccordion(this, 'artwork-1', 'proj-left')">
+            <span class="cooldown-indicator"></span>
+            Projektor Links
           </div>
-          <div class="device-badge device-on cooldown-50" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Projektor Rechts</div>
-            <div class="device-info"><span data-short=".10.46">192.168.10.46</span></div>
-            <div class="device-cooldown">15s</div>
+          <div class="device-badge device-on has-cooldown" onclick="openDeviceAccordion(this, 'artwork-1', 'proj-right')">
+            <span class="cooldown-indicator"></span>
+            Projektor Rechts
           </div>
-          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">LED Panel 1</div>
-            <div class="device-info"><span data-short=".50.12:3">192.168.50.12:3</span></div>
+          <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-1', 'led-1')">
+            LED Panel 1
           </div>
-          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">LED Panel 2</div>
-            <div class="device-info"><span data-short=".50.12:2">192.168.50.12:2</span></div>
+          <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-1', 'led-2')">
+            LED Panel 2
           </div>
         </div>
+        <div class="artwork-controls">
+          <button class="btn btn-success btn-sm">ON</button>
+          <button class="btn btn-danger btn-sm">OFF</button>
+        </div>
       </div>
-      <div class="artwork-controls">
-        <button class="btn btn-success btn-sm">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
-      </div>
-    </div>
 
-    <!-- Artwork Row 2 -->
-    <div class="artwork-row">
-      <div class="artwork-left">
+      <!-- Accordion for Artwork 1 -->
+      <div class="device-accordion" id="accordion-artwork-1">
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-1">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-1')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-1">192.168.10.45</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-1">PJLink</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-1">ON</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Cooldown</div>
+            <div id="device-cooldown-artwork-1">23 seconds remaining</div>
+          </div>
+        </div>
+        <div class="device-actions">
+          <button class="btn btn-success" onclick="sendCommand('on')">Turn ON</button>
+          <button class="btn btn-danger" onclick="sendCommand('off')">Turn OFF</button>
+          <button class="btn btn-info" onclick="sendCommand('state')">Check State</button>
+          <button class="btn btn-secondary" onclick="openDeviceSettings()">Settings</button>
+        </div>
+      </div>
+
+      <!-- Artwork Row 2 -->
+      <div class="artwork-row">
         <div class="artwork-name">
           Raum 1.2 - Seitenflügel
-          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add Device</button>
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
         </div>
         <div class="devices-container">
-          <div class="device-badge device-on cooldown-100" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Beamer Nord</div>
-            <div class="device-info"><span data-short=".10.50">192.168.10.50</span></div>
-            <div class="device-cooldown">28s</div>
+          <div class="device-badge device-on has-cooldown" onclick="openDeviceAccordion(this, 'artwork-2', 'beamer-1')">
+            <span class="cooldown-indicator"></span>
+            Beamer Nord
           </div>
-          <div class="device-badge device-cooling cooldown-25" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Beamer Süd</div>
-            <div class="device-info"><span data-short=".10.51">192.168.10.51</span></div>
-            <div class="device-cooldown">8s</div>
+          <div class="device-badge device-cooling has-cooldown" onclick="openDeviceAccordion(this, 'artwork-2', 'beamer-2')">
+            <span class="cooldown-indicator"></span>
+            Beamer Süd
           </div>
-          <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Audio System</div>
-            <div class="device-info"><span data-short=".15.20:1">192.168.15.20:1</span></div>
+          <div class="device-badge device-on" onclick="openDeviceAccordion(this, 'artwork-2', 'audio-1')">
+            Audio System
           </div>
         </div>
+        <div class="artwork-controls">
+          <button class="btn btn-success btn-sm">ON</button>
+          <button class="btn btn-danger btn-sm">OFF</button>
+        </div>
       </div>
-      <div class="artwork-controls">
-        <button class="btn btn-success btn-sm">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
-      </div>
-    </div>
 
-    <!-- Artwork Row 3 - Automation Disabled -->
-    <div class="artwork-row automation-disabled">
-      <div class="artwork-left">
-        <div class="artwork-name">
+      <!-- Accordion for Artwork 2 -->
+      <div class="device-accordion" id="accordion-artwork-2">
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-2">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-2')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-2">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-2">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-2">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Cooldown</div>
+            <div id="device-cooldown-artwork-2">-</div>
+          </div>
+        </div>
+        <div class="device-actions">
+          <button class="btn btn-success" onclick="sendCommand('on')">Turn ON</button>
+          <button class="btn btn-danger" onclick="sendCommand('off')">Turn OFF</button>
+          <button class="btn btn-info" onclick="sendCommand('state')">Check State</button>
+          <button class="btn btn-secondary" onclick="openDeviceSettings()">Settings</button>
+        </div>
+      </div>
+
+      <!-- Artwork Row 3 - Manual Only -->
+      <div class="artwork-row">
+        <div class="artwork-name artwork-name-manual">
           Raum 1.3 - Medienraum
-          <span class="automation-badge">No Auto</span>
-          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add Device</button>
+          <span class="manual-badge">Manual</span>
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
         </div>
         <div class="devices-container">
-          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Media Server</div>
-            <div class="device-info"><span data-short=".1.100">192.168.1.100</span></div>
+          <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-3', 'media-1')">
+            Media Server
           </div>
-          <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Backup Server</div>
-            <div class="device-info"><span data-short=".1.101">192.168.1.101</span></div>
+          <div class="device-badge device-on" onclick="openDeviceAccordion(this, 'artwork-3', 'backup-1')">
+            Backup Server
           </div>
         </div>
+        <div class="artwork-controls">
+          <button class="btn btn-secondary btn-sm" disabled>Manual</button>
+        </div>
       </div>
-      <div class="artwork-controls">
-        <button class="btn btn-secondary btn-sm" disabled>Manual</button>
-      </div>
-    </div>
 
-    <!-- Artwork Row 4 -->
-    <div class="artwork-row">
-      <div class="artwork-left">
+      <!-- Accordion for Artwork 3 -->
+      <div class="device-accordion" id="accordion-artwork-3">
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-3">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-3')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-3">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-3">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-3">-</div>
+          </div>
+        </div>
+        <div class="device-actions">
+          <button class="btn btn-success" onclick="sendCommand('on')">Turn ON</button>
+          <button class="btn btn-danger" onclick="sendCommand('off')">Turn OFF</button>
+          <button class="btn btn-info" onclick="sendCommand('state')">Check State</button>
+          <button class="btn btn-secondary" onclick="openDeviceSettings()">Settings</button>
+        </div>
+      </div>
+
+      <!-- Artwork Row 4 -->
+      <div class="artwork-row">
         <div class="artwork-name">
           Raum 1.4 - Interaktiv
-          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add Device</button>
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
         </div>
         <div class="devices-container">
-          <div class="device-badge device-error cooldown-0" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Touch Display</div>
-            <div class="device-info"><span data-short=".10.70">192.168.10.70</span></div>
-            <div class="device-cooldown">Error</div>
+          <div class="device-badge device-error" onclick="openDeviceAccordion(this, 'artwork-4', 'touch-1')">
+            Touch Display
           </div>
-          <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">PC Station 1</div>
-            <div class="device-info"><span data-short=".1.80">192.168.1.80</span></div>
+          <div class="device-badge device-on" onclick="openDeviceAccordion(this, 'artwork-4', 'pc-1')">
+            PC Station 1
           </div>
-          <div class="device-badge device-on cooldown-0" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">PC Station 2</div>
-            <div class="device-info"><span data-short=".1.81">192.168.1.81</span></div>
+          <div class="device-badge device-on" onclick="openDeviceAccordion(this, 'artwork-4', 'pc-2')">
+            PC Station 2
           </div>
         </div>
+        <div class="artwork-controls">
+          <button class="btn btn-success btn-sm">ON</button>
+          <button class="btn btn-danger btn-sm">OFF</button>
+        </div>
       </div>
-      <div class="artwork-controls">
-        <button class="btn btn-success btn-sm">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
+
+      <!-- Accordion for Artwork 4 -->
+      <div class="device-accordion" id="accordion-artwork-4">
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-4">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-4')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-4">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-4">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-4">-</div>
+          </div>
+        </div>
+        <div class="device-actions">
+          <button class="btn btn-success" onclick="sendCommand('on')">Turn ON</button>
+          <button class="btn btn-danger" onclick="sendCommand('off')">Turn OFF</button>
+          <button class="btn btn-info" onclick="sendCommand('state')">Check State</button>
+          <button class="btn btn-secondary" onclick="openDeviceSettings()">Settings</button>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Exhibition 2: Sonderausstellung Frühjahr -->
-  <div class="exhibition-section">
-    <div class="exhibition-header">
-      <span class="exhibition-name">Sonderausstellung Frühjahr</span>
-      <div class="exhibition-controls">
-        <button class="btn btn-success btn-sm">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
-      </div>
-    </div>
+  <div class="exhibition-section" id="exhibition-2">
+    <div class="exhibition-header">Sonderausstellung Frühjahr</div>
 
-    <!-- Artwork Row 1 -->
-    <div class="artwork-row">
-      <div class="artwork-left">
+    <div class="artwork-table">
+      <!-- Artwork Row 1 -->
+      <div class="artwork-row">
         <div class="artwork-name">
           Raum 2.1 - Eingangshalle
-          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add Device</button>
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
         </div>
         <div class="devices-container">
-          <div class="device-badge device-on cooldown-100" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Projektor Mitte</div>
-            <div class="device-info"><span data-short=".10.90">192.168.10.90</span></div>
-            <div class="device-cooldown">30s</div>
+          <div class="device-badge device-on has-cooldown" onclick="openDeviceAccordion(this, 'artwork-5', 'proj-3')">
+            <span class="cooldown-indicator"></span>
+            Projektor Mitte
           </div>
-          <div class="device-badge device-on cooldown-75" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Licht System</div>
-            <div class="device-info"><span data-short=".50.20:1">192.168.50.20:1</span></div>
-            <div class="device-cooldown">22s</div>
+          <div class="device-badge device-on has-cooldown" onclick="openDeviceAccordion(this, 'artwork-5', 'light-1')">
+            <span class="cooldown-indicator"></span>
+            Licht System
           </div>
         </div>
+        <div class="artwork-controls">
+          <button class="btn btn-success btn-sm">ON</button>
+          <button class="btn btn-danger btn-sm">OFF</button>
+        </div>
       </div>
-      <div class="artwork-controls">
-        <button class="btn btn-success btn-sm">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
-      </div>
-    </div>
 
-    <!-- Artwork Row 2 -->
-    <div class="artwork-row">
-      <div class="artwork-left">
+      <!-- Accordion for Artwork 5 -->
+      <div class="device-accordion" id="accordion-artwork-5">
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-5">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-5')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-5">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-5">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-5">-</div>
+          </div>
+        </div>
+        <div class="device-actions">
+          <button class="btn btn-success" onclick="sendCommand('on')">Turn ON</button>
+          <button class="btn btn-danger" onclick="sendCommand('off')">Turn OFF</button>
+          <button class="btn btn-info" onclick="sendCommand('state')">Check State</button>
+          <button class="btn btn-secondary" onclick="openDeviceSettings()">Settings</button>
+        </div>
+      </div>
+
+      <!-- Artwork Row 2 -->
+      <div class="artwork-row">
         <div class="artwork-name">
           Raum 2.2 - Hauptraum
-          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add Device</button>
+          <button class="btn btn-outline-primary btn-sm btn-add-device" onclick="window.location='prototype-forms.html'">+ Add</button>
         </div>
         <div class="devices-container">
-          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Video Wall 1</div>
-            <div class="device-info"><span data-short=".10.95">192.168.10.95</span></div>
+          <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-6', 'video-1')">
+            Video Wall 1
           </div>
-          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Video Wall 2</div>
-            <div class="device-info"><span data-short=".10.96">192.168.10.96</span></div>
+          <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-6', 'video-2')">
+            Video Wall 2
           </div>
-          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Audio System</div>
-            <div class="device-info"><span data-short=".15.30:1">192.168.15.30:1</span></div>
+          <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-6', 'audio-2')">
+            Audio System
           </div>
-          <div class="device-badge device-off cooldown-0" onclick="toggleDevice(this)">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Ambient Light</div>
-            <div class="device-info"><span data-short=".50.21:2">192.168.50.21:2</span></div>
+          <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-6', 'ambient-1')">
+            Ambient Light
           </div>
         </div>
+        <div class="artwork-controls">
+          <button class="btn btn-success btn-sm">ON</button>
+          <button class="btn btn-danger btn-sm">OFF</button>
+        </div>
       </div>
-      <div class="artwork-controls">
-        <button class="btn btn-success btn-sm">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
+
+      <!-- Accordion for Artwork 6 -->
+      <div class="device-accordion" id="accordion-artwork-6">
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-6">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-6')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-6">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-6">-</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-6">-</div>
+          </div>
+        </div>
+        <div class="device-actions">
+          <button class="btn btn-success" onclick="sendCommand('on')">Turn ON</button>
+          <button class="btn btn-danger" onclick="sendCommand('off')">Turn OFF</button>
+          <button class="btn btn-info" onclick="sendCommand('state')">Check State</button>
+          <button class="btn btn-secondary" onclick="openDeviceSettings()">Settings</button>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Exhibition 3: Archiv (Disabled) -->
-  <div class="exhibition-section" style="opacity: 0.6;">
-    <div class="exhibition-header" style="background: #6c757d;">
-      <span class="exhibition-name">Archiv <span class="badge bg-dark">Disabled</span></span>
-      <div class="exhibition-controls">
-        <button class="btn btn-secondary btn-sm" disabled>OFF</button>
-      </div>
-    </div>
+  <div class="exhibition-section" id="exhibition-3" style="opacity: 0.6;">
+    <div class="exhibition-header" style="background: #6c757d;">Archiv <span class="badge bg-dark">Disabled</span></div>
 
-    <!-- Artwork Row 1 -->
-    <div class="artwork-row">
-      <div class="artwork-left">
+    <div class="artwork-table">
+      <div class="artwork-row">
         <div class="artwork-name">
           Raum 3.1 - Lagerraum
-          <button class="btn btn-outline-secondary btn-sm btn-add-device" disabled>+ Add Device</button>
+          <button class="btn btn-outline-secondary btn-sm btn-add-device" disabled>+ Add</button>
         </div>
         <div class="devices-container">
-          <div class="device-badge device-off cooldown-0">
-            <div class="progress-top-border"></div>
-            <div class="device-name">Storage PC</div>
-            <div class="device-info"><span data-short=".1.200">192.168.1.200</span></div>
+          <div class="device-badge device-off" onclick="openDeviceAccordion(this, 'artwork-7', 'storage-1')">
+            Storage PC
           </div>
         </div>
+        <div class="artwork-controls">
+          <button class="btn btn-secondary btn-sm" disabled>Manual</button>
+        </div>
       </div>
-      <div class="artwork-controls">
-        <button class="btn btn-secondary btn-sm" disabled>Manual</button>
+
+      <!-- Accordion for Artwork 7 -->
+      <div class="device-accordion" id="accordion-artwork-7">
+        <div class="accordion-header">
+          <span id="accordion-title-artwork-7">Device Controls</span>
+          <span class="accordion-close" onclick="closeAccordion('artwork-7')">&times;</span>
+        </div>
+        <div class="device-info-grid">
+          <div class="device-info-item">
+            <div class="device-info-label">Host</div>
+            <div id="device-host-artwork-7">192.168.1.200</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">Type</div>
+            <div id="device-type-artwork-7">Shell</div>
+          </div>
+          <div class="device-info-item">
+            <div class="device-info-label">State</div>
+            <div id="device-state-artwork-7">OFF</div>
+          </div>
+        </div>
+        <div class="device-actions">
+          <button class="btn btn-secondary" disabled>Device Disabled</button>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    function toggleDevice(element) {
-      // Demo: cycle through states
-      if (element.classList.contains('device-off')) {
-        element.classList.remove('device-off');
-        element.classList.add('device-on', 'cooldown-100');
-        element.querySelector('.device-cooldown').textContent = '30s';
-      } else if (element.classList.contains('device-on')) {
-        element.classList.remove('device-on', 'cooldown-100', 'cooldown-75', 'cooldown-50', 'cooldown-25');
-        element.classList.add('device-cooling', 'cooldown-50');
-        element.querySelector('.device-cooldown').textContent = '15s';
-      } else if (element.classList.contains('device-cooling')) {
-        element.classList.remove('device-cooling', 'cooldown-50');
-        element.classList.add('device-off', 'cooldown-0');
-        element.querySelector('.device-cooldown').textContent = '';
+    let currentOpenAccordion = null;
+    let currentActiveDevice = null;
+
+    // Mock device data
+    const deviceData = {
+      'proj-left': { name: 'Projektor Links', host: '192.168.10.45', type: 'PJLink', state: 'ON', cooldown: '23s' },
+      'proj-right': { name: 'Projektor Rechts', host: '192.168.10.46', type: 'PJLink', state: 'ON', cooldown: '15s' },
+      'led-1': { name: 'LED Panel 1', host: '192.168.50.12:3', type: 'ANEL', state: 'OFF', cooldown: '-' },
+      'led-2': { name: 'LED Panel 2', host: '192.168.50.12:2', type: 'ANEL', state: 'OFF', cooldown: '-' },
+      'beamer-1': { name: 'Beamer Nord', host: '192.168.10.50', type: 'PJLink', state: 'ON', cooldown: '28s' },
+      'beamer-2': { name: 'Beamer Süd', host: '192.168.10.51', type: 'PJLink', state: 'Cooling', cooldown: '8s' },
+      'audio-1': { name: 'Audio System', host: '192.168.15.20:1', type: 'NETIO', state: 'ON', cooldown: '-' },
+      'media-1': { name: 'Media Server', host: '192.168.1.100', type: 'Shell', state: 'OFF', cooldown: '-' },
+      'backup-1': { name: 'Backup Server', host: '192.168.1.101', type: 'Shell', state: 'ON', cooldown: '-' },
+      'touch-1': { name: 'Touch Display', host: '192.168.10.70', type: 'PJLink', state: 'ERROR', cooldown: '-' },
+      'pc-1': { name: 'PC Station 1', host: '192.168.1.80', type: 'Shell', state: 'ON', cooldown: '-' },
+      'pc-2': { name: 'PC Station 2', host: '192.168.1.81', type: 'Shell', state: 'ON', cooldown: '-' },
+      'proj-3': { name: 'Projektor Mitte', host: '192.168.10.90', type: 'PJLink', state: 'ON', cooldown: '30s' },
+      'light-1': { name: 'Licht System', host: '192.168.50.20:1', type: 'ANEL', state: 'ON', cooldown: '22s' },
+      'video-1': { name: 'Video Wall 1', host: '192.168.10.95', type: 'PJLink', state: 'OFF', cooldown: '-' },
+      'video-2': { name: 'Video Wall 2', host: '192.168.10.96', type: 'PJLink', state: 'OFF', cooldown: '-' },
+      'audio-2': { name: 'Audio System', host: '192.168.15.30:1', type: 'NETIO', state: 'OFF', cooldown: '-' },
+      'ambient-1': { name: 'Ambient Light', host: '192.168.50.21:2', type: 'ANEL', state: 'OFF', cooldown: '-' },
+      'storage-1': { name: 'Storage PC', host: '192.168.1.200', type: 'Shell', state: 'OFF', cooldown: '-' }
+    };
+
+    function toggleEditMode(checkbox) {
+      if (checkbox.checked) {
+        document.body.classList.add('edit-mode');
+      } else {
+        document.body.classList.remove('edit-mode');
       }
     }
+
+    function openDeviceAccordion(deviceElement, artworkId, deviceId) {
+      // Close current accordion if open
+      if (currentOpenAccordion && currentOpenAccordion !== artworkId) {
+        closeAccordion(currentOpenAccordion);
+      }
+
+      // Remove active class from previous device
+      if (currentActiveDevice) {
+        currentActiveDevice.classList.remove('active');
+      }
+
+      // Add active class to clicked device
+      deviceElement.classList.add('active');
+      currentActiveDevice = deviceElement;
+
+      const accordion = document.getElementById('accordion-' + artworkId);
+      const device = deviceData[deviceId];
+
+      if (device) {
+        // Update accordion content
+        document.getElementById('accordion-title-' + artworkId).textContent = device.name;
+        document.getElementById('device-host-' + artworkId).textContent = device.host;
+        document.getElementById('device-type-' + artworkId).textContent = device.type;
+        document.getElementById('device-state-' + artworkId).textContent = device.state;
+
+        const cooldownEl = document.getElementById('device-cooldown-' + artworkId);
+        if (cooldownEl) {
+          cooldownEl.textContent = device.cooldown !== '-' ? device.cooldown + ' remaining' : 'Ready';
+        }
+      }
+
+      // Open accordion
+      accordion.classList.add('open');
+      currentOpenAccordion = artworkId;
+    }
+
+    function closeAccordion(artworkId) {
+      const accordion = document.getElementById('accordion-' + artworkId);
+      accordion.classList.remove('open');
+
+      // Remove active class from device
+      if (currentActiveDevice) {
+        currentActiveDevice.classList.remove('active');
+        currentActiveDevice = null;
+      }
+
+      if (currentOpenAccordion === artworkId) {
+        currentOpenAccordion = null;
+      }
+    }
+
+    function sendCommand(command) {
+      alert('Sending ' + command.toUpperCase() + ' command to device');
+    }
+
+    function openDeviceSettings() {
+      alert('Opening device settings');
+    }
+
+    function scrollToExhibition(id) {
+      document.getElementById(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Close accordion when clicking outside
+    document.addEventListener('click', function(event) {
+      if (currentOpenAccordion &&
+          !event.target.closest('.device-accordion') &&
+          !event.target.closest('.device-badge')) {
+        closeAccordion(currentOpenAccordion);
+      }
+    });
   </script>
 
 </body>
