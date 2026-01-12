@@ -133,24 +133,11 @@
     }
 
     .exhibition-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
       padding: 0.75rem 1rem;
       background: #0d6efd;
       color: white;
       font-weight: 600;
       font-size: 1rem;
-    }
-
-    .exhibition-header-controls {
-      display: flex;
-      gap: 0.25rem;
-    }
-
-    .exhibition-header-controls .btn {
-      padding: 0.3rem 0.6rem;
-      font-size: 0.7rem;
     }
 
     .artwork-table {
@@ -166,12 +153,12 @@
       min-height: 60px;
     }
 
-    .artwork-row:nth-child(odd) {
-      background: white;
-    }
-
     .artwork-row:nth-child(even) {
       background: #f8f9fa;
+    }
+
+    .artwork-row:nth-child(odd) {
+      background: white;
     }
 
     .artwork-row:last-child {
@@ -444,13 +431,7 @@
 
   <!-- Exhibition 1: Permanente Ausstellung -->
   <div class="exhibition-section" id="exhibition-1">
-    <div class="exhibition-header">
-      <span>Permanente Ausstellung</span>
-      <div class="exhibition-header-controls">
-        <button class="btn btn-success btn-sm">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
-      </div>
-    </div>
+    <div class="exhibition-header">Permanente Ausstellung</div>
 
     <div class="artwork-table">
       <!-- Artwork Row 1 -->
@@ -634,13 +615,7 @@
 
   <!-- Exhibition 2: Sonderausstellung Frühjahr -->
   <div class="exhibition-section" id="exhibition-2">
-    <div class="exhibition-header">
-      <span>Sonderausstellung Frühjahr</span>
-      <div class="exhibition-header-controls">
-        <button class="btn btn-success btn-sm">ON</button>
-        <button class="btn btn-danger btn-sm">OFF</button>
-      </div>
-    </div>
+    <div class="exhibition-header">Sonderausstellung Frühjahr</div>
 
     <div class="artwork-table">
       <!-- Artwork Row 1 -->
@@ -736,12 +711,7 @@
 
   <!-- Exhibition 3: Archiv (Disabled) -->
   <div class="exhibition-section" id="exhibition-3" style="opacity: 0.6;">
-    <div class="exhibition-header" style="background: #6c757d;">
-      <span>Archiv <span class="badge bg-dark">Disabled</span></span>
-      <div class="exhibition-header-controls">
-        <button class="btn btn-secondary btn-sm" disabled>OFF</button>
-      </div>
-    </div>
+    <div class="exhibition-header" style="background: #6c757d;">Archiv <span class="badge bg-dark">Disabled</span></div>
 
     <div class="artwork-table">
       <div class="artwork-row">
