@@ -325,3 +325,43 @@ class StateMonitor:
         # Clear all last_polled times to force immediate poll
         self._last_polled.clear()
         await self._poll_due_devices()
+
+    # ========== Status API for Frontend ==========
+
+    def get_device_poll_status(self, device_id: str) -> dict:
+        """Get polling status for a single device.
+
+        Returns:
+            dict with is_verifying, poll_interval, last_polled_at, seconds_until_next_poll
+        """
+        is_verifying = device_id in self._fast_poll_devices
+        interval = self.fast_interval if is_verifying else self.interval
+        last_polled = self._last_polled.get(device_id)
+
+        seconds_until_next = 0
+        if last_polled:
+            elapsed = (datetime.now(timezone.utc) - last_polled).total_seconds()
+            seconds_until_next = max(0, int(interval - elapsed))
+
+        return {
+            "is_verifying": is_verifying,
+            "poll_interval": interval,
+            "last_polled_at": last_polled.isoformat() if last_polled else None,
+            "seconds_until_next_poll": seconds_until_next,
+        }
+
+    def get_monitoring_status(self) -> dict:
+        """Get overall monitoring status.
+
+        Returns:
+            dict with enabled, running, intervals, fast_poll_count, etc.
+        """
+        return {
+            "enabled": self.enabled,
+            "running": self._running,
+            "poll_interval_seconds": self.interval,
+            "fast_poll_interval_seconds": self.fast_interval,
+            "fast_poll_device_count": len(self._fast_poll_devices),
+            "fast_poll_device_ids": list(self._fast_poll_devices.keys()),
+            "batch_size": self.batch_size,
+        }

@@ -239,9 +239,56 @@
       color: #E65100;
     }
 
+    .device-state.verifying {
+      background: #E3F2FD;
+      color: #1565C0;
+      animation: pulse 1s infinite;
+    }
+
     .device-controls {
       display: flex;
       gap: 6px;
+    }
+
+    .poll-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 10px;
+    }
+
+    .poll-countdown {
+      font-size: 11px;
+      color: #999;
+      min-width: 45px;
+    }
+
+    .poll-bar {
+      width: 40px;
+      height: 4px;
+      background: #e0e0e0;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .poll-bar-fill {
+      height: 100%;
+      background: #2196F3;
+      transition: width 1s linear;
+    }
+
+    .poll-bar-fill.fast {
+      background: #FF9800;
+    }
+
+    .verifying-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      background: #E3F2FD;
+      color: #1565C0;
+      border-radius: 3px;
+      font-weight: 600;
+      animation: pulse 1.5s infinite;
     }
 
     .loading {
@@ -342,6 +389,26 @@
         '3': 'warming'
       };
       return states[state.toString()] || 'unknown';
+    }
+
+    // Format poll indicator
+    function formatPollIndicator(pollStatus) {
+      if (!pollStatus) return '';
+
+      const isVerifying = pollStatus.is_verifying;
+      const interval = pollStatus.poll_interval;
+      const secondsLeft = pollStatus.seconds_until_next_poll;
+      const progress = Math.max(0, Math.min(100, ((interval - secondsLeft) / interval) * 100));
+
+      return `
+        <div class="poll-indicator">
+          ${isVerifying ? '<span class="verifying-badge">VERIFYING</span>' : ''}
+          <div class="poll-bar">
+            <div class="poll-bar-fill ${isVerifying ? 'fast' : ''}" style="width: ${progress}%"></div>
+          </div>
+          <span class="poll-countdown">${secondsLeft}s</span>
+        </div>
+      `;
     }
 
     // Control device
@@ -446,13 +513,15 @@
                 <div class="devices">
                   ${aw.devices.map(dev => {
                     const stateClass = formatState(dev.state);
+                    const isVerifying = dev.poll_status?.is_verifying;
                     return `
-                      <div class="device state-${stateClass}">
+                      <div class="device state-${stateClass}${isVerifying ? ' verifying' : ''}">
                         <div class="device-info">
                           <div class="device-name">${dev.name}</div>
                           <div class="device-details">
                             <span class="device-state ${stateClass}">${stateClass}</span>
                             ${dev.device_type} @ ${dev.host}${dev.port ? ':' + dev.port : ''}
+                            ${formatPollIndicator(dev.poll_status)}
                           </div>
                         </div>
                         <div class="device-controls">

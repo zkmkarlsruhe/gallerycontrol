@@ -4,7 +4,7 @@ import logging
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -15,6 +15,15 @@ from mutech_control.database.models import Artwork, Device, Exhibition
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/state", tags=["state"])
+
+
+class DevicePollStatus(BaseModel):
+    """Device polling status model."""
+
+    is_verifying: bool = False
+    poll_interval: int = 60
+    last_polled_at: str | None = None
+    seconds_until_next_poll: int = 0
 
 
 class DeviceState(BaseModel):
@@ -31,6 +40,7 @@ class DeviceState(BaseModel):
     exclude_from_auto_onoff: bool
     last_checked_at: str | None
     next_check_allowed_at: str | None
+    poll_status: DevicePollStatus | None = None
 
     class Config:
         from_attributes = True
@@ -60,8 +70,16 @@ class ExhibitionState(BaseModel):
         from_attributes = True
 
 
+def _get_poll_status(request: Request, device_id: str) -> dict | None:
+    """Get poll status for a device if state_monitor is available."""
+    state_monitor = getattr(request.app.state, "state_monitor", None)
+    if state_monitor:
+        return state_monitor.get_device_poll_status(device_id)
+    return None
+
+
 @router.get("/exhibitions", response_model=List[ExhibitionState])
-async def list_all_exhibitions(session=Depends(get_session)):
+async def list_all_exhibitions(request: Request, session=Depends(get_session)):
     """List all exhibitions with full state tree."""
     try:
         stmt = (
@@ -101,6 +119,7 @@ async def list_all_exhibitions(session=Depends(get_session)):
                                 "next_check_allowed_at": dev.next_check_allowed_at.isoformat()
                                 if dev.next_check_allowed_at
                                 else None,
+                                "poll_status": _get_poll_status(request, str(dev.id)),
                             }
                             for dev in aw.devices
                         ],
@@ -117,7 +136,7 @@ async def list_all_exhibitions(session=Depends(get_session)):
 
 
 @router.get("/exhibition/{exhibition_id}", response_model=ExhibitionState)
-async def get_exhibition_state(exhibition_id: str, session=Depends(get_session)):
+async def get_exhibition_state(request: Request, exhibition_id: str, session=Depends(get_session)):
     """Get exhibition state with all artworks and devices."""
     try:
         stmt = (
@@ -159,6 +178,7 @@ async def get_exhibition_state(exhibition_id: str, session=Depends(get_session))
                             "next_check_allowed_at": dev.next_check_allowed_at.isoformat()
                             if dev.next_check_allowed_at
                             else None,
+                            "poll_status": _get_poll_status(request, str(dev.id)),
                         }
                         for dev in aw.devices
                     ],
@@ -175,7 +195,7 @@ async def get_exhibition_state(exhibition_id: str, session=Depends(get_session))
 
 
 @router.get("/device/{device_id}", response_model=DeviceState)
-async def get_device_state(device_id: str, session=Depends(get_session)):
+async def get_device_state(request: Request, device_id: str, session=Depends(get_session)):
     """Get single device state."""
     try:
         stmt = select(Device).where(Device.id == UUID(device_id))
@@ -201,6 +221,7 @@ async def get_device_state(device_id: str, session=Depends(get_session)):
             "next_check_allowed_at": device.next_check_allowed_at.isoformat()
             if device.next_check_allowed_at
             else None,
+            "poll_status": _get_poll_status(request, device_id),
         }
 
     except HTTPException:
@@ -208,3 +229,23 @@ async def get_device_state(device_id: str, session=Depends(get_session)):
     except Exception as e:
         logger.error(f"Error getting device state: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/monitoring")
+async def get_monitoring_status(request: Request):
+    """Get state monitoring status.
+
+    Returns overall monitoring configuration and status including:
+    - Whether monitoring is enabled and running
+    - Normal and fast poll intervals
+    - List of devices currently in fast poll (verification) mode
+    """
+    state_monitor = getattr(request.app.state, "state_monitor", None)
+    if not state_monitor:
+        return {
+            "enabled": False,
+            "running": False,
+            "message": "State monitor not initialized",
+        }
+
+    return state_monitor.get_monitoring_status()
