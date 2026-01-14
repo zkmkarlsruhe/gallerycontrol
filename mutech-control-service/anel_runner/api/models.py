@@ -61,3 +61,20 @@ class ServiceInfoResponse(BaseModel):
     udp_send_port: int
     udp_receive_port: int
     command_delay_seconds: float
+
+
+class CachedDeviceState(BaseModel):
+    """Cached device state from UDP broadcast."""
+
+    host: str
+    name: str
+    ports: list[PortInfo]
+    temperature: float | None = None
+    mac: str | None = None
+
+
+class BroadcastCacheResponse(BaseModel):
+    """Response for broadcast cache endpoint."""
+
+    device_count: int
+    devices: list[CachedDeviceState]

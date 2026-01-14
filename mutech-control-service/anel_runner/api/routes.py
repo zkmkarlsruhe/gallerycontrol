@@ -6,6 +6,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from anel_runner.api.models import (
+    BroadcastCacheResponse,
+    CachedDeviceState,
     CommandResponse,
     DeviceInfoResponse,
     PortInfo,
@@ -204,4 +206,79 @@ async def get_device_info(
         )
     except Exception as e:
         logger.exception(f"Unexpected error getting info for {host}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/broadcast/cache", response_model=BroadcastCacheResponse)
+async def get_broadcast_cache(
+    service: ANELService = Depends(get_anel_service),
+) -> BroadcastCacheResponse:
+    """
+    Get all cached device states from UDP broadcasts.
+
+    ANEL devices periodically broadcast their state. This endpoint returns
+    all cached states without querying devices directly.
+    """
+    try:
+        cached_devices = []
+        for host, status in service._device_states.items():
+            cached_devices.append(
+                CachedDeviceState(
+                    host=host,
+                    name=status.name,
+                    ports=[
+                        PortInfo(port=p.port, name=p.name, state=p.state)
+                        for p in status.ports
+                    ],
+                    temperature=status.temperature,
+                    mac=status.mac,
+                )
+            )
+
+        return BroadcastCacheResponse(
+            device_count=len(cached_devices),
+            devices=cached_devices,
+        )
+    except Exception as e:
+        logger.exception("Error getting broadcast cache")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{host}/cached", response_model=DeviceInfoResponse)
+async def get_cached_state(
+    host: str,
+    service: ANELService = Depends(get_anel_service),
+) -> DeviceInfoResponse:
+    """
+    Get cached device state without querying.
+
+    Returns state from last UDP broadcast. Returns 404 if device has not
+    broadcasted since service start.
+
+    - **host**: Device IP address
+    """
+    try:
+        status = service.get_cached_state(host)
+        if status:
+            return DeviceInfoResponse(
+                host=host,
+                name=status.name,
+                ip=status.ip,
+                mac=status.mac,
+                ports=[
+                    PortInfo(port=p.port, name=p.name, state=p.state)
+                    for p in status.ports
+                ],
+                temperature=status.temperature,
+                success=True,
+            )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No cached state for {host}. Device may not have broadcasted yet.",
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error getting cached state for {host}")
         raise HTTPException(status_code=500, detail=str(e))

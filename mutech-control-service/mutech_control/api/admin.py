@@ -100,6 +100,37 @@ async def list_exhibitions(session=Depends(get_session)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/exhibitions/{exhibition_id}")
+async def get_exhibition(exhibition_id: str, session=Depends(get_session)):
+    """Get a single exhibition by ID."""
+    try:
+        stmt = (
+            select(Exhibition)
+            .where(Exhibition.id == UUID(exhibition_id))
+            .options(selectinload(Exhibition.artworks))
+        )
+        result = await session.execute(stmt)
+        exhibition = result.scalar_one_or_none()
+
+        if not exhibition:
+            raise HTTPException(status_code=404, detail="Exhibition not found")
+
+        return {
+            "id": str(exhibition.id),
+            "name": exhibition.name,
+            "enabled": exhibition.enabled,
+            "created_at": exhibition.created_at.isoformat(),
+            "updated_at": exhibition.updated_at.isoformat(),
+            "artwork_count": len(exhibition.artworks),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting exhibition: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/exhibitions", status_code=201)
 async def create_exhibition(
     exhibition: ExhibitionCreate, session=Depends(get_session)
@@ -205,6 +236,42 @@ async def list_artworks(
 
     except Exception as e:
         logger.error(f"Error listing artworks: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/artworks/{artwork_id}")
+async def get_artwork(artwork_id: str, session=Depends(get_session)):
+    """Get a single artwork by ID."""
+    try:
+        stmt = (
+            select(Artwork)
+            .where(Artwork.id == UUID(artwork_id))
+            .options(
+                selectinload(Artwork.exhibition),
+                selectinload(Artwork.devices),
+            )
+        )
+        result = await session.execute(stmt)
+        artwork = result.scalar_one_or_none()
+
+        if not artwork:
+            raise HTTPException(status_code=404, detail="Artwork not found")
+
+        return {
+            "id": str(artwork.id),
+            "name": artwork.name,
+            "exhibition_id": str(artwork.exhibition_id),
+            "exhibition_name": artwork.exhibition.name if artwork.exhibition else None,
+            "enabled": artwork.enabled,
+            "created_at": artwork.created_at.isoformat(),
+            "updated_at": artwork.updated_at.isoformat(),
+            "device_count": len(artwork.devices),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting artwork: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -335,6 +402,48 @@ async def list_devices(
 
     except Exception as e:
         logger.error(f"Error listing devices: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/devices/{device_id}")
+async def get_device(device_id: str, session=Depends(get_session)):
+    """Get a single device by ID."""
+    try:
+        stmt = (
+            select(Device)
+            .where(Device.id == UUID(device_id))
+            .options(selectinload(Device.artwork).selectinload(Artwork.exhibition))
+        )
+        result = await session.execute(stmt)
+        device = result.scalar_one_or_none()
+
+        if not device:
+            raise HTTPException(status_code=404, detail="Device not found")
+
+        return {
+            "id": str(device.id),
+            "name": device.name,
+            "device_type": device.device_type,
+            "host": device.host,
+            "port": device.port,
+            "artwork_id": str(device.artwork_id),
+            "artwork_name": device.artwork.name if device.artwork else None,
+            "exhibition_id": str(device.artwork.exhibition_id) if device.artwork else None,
+            "exhibition_name": device.artwork.exhibition.name if device.artwork and device.artwork.exhibition else None,
+            "enabled": device.enabled,
+            "automation_enabled": device.automation_enabled,
+            "exclude_from_auto_onoff": device.exclude_from_auto_onoff,
+            "state": device.state,
+            "config": device.config,
+            "last_checked_at": device.last_checked_at.isoformat() if device.last_checked_at else None,
+            "created_at": device.created_at.isoformat(),
+            "updated_at": device.updated_at.isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting device: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
