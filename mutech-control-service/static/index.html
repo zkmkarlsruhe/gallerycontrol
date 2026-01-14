@@ -342,6 +342,56 @@
       font-size: 12px;
       color: #999;
     }
+
+    /* Disabled/inherited disabled states */
+    .exhibition.disabled,
+    .artwork.disabled,
+    .device.disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .exhibition.inherited-disabled,
+    .artwork.inherited-disabled,
+    .device.inherited-disabled {
+      opacity: 0.6;
+    }
+
+    .disabled-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      background: #FFEBEE;
+      color: #C62828;
+      border-radius: 3px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    .disabled-badge.inherited {
+      background: #FFF3E0;
+      color: #E65100;
+    }
+
+    .view-toggle {
+      display: flex;
+      gap: 8px;
+      margin-left: 20px;
+    }
+
+    .view-toggle button {
+      padding: 6px 12px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .view-toggle button.active {
+      background: #2196F3;
+      color: white;
+      border-color: #2196F3;
+    }
   </style>
 </head>
 <body>
@@ -352,6 +402,10 @@
         <div class="refresh-info" id="lastUpdate">Last updated: Never</div>
       </div>
       <div class="status">
+        <div class="view-toggle">
+          <button id="viewControl" class="active" onclick="setViewMode('control')">Control</button>
+          <button id="viewAll" onclick="setViewMode('all')">Show All</button>
+        </div>
         <span id="statusText">Connecting...</span>
         <div class="status-indicator" id="statusIndicator"></div>
       </div>
@@ -367,6 +421,15 @@
   <script>
     const API_BASE = '';  // Same origin
     let pollInterval = null;
+    let viewMode = 'control';  // 'control' (hide disabled) or 'all' (show all)
+
+    // View mode toggle
+    function setViewMode(mode) {
+      viewMode = mode;
+      document.getElementById('viewControl').classList.toggle('active', mode === 'control');
+      document.getElementById('viewAll').classList.toggle('active', mode === 'all');
+      loadExhibitions();
+    }
 
     // Toast notification
     function showToast(message, type = 'success') {
@@ -484,62 +547,119 @@
         document.getElementById('statusText').textContent = 'Connected';
 
         const container = document.getElementById('exhibitions');
-        container.innerHTML = exhibitions.map(ex => `
-          <div class="exhibition">
-            <div class="exhibition-header">
-              <div class="exhibition-title">${ex.name}</div>
-              <div class="exhibition-controls">
-                <button class="btn btn-on" onclick="controlExhibition('${ex.id}', 'on', '${ex.name}')">
-                  Turn All ON
-                </button>
-                <button class="btn btn-off" onclick="controlExhibition('${ex.id}', 'off', '${ex.name}')">
-                  Turn All OFF
-                </button>
-              </div>
-            </div>
-            ${ex.artworks.map(aw => `
-              <div class="artwork">
-                <div class="artwork-header">
-                  <div class="artwork-title">${aw.name}</div>
-                  <div class="artwork-controls">
-                    <button class="btn btn-on btn-sm" onclick="controlArtwork('${aw.id}', 'on', '${aw.name}')">
-                      ON
-                    </button>
-                    <button class="btn btn-off btn-sm" onclick="controlArtwork('${aw.id}', 'off', '${aw.name}')">
-                      OFF
-                    </button>
-                  </div>
+
+        // Helper to determine disabled class
+        function getDisabledClass(item, isDevice = false, parentDisabled = false) {
+          if (!item.effective_enabled) {
+            // Item is disabled - check if it's inherited or direct
+            if (item.enabled && parentDisabled) {
+              return 'inherited-disabled';  // Parent is disabled
+            } else if (!item.enabled) {
+              return 'disabled';  // Directly disabled
+            }
+            return 'inherited-disabled';
+          }
+          return '';
+        }
+
+        // Helper to get disabled badge
+        function getDisabledBadge(item, parentDisabled = false) {
+          if (!item.effective_enabled) {
+            if (item.enabled && parentDisabled) {
+              return '<span class="disabled-badge inherited">PARENT DISABLED</span>';
+            } else if (!item.enabled) {
+              return '<span class="disabled-badge">DISABLED</span>';
+            }
+          }
+          return '';
+        }
+
+        // Filter based on view mode
+        let displayExhibitions = exhibitions;
+        if (viewMode === 'control') {
+          displayExhibitions = exhibitions.filter(ex => ex.effective_enabled);
+        }
+
+        container.innerHTML = displayExhibitions.map(ex => {
+          const exDisabledClass = viewMode === 'all' ? getDisabledClass(ex) : '';
+          const exDisabledBadge = viewMode === 'all' ? getDisabledBadge(ex) : '';
+
+          // Filter artworks based on view mode
+          let displayArtworks = ex.artworks;
+          if (viewMode === 'control') {
+            displayArtworks = ex.artworks.filter(aw => aw.effective_enabled);
+          }
+
+          return `
+            <div class="exhibition ${exDisabledClass}">
+              <div class="exhibition-header">
+                <div class="exhibition-title">${ex.name}${exDisabledBadge}</div>
+                <div class="exhibition-controls">
+                  <button class="btn btn-on" onclick="controlExhibition('${ex.id}', 'on', '${ex.name}')" ${!ex.effective_enabled ? 'disabled' : ''}>
+                    Turn All ON
+                  </button>
+                  <button class="btn btn-off" onclick="controlExhibition('${ex.id}', 'off', '${ex.name}')" ${!ex.effective_enabled ? 'disabled' : ''}>
+                    Turn All OFF
+                  </button>
                 </div>
-                <div class="devices">
-                  ${aw.devices.map(dev => {
-                    const stateClass = formatState(dev.state);
-                    const isVerifying = dev.poll_status?.is_verifying;
-                    return `
-                      <div class="device state-${stateClass}${isVerifying ? ' verifying' : ''}">
-                        <div class="device-info">
-                          <div class="device-name">${dev.name}</div>
-                          <div class="device-details">
-                            <span class="device-state ${stateClass}">${stateClass}</span>
-                            ${dev.device_type} @ ${dev.host}${dev.port ? ':' + dev.port : ''}
-                            ${formatPollIndicator(dev.poll_status)}
-                          </div>
-                        </div>
-                        <div class="device-controls">
-                          <button class="btn btn-on btn-sm" onclick="controlDevice('${dev.id}', 'on', '${dev.name}')">
-                            ON
-                          </button>
-                          <button class="btn btn-off btn-sm" onclick="controlDevice('${dev.id}', 'off', '${dev.name}')">
-                            OFF
-                          </button>
-                        </div>
+              </div>
+              ${displayArtworks.map(aw => {
+                const awDisabledClass = viewMode === 'all' ? getDisabledClass(aw, false, !ex.enabled) : '';
+                const awDisabledBadge = viewMode === 'all' ? getDisabledBadge(aw, !ex.enabled) : '';
+
+                // Filter devices based on view mode
+                let displayDevices = aw.devices;
+                if (viewMode === 'control') {
+                  displayDevices = aw.devices.filter(dev => dev.effective_enabled);
+                }
+
+                return `
+                  <div class="artwork ${awDisabledClass}">
+                    <div class="artwork-header">
+                      <div class="artwork-title">${aw.name}${awDisabledBadge}</div>
+                      <div class="artwork-controls">
+                        <button class="btn btn-on btn-sm" onclick="controlArtwork('${aw.id}', 'on', '${aw.name}')" ${!aw.effective_enabled ? 'disabled' : ''}>
+                          ON
+                        </button>
+                        <button class="btn btn-off btn-sm" onclick="controlArtwork('${aw.id}', 'off', '${aw.name}')" ${!aw.effective_enabled ? 'disabled' : ''}>
+                          OFF
+                        </button>
                       </div>
-                    `;
-                  }).join('')}
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        `).join('');
+                    </div>
+                    <div class="devices">
+                      ${displayDevices.map(dev => {
+                        const stateClass = formatState(dev.state);
+                        const isVerifying = dev.poll_status?.is_verifying;
+                        const devDisabledClass = viewMode === 'all' ? getDisabledClass(dev, true, !aw.enabled || !ex.enabled) : '';
+                        const devDisabledBadge = viewMode === 'all' ? getDisabledBadge(dev, !aw.enabled || !ex.enabled) : '';
+                        return `
+                          <div class="device state-${stateClass}${isVerifying ? ' verifying' : ''} ${devDisabledClass}">
+                            <div class="device-info">
+                              <div class="device-name">${dev.name}${devDisabledBadge}</div>
+                              <div class="device-details">
+                                <span class="device-state ${stateClass}">${stateClass}</span>
+                                ${dev.device_type} @ ${dev.host}${dev.port ? ':' + dev.port : ''}
+                                ${formatPollIndicator(dev.poll_status)}
+                              </div>
+                            </div>
+                            <div class="device-controls">
+                              <button class="btn btn-on btn-sm" onclick="controlDevice('${dev.id}', 'on', '${dev.name}')" ${!dev.effective_enabled ? 'disabled' : ''}>
+                                ON
+                              </button>
+                              <button class="btn btn-off btn-sm" onclick="controlDevice('${dev.id}', 'off', '${dev.name}')" ${!dev.effective_enabled ? 'disabled' : ''}>
+                                OFF
+                              </button>
+                            </div>
+                          </div>
+                        `;
+                      }).join('')}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `;
+        }).join('');
 
         // Update last update time
         const now = new Date();

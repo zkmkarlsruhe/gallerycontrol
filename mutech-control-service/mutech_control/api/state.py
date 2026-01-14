@@ -36,6 +36,7 @@ class DeviceState(BaseModel):
     port: int | None
     state: int
     enabled: bool
+    effective_enabled: bool  # Considers parent artwork/exhibition enabled status
     automation_enabled: bool
     exclude_from_auto_onoff: bool
     last_checked_at: str | None
@@ -52,6 +53,7 @@ class ArtworkState(BaseModel):
     id: str
     name: str
     enabled: bool
+    effective_enabled: bool  # Considers parent exhibition enabled status
     devices: List[DeviceState]
 
     class Config:
@@ -64,6 +66,7 @@ class ExhibitionState(BaseModel):
     id: str
     name: str
     enabled: bool
+    effective_enabled: bool  # For exhibitions, same as enabled
     artworks: List[ArtworkState]
 
     class Config:
@@ -97,11 +100,13 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
                 "id": str(ex.id),
                 "name": ex.name,
                 "enabled": ex.enabled,
+                "effective_enabled": ex.enabled,
                 "artworks": [
                     {
                         "id": str(aw.id),
                         "name": aw.name,
                         "enabled": aw.enabled,
+                        "effective_enabled": aw.enabled and ex.enabled,
                         "devices": [
                             {
                                 "id": str(dev.id),
@@ -111,6 +116,7 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
                                 "port": dev.port,
                                 "state": dev.state,
                                 "enabled": dev.enabled,
+                                "effective_enabled": dev.enabled and aw.enabled and ex.enabled,
                                 "automation_enabled": dev.automation_enabled,
                                 "exclude_from_auto_onoff": dev.exclude_from_auto_onoff,
                                 "last_checked_at": dev.last_checked_at.isoformat()
@@ -156,11 +162,13 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
             "id": str(exhibition.id),
             "name": exhibition.name,
             "enabled": exhibition.enabled,
+            "effective_enabled": exhibition.enabled,
             "artworks": [
                 {
                     "id": str(aw.id),
                     "name": aw.name,
                     "enabled": aw.enabled,
+                    "effective_enabled": aw.enabled and exhibition.enabled,
                     "devices": [
                         {
                             "id": str(dev.id),
@@ -170,6 +178,7 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
                             "port": dev.port,
                             "state": dev.state,
                             "enabled": dev.enabled,
+                            "effective_enabled": dev.enabled and aw.enabled and exhibition.enabled,
                             "automation_enabled": dev.automation_enabled,
                             "exclude_from_auto_onoff": dev.exclude_from_auto_onoff,
                             "last_checked_at": dev.last_checked_at.isoformat()
@@ -198,12 +207,23 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
 async def get_device_state(request: Request, device_id: str, session=Depends(get_session)):
     """Get single device state."""
     try:
-        stmt = select(Device).where(Device.id == UUID(device_id))
+        stmt = (
+            select(Device)
+            .where(Device.id == UUID(device_id))
+            .options(selectinload(Device.artwork).selectinload(Artwork.exhibition))
+        )
         result = await session.execute(stmt)
         device = result.scalar_one_or_none()
 
         if not device:
             raise HTTPException(status_code=404, detail="Device not found")
+
+        # Compute effective_enabled from parent chain
+        effective_enabled = device.enabled
+        if device.artwork:
+            effective_enabled = effective_enabled and device.artwork.enabled
+            if device.artwork.exhibition:
+                effective_enabled = effective_enabled and device.artwork.exhibition.enabled
 
         return {
             "id": str(device.id),
@@ -213,6 +233,7 @@ async def get_device_state(request: Request, device_id: str, session=Depends(get
             "port": device.port,
             "state": device.state,
             "enabled": device.enabled,
+            "effective_enabled": effective_enabled,
             "automation_enabled": device.automation_enabled,
             "exclude_from_auto_onoff": device.exclude_from_auto_onoff,
             "last_checked_at": device.last_checked_at.isoformat()

@@ -7,7 +7,7 @@ from typing import Awaitable, Callable, Dict, List
 
 from sqlalchemy import select, update
 
-from mutech_control.database.models import Device
+from mutech_control.database.models import Artwork, Device, Exhibition
 from mutech_control.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -167,12 +167,16 @@ class StateMonitor:
     async def _poll_due_devices(self):
         """Poll devices that are due for polling."""
         try:
-            # Get all enabled devices
+            # Get all effectively enabled devices (includes parent chain check)
             async with self.db_manager.session() as session:
                 stmt = (
                     select(Device)
+                    .join(Artwork, Device.artwork_id == Artwork.id)
+                    .join(Exhibition, Artwork.exhibition_id == Exhibition.id)
                     .where(Device.enabled == True)
                     .where(Device.automation_enabled == True)
+                    .where(Artwork.enabled == True)
+                    .where(Exhibition.enabled == True)
                 )
                 result = await session.execute(stmt)
                 devices = list(result.scalars().all())

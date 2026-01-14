@@ -186,14 +186,33 @@ class CommandOrchestrator:
             logger.error(f"Error resolving target {target_type} {target_id}: {e}")
             return []
 
+    def _is_effectively_enabled(self, device: Device) -> bool:
+        """Check if device is effectively enabled (considers parent chain).
+
+        A device is effectively enabled only if:
+        - The device itself is enabled
+        - Its parent artwork is enabled
+        - Its parent exhibition is enabled
+
+        This allows disabling an entire exhibition or artwork with one toggle.
+        """
+        if not device.enabled:
+            return False
+        if device.artwork and not device.artwork.enabled:
+            return False
+        if device.artwork and device.artwork.exhibition:
+            if not device.artwork.exhibition.enabled:
+                return False
+        return True
+
     def _filter_devices(self, devices: List[Device], command: str) -> List[Device]:
-        """Filter devices based on enabled flags."""
+        """Filter devices based on enabled flags (including parent inheritance)."""
         filtered = []
 
         for device in devices:
-            # Skip disabled devices
-            if not device.enabled:
-                logger.debug(f"Skipping disabled device: {device.name}")
+            # Skip effectively disabled devices (checks device + artwork + exhibition)
+            if not self._is_effectively_enabled(device):
+                logger.debug(f"Skipping effectively disabled device: {device.name}")
                 continue
 
             # Skip devices excluded from auto on/off (shell reboot commands, etc.)

@@ -89,6 +89,7 @@ async def list_exhibitions(session=Depends(get_session)):
                 "id": str(ex.id),
                 "name": ex.name,
                 "enabled": ex.enabled,
+                "effective_enabled": ex.enabled,
                 "created_at": ex.created_at.isoformat(),
                 "updated_at": ex.updated_at.isoformat(),
             }
@@ -119,6 +120,7 @@ async def get_exhibition(exhibition_id: str, session=Depends(get_session)):
             "id": str(exhibition.id),
             "name": exhibition.name,
             "enabled": exhibition.enabled,
+            "effective_enabled": exhibition.enabled,
             "created_at": exhibition.created_at.isoformat(),
             "updated_at": exhibition.updated_at.isoformat(),
             "artwork_count": len(exhibition.artworks),
@@ -228,6 +230,7 @@ async def list_artworks(
                 "exhibition_id": str(aw.exhibition_id),
                 "exhibition_name": aw.exhibition.name if aw.exhibition else None,
                 "enabled": aw.enabled,
+                "effective_enabled": aw.enabled and (aw.exhibition.enabled if aw.exhibition else True),
                 "created_at": aw.created_at.isoformat(),
                 "updated_at": aw.updated_at.isoformat(),
             }
@@ -263,6 +266,7 @@ async def get_artwork(artwork_id: str, session=Depends(get_session)):
             "exhibition_id": str(artwork.exhibition_id),
             "exhibition_name": artwork.exhibition.name if artwork.exhibition else None,
             "enabled": artwork.enabled,
+            "effective_enabled": artwork.enabled and (artwork.exhibition.enabled if artwork.exhibition else True),
             "created_at": artwork.created_at.isoformat(),
             "updated_at": artwork.updated_at.isoformat(),
             "device_count": len(artwork.devices),
@@ -368,7 +372,9 @@ async def list_devices(
 ):
     """List all devices, optionally filtered by artwork or device type."""
     try:
-        stmt = select(Device).options(selectinload(Device.artwork))
+        stmt = select(Device).options(
+            selectinload(Device.artwork).selectinload(Artwork.exhibition)
+        )
 
         if artwork_id:
             stmt = stmt.where(Device.artwork_id == UUID(artwork_id))
@@ -380,6 +386,16 @@ async def list_devices(
         result = await session.execute(stmt)
         devices = result.scalars().all()
 
+        def compute_effective_enabled(dev):
+            """Compute effective_enabled from parent chain."""
+            if not dev.enabled:
+                return False
+            if dev.artwork and not dev.artwork.enabled:
+                return False
+            if dev.artwork and dev.artwork.exhibition and not dev.artwork.exhibition.enabled:
+                return False
+            return True
+
         return [
             {
                 "id": str(dev.id),
@@ -390,6 +406,7 @@ async def list_devices(
                 "artwork_id": str(dev.artwork_id),
                 "artwork_name": dev.artwork.name if dev.artwork else None,
                 "enabled": dev.enabled,
+                "effective_enabled": compute_effective_enabled(dev),
                 "automation_enabled": dev.automation_enabled,
                 "exclude_from_auto_onoff": dev.exclude_from_auto_onoff,
                 "state": dev.state,
@@ -420,6 +437,13 @@ async def get_device(device_id: str, session=Depends(get_session)):
         if not device:
             raise HTTPException(status_code=404, detail="Device not found")
 
+        # Compute effective_enabled from parent chain
+        effective_enabled = device.enabled
+        if device.artwork:
+            effective_enabled = effective_enabled and device.artwork.enabled
+            if device.artwork.exhibition:
+                effective_enabled = effective_enabled and device.artwork.exhibition.enabled
+
         return {
             "id": str(device.id),
             "name": device.name,
@@ -431,6 +455,7 @@ async def get_device(device_id: str, session=Depends(get_session)):
             "exhibition_id": str(device.artwork.exhibition_id) if device.artwork else None,
             "exhibition_name": device.artwork.exhibition.name if device.artwork and device.artwork.exhibition else None,
             "enabled": device.enabled,
+            "effective_enabled": effective_enabled,
             "automation_enabled": device.automation_enabled,
             "exclude_from_auto_onoff": device.exclude_from_auto_onoff,
             "state": device.state,
