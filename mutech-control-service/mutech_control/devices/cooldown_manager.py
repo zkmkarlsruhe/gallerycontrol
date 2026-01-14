@@ -1,7 +1,7 @@
 """Cooldown manager for rate-limiting device requests."""
 
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 from typing import Dict
 from uuid import UUID
@@ -65,7 +65,7 @@ class CooldownManager:
                 return None
 
             next_allowed = self._cooldowns[device_id]
-            return datetime.fromtimestamp(next_allowed)
+            return datetime.fromtimestamp(next_allowed, tz=timezone.utc)
 
     def get_remaining_seconds(self, device_id: UUID) -> float:
         """

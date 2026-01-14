@@ -5,7 +5,12 @@ import logging
 
 import httpx
 
-from mutech_control.devices.base import ConnectionResult, DeviceManager, DeviceResult
+from mutech_control.devices.base import (
+    ConnectionResult,
+    DeviceManager,
+    DeviceProtocol,
+    DeviceResult,
+)
 from mutech_control.devices.cooldown_manager import CooldownManager
 
 logger = logging.getLogger(__name__)

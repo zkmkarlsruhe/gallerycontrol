@@ -4,7 +4,12 @@ import asyncio
 import logging
 import re
 
-from mutech_control.devices.base import ConnectionResult, DeviceManager, DeviceResult
+from mutech_control.devices.base import (
+    ConnectionResult,
+    DeviceManager,
+    DeviceProtocol,
+    DeviceResult,
+)
 from mutech_control.devices.cooldown_manager import CooldownManager
 
 logger = logging.getLogger(__name__)

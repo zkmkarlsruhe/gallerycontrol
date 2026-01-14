@@ -1,16 +1,19 @@
 """Command orchestrator - coordinates device control operations."""
 
 import asyncio
-from datetime import datetime
-from typing import Dict, List, Literal
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Dict, List, Literal
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from mutech_control.database.models import Artwork, CommandLog, Device, Exhibition
-from mutech_control.orchestrator.state_verifier import StateVerifier
+from mutech_control.orchestrator.command_verifier import CommandVerifier
 from mutech_control.utils.logging import get_logger, set_request_id
+
+if TYPE_CHECKING:
+    from mutech_control.monitoring.state_monitor import StateMonitor
 
 logger = get_logger(__name__)
 
@@ -22,11 +25,26 @@ class CommandOrchestrator:
         self.db_manager = db_manager
         self.device_managers = device_managers
         self.config = config
-        self.state_verifier = StateVerifier(db_manager, device_managers, config)
+        self.command_verifier = CommandVerifier(db_manager, device_managers, config)
 
         orchestrator_config = config.get("orchestrator", {})
-        max_concurrent = orchestrator_config.get("max_concurrent_on_commands", 10)
-        self._on_semaphore = asyncio.Semaphore(max_concurrent)
+
+        # Concurrency limits to prevent network flooding
+        max_on = orchestrator_config.get("max_concurrent_on_commands", 10)
+        max_off = orchestrator_config.get("max_concurrent_off_commands", 20)
+        max_fast = orchestrator_config.get("max_concurrent_fast_commands", 20)
+
+        self._on_semaphore = asyncio.Semaphore(max_on)
+        self._off_semaphore = asyncio.Semaphore(max_off)
+        self._fast_semaphore = asyncio.Semaphore(max_fast)
+
+    def set_state_monitor(self, state_monitor: "StateMonitor") -> None:
+        """Set state monitor reference for verification polling.
+
+        This must be called after both orchestrator and state_monitor are created,
+        as they have a circular dependency (verifier needs monitor, monitor needs managers).
+        """
+        self.command_verifier.set_state_monitor(state_monitor)
 
     async def execute_control_command(
         self,
@@ -74,10 +92,20 @@ class CommandOrchestrator:
                        total_devices=len(devices),
                        command=command)
 
-            # 3. Execute command based on source and command type
+            # 3. Cancel any active verifications for these devices (web source only)
+            if source == "web":
+                for device in devices:
+                    device_id = str(device.id)
+                    if self.command_verifier.is_verifying(device_id):
+                        await self.command_verifier.cancel_verification(device_id)
+                        logger.info("Cancelled active verification for new command",
+                                   device=device.name,
+                                   new_command=command)
+
+            # 4. Execute command based on source and command type
             if source == "web":
                 if command == "on":
-                    results = await self._execute_on_staggered(devices)
+                    results = await self._execute_on_with_verification(devices)
                 else:
                     results = await self._execute_off_with_verification(devices)
             else:  # fast lane
@@ -179,8 +207,8 @@ class CommandOrchestrator:
 
         return filtered
 
-    async def _execute_on_staggered(self, devices: List[Device]) -> List[dict]:
-        """Execute ON commands with 1 second stagger and limited concurrency."""
+    async def _execute_on_with_verification(self, devices: List[Device]) -> List[dict]:
+        """Execute ON commands with stagger, then verify."""
         orchestrator_config = self.config.get("orchestrator", {})
         stagger_delay = orchestrator_config.get("on_stagger_delay_seconds", 1.0)
 
@@ -195,16 +223,34 @@ class CommandOrchestrator:
                 # Stagger delay between devices
                 await asyncio.sleep(stagger_delay)
 
+        # Start verification tasks for successful devices (excluding shell)
+        if orchestrator_config.get("enable_verification", True):
+            devices_to_verify = [
+                device
+                for device, result in zip(devices, results)
+                if result.get("success") and device.device_type != "shell"
+            ]
+
+            if devices_to_verify:
+                logger.info(f"Starting ON verification for {len(devices_to_verify)} devices")
+                asyncio.create_task(
+                    self.command_verifier.verify_devices(devices_to_verify, "on")
+                )
+
         return results
 
     async def _execute_off_with_verification(
         self, devices: List[Device]
     ) -> List[dict]:
-        """Execute OFF commands - broadcast in parallel, then verify."""
-        # 1. Send OFF to all devices in parallel
-        tasks = [
-            self._execute_single_device(device, "off", "web") for device in devices
-        ]
+        """Execute OFF commands with concurrency limit, then verify."""
+
+        async def execute_with_semaphore(device: Device) -> dict:
+            """Execute single OFF command with semaphore protection."""
+            async with self._off_semaphore:
+                return await self._execute_single_device(device, "off", "web")
+
+        # Execute with concurrency limit
+        tasks = [execute_with_semaphore(device) for device in devices]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Convert exceptions to error results
@@ -223,7 +269,7 @@ class CommandOrchestrator:
 
         # 2. Start verification tasks for successful devices (excluding shell)
         orchestrator_config = self.config.get("orchestrator", {})
-        if orchestrator_config.get("enable_off_verification", True):
+        if orchestrator_config.get("enable_verification", True):
             devices_to_verify = [
                 device
                 for device, result in zip(devices, processed_results)
@@ -232,17 +278,24 @@ class CommandOrchestrator:
 
             if devices_to_verify:
                 logger.info(f"Starting OFF verification for {len(devices_to_verify)} devices")
-                asyncio.create_task(self.state_verifier.verify_devices_off(devices_to_verify))
+                asyncio.create_task(
+                    self.command_verifier.verify_devices(devices_to_verify, "off")
+                )
 
         return processed_results
 
     async def _execute_fast(
         self, devices: List[Device], command: str
     ) -> List[dict]:
-        """Execute commands in fast lane - fire once, no verification."""
-        tasks = [
-            self._execute_single_device(device, command, "fast") for device in devices
-        ]
+        """Execute commands in fast lane with concurrency limit, no verification."""
+
+        async def execute_with_semaphore(device: Device) -> dict:
+            """Execute single FAST command with semaphore protection."""
+            async with self._fast_semaphore:
+                return await self._execute_single_device(device, command, "fast")
+
+        # Execute with concurrency limit
+        tasks = [execute_with_semaphore(device) for device in devices]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Convert exceptions to error results
@@ -325,7 +378,7 @@ class CommandOrchestrator:
                 stmt = (
                     update(Device)
                     .where(Device.id == device_id)
-                    .values(state=new_state, last_checked_at=datetime.utcnow())
+                    .values(state=new_state, last_checked_at=datetime.now(timezone.utc))
                 )
                 await session.execute(stmt)
 

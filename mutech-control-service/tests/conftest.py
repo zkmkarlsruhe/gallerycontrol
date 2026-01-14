@@ -57,23 +57,27 @@ def config():
             "pjlink": {
                 "cooldown_seconds": 1,  # Short for testing
                 "request_timeout": 5,
-                "off_verify": {
+                "verify": {
                     "enabled": True,
                     "interval_seconds": 1,
-                    "max_duration_seconds": 10,
-                    "retry_on_states": [1, -1],
-                    "success_states": [0, 2],
+                    "initial_timeout_seconds": 10,
+                    "stable_duration_seconds": 1,
+                    "max_retries": 3,
+                    "on": {"success_states": [1, 3]},
+                    "off": {"success_states": [0, 2]},
                 },
             },
             "netio": {
                 "cooldown_seconds": 1,
                 "request_timeout": 5,
-                "off_verify": {
+                "verify": {
                     "enabled": True,
                     "interval_seconds": 1,
-                    "max_duration_seconds": 10,
-                    "retry_on_states": [1, -1],
-                    "success_states": [0],
+                    "initial_timeout_seconds": 10,
+                    "stable_duration_seconds": 1,
+                    "max_retries": 3,
+                    "on": {"success_states": [1]},
+                    "off": {"success_states": [0]},
                 },
             },
             "anel": {
@@ -81,26 +85,27 @@ def config():
                 "request_timeout": 5,
                 "runner_url": "http://localhost:8001",
                 "runner_api_key": "test-key",
-                "off_verify": {
+                "verify": {
                     "enabled": True,
                     "interval_seconds": 1,
-                    "max_duration_seconds": 10,
-                    "retry_on_states": [1, -1],
-                    "success_states": [0],
+                    "initial_timeout_seconds": 10,
+                    "stable_duration_seconds": 1,
+                    "max_retries": 3,
+                    "on": {"success_states": [1]},
+                    "off": {"success_states": [0]},
                 },
             },
             "shell": {
                 "cooldown_seconds": 1,
                 "request_timeout": 10,
-                "off_verify": {"enabled": False},
+                "verify": {"enabled": False},
             },
         },
         "orchestrator": {
             "on_stagger_delay_seconds": 0.1,  # Fast for testing
             "max_concurrent_on_commands": 10,
             "max_concurrent_off_commands": 50,
-            "enable_off_verification": True,
-            "off_verification_task_interval": 1,
+            "enable_verification": True,
         },
     }
 

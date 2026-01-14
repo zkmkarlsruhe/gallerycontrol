@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from mutech_control.api import admin, control, fast, state
 from mutech_control.config import get_config
 from mutech_control.database.connection import get_db_manager
+from mutech_control.devices.anel_client import ANELClient
 from mutech_control.devices.anel_manager import ANELManager
 from mutech_control.devices.netio_manager import NETIOManager
 from mutech_control.devices.pjlink_manager import PJLinkManager
@@ -41,10 +42,19 @@ async def lifespan(app: FastAPI):
     # Initialize device managers
     device_types_config = config.get("device_types", {})
 
+    # Choose ANEL implementation based on config
+    anel_config = device_types_config.get("anel", {})
+    if anel_config.get("runner_url"):
+        anel_manager = ANELClient(anel_config)
+        logger.info("Using ANELClient (HTTP to runner)")
+    else:
+        anel_manager = ANELManager(anel_config)
+        logger.info("Using ANELManager (direct UDP)")
+
     device_managers = {
         "pjlink": PJLinkManager(device_types_config.get("pjlink", {})),
         "netio": NETIOManager(device_types_config.get("netio", {})),
-        "anel": ANELManager(device_types_config.get("anel", {})),
+        "anel": anel_manager,
         "shell": ShellManager(device_types_config.get("shell", {})),
     }
     logger.info(f"Initialized device managers: {list(device_managers.keys())}")
@@ -57,6 +67,10 @@ async def lifespan(app: FastAPI):
     # Initialize state monitor
     state_monitor = StateMonitor(db_manager, device_managers, orchestrator_config)
     logger.info("State monitor initialized")
+
+    # Connect orchestrator's verifier to state monitor for unified polling
+    orchestrator.set_state_monitor(state_monitor)
+    logger.info("Command verifier connected to state monitor")
 
     # Store in app state
     app.state.db_manager = db_manager

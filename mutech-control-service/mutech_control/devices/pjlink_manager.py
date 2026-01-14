@@ -5,7 +5,12 @@ import hashlib
 import socket
 from typing import Dict
 
-from mutech_control.devices.base import ConnectionResult, DeviceManager, DeviceResult
+from mutech_control.devices.base import (
+    ConnectionResult,
+    DeviceManager,
+    DeviceProtocol,
+    DeviceResult,
+)
 from mutech_control.devices.cooldown_manager import CooldownManager
 from mutech_control.utils.logging import get_logger
 

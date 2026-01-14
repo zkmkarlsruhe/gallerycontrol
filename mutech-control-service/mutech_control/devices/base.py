@@ -2,9 +2,22 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal, Protocol
+from uuid import UUID
 
 DeviceState = Literal[-1, 0, 1, 2, 3]  # error, off, on, cooling, warming
+
+
+class DeviceProtocol(Protocol):
+    """Protocol defining expected device attributes for type checking."""
+
+    id: UUID
+    name: str
+    device_type: str
+    host: str
+    port: int | None
+    state: int
+    config: dict[str, Any]
 
 
 @dataclass
@@ -29,7 +42,7 @@ class DeviceManager(ABC):
     """Base interface for all device managers."""
 
     @abstractmethod
-    async def get_state(self, device) -> DeviceResult:
+    async def get_state(self, device: DeviceProtocol) -> DeviceResult:
         """
         Get current state of device.
 
@@ -42,7 +55,7 @@ class DeviceManager(ABC):
         pass
 
     @abstractmethod
-    async def set_power(self, device, on: bool) -> DeviceResult:
+    async def set_power(self, device: DeviceProtocol, on: bool) -> DeviceResult:
         """
         Set power state of device.
 
@@ -56,7 +69,7 @@ class DeviceManager(ABC):
         pass
 
     @abstractmethod
-    async def test_connection(self, device) -> ConnectionResult:
+    async def test_connection(self, device: DeviceProtocol) -> ConnectionResult:
         """
         Test connection to device.
 

@@ -1,5 +1,6 @@
 """Configuration management with hot-reload support."""
 
+import logging
 import os
 import re
 from pathlib import Path
@@ -12,6 +13,8 @@ from watchdog.observers import Observer
 
 # Load .env file at module import time
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigLoader:
@@ -97,19 +100,19 @@ class ConfigLoader:
             def on_modified(self, event):
                 if event.src_path.endswith(".yaml"):
                     try:
-                        print(f"Config file changed: {event.src_path}, reloading...")
+                        logger.info("Config file changed, reloading", path=event.src_path)
                         self.loader.load()
-                        print("Configuration reloaded successfully")
+                        logger.info("Configuration reloaded successfully")
                         if self.callback:
                             self.callback(self.loader)
                     except Exception as e:
-                        print(f"Error reloading configuration: {e}")
+                        logger.error("Error reloading configuration", error=str(e))
 
         self._observer = Observer()
         handler = ConfigChangeHandler(self, callback)
         self._observer.schedule(handler, str(self.config_dir), recursive=False)
         self._observer.start()
-        print(f"Started watching configuration directory: {self.config_dir}")
+        logger.info("Started watching configuration directory", path=str(self.config_dir))
 
     def stop_watching(self) -> None:
         """Stop watching config files."""
@@ -117,7 +120,7 @@ class ConfigLoader:
             self._observer.stop()
             self._observer.join()
             self._observer = None
-            print("Stopped watching configuration directory")
+            logger.info("Stopped watching configuration directory")
 
 
 # Global config instance
