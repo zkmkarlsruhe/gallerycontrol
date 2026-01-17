@@ -188,12 +188,12 @@ export function ArtworkRow({
                   />
                   <div className="manual-device-buttons">
                     {device.actions && device.actions.map((action, idx) => (
-                      <TouchSafeButton key={action.name} className={`btn btn-action btn-action-${idx + 1} btn-sm`} onClick={() => onDeviceAction(device.id, action.name, device.name)} confirmText="Run?">{action.name}</TouchSafeButton>
+                      <ConfirmButton key={action.name} className={`btn btn-action btn-action-${idx + 1} btn-sm`} onConfirm={() => onDeviceAction(device.id, action.name, device.name)} confirmText="Run?">{action.name}</ConfirmButton>
                     ))}
                     {device.device_type !== 'shell' && (
                       <div className="btn-group">
-                        <TouchSafeButton className="btn btn-on btn-sm" onClick={() => onDeviceControl(device.id, 'on', device.name)}>ON</TouchSafeButton>
-                        <TouchSafeButton className="btn btn-off btn-sm" onClick={() => onDeviceControl(device.id, 'off', device.name)}>OFF</TouchSafeButton>
+                        <ConfirmButton className="btn btn-on btn-sm" onConfirm={() => onDeviceControl(device.id, 'on', device.name)} confirmText="ON?">ON</ConfirmButton>
+                        <ConfirmButton className="btn btn-off btn-sm" onConfirm={() => onDeviceControl(device.id, 'off', device.name)} confirmText="OFF?">OFF</ConfirmButton>
                       </div>
                     )}
                   </div>
