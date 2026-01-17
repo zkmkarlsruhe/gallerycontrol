@@ -2689,9 +2689,9 @@ body {
     font-size: 0.75rem !important;
   }
 
-  /* API links */
+  /* API links - keep readable */
   .api-link {
-    font-size: 0.55rem;
+    font-size: 0.7rem;
   }
 
   /* Stat dots */

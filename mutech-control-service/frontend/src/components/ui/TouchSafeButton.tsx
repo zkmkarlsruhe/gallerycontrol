@@ -98,6 +98,7 @@ export function TouchSafeButton({
 
   return (
     <button
+      type="button"
       className={`${className} ${confirming ? 'confirming' : ''}`}
       onClick={handleClick}
     >
