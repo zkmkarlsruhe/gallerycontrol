@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApi } from './hooks/useApi';
-import type { Exhibition, Credential, Device } from './types';
+import type { Exhibition, Credential, Device, ShellTemplate } from './types';
 import {
   Header,
   Toast,
@@ -14,6 +14,7 @@ import {
   EditArtworkModal,
   EditDeviceModal,
   CredentialsModal,
+  ShellTemplatesModal,
   LogViewer,
   StateTimelinePage,
 } from './components';
@@ -58,10 +59,16 @@ function App() {
     createCredential,
     updateCredential,
     deleteCredential,
+    fetchShellTemplates,
+    createShellTemplate,
+    updateShellTemplate,
+    deleteShellTemplate,
+    saveDeviceAsTemplate,
   } = useApi();
 
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [credentials, setCredentials] = useState<Credential[]>([]);
+  const [templates, setTemplates] = useState<ShellTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(true);
@@ -72,6 +79,7 @@ function App() {
   // Modal states
   const [showAddExhibitionModal, setShowAddExhibitionModal] = useState(false);
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [showShellTemplatesModal, setShowShellTemplatesModal] = useState(false);
 
   // Log viewer state
   const [showLogViewer, setShowLogViewer] = useState(false);
@@ -86,9 +94,9 @@ function App() {
   const [addArtworkContext, setAddArtworkContext] = useState<AddArtworkContext | null>(null);
   const [addDeviceContext, setAddDeviceContext] = useState<AddDeviceContext | null>(null);
 
-  // Extract all devices for debug filter dropdown
+  // Extract all devices for debug filter dropdown and timeline
   const allDevices = useMemo(() => {
-    const devices: Array<{ id: string; name: string; type: string; artworkName: string; exhibitionName: string }> = [];
+    const devices: Array<{ id: string; name: string; type: string; artworkName: string; exhibitionName: string; state: number }> = [];
     for (const exhibition of exhibitions) {
       for (const artwork of exhibition.artworks) {
         for (const device of artwork.devices) {
@@ -98,6 +106,7 @@ function App() {
             type: device.device_type,
             artworkName: artwork.name,
             exhibitionName: exhibition.name,
+            state: device.state,
           });
         }
       }
@@ -141,12 +150,22 @@ function App() {
     }
   }, [fetchCredentials]);
 
+  const loadTemplates = useCallback(async () => {
+    try {
+      const data = await fetchShellTemplates();
+      setTemplates(data);
+    } catch {
+      // Templates are optional, don't show error
+    }
+  }, [fetchShellTemplates]);
+
   useEffect(() => {
     loadData();
     loadCredentials();
+    loadTemplates();
     const interval = setInterval(loadData, 5000);
     return () => clearInterval(interval);
-  }, [loadData, loadCredentials]);
+  }, [loadData, loadCredentials, loadTemplates]);
 
   // Control handlers
   const handleDeviceControl = async (deviceId: string, command: 'on' | 'off', deviceName: string) => {
@@ -189,6 +208,32 @@ function App() {
     } catch {
       showToast('Network error', 'danger');
     }
+  };
+
+  const handleAllControl = async (command: 'on' | 'off') => {
+    const enabledExhibitions = exhibitions.filter(e => e.enabled);
+    if (enabledExhibitions.length === 0) {
+      showToast('No enabled exhibitions to control', 'info');
+      return;
+    }
+
+    showToast(`Sending ${command.toUpperCase()} to all exhibitions...`, 'info');
+
+    // Send commands to all enabled exhibitions in parallel
+    const results = await Promise.allSettled(
+      enabledExhibitions.map(e => controlExhibition(e.id, command))
+    );
+
+    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const failed = enabledExhibitions.length - successful;
+
+    if (failed === 0) {
+      showToast(`${command.toUpperCase()} sent to all ${successful} exhibitions`, 'success');
+    } else {
+      showToast(`${command.toUpperCase()}: ${successful} succeeded, ${failed} failed`, 'danger');
+    }
+
+    setTimeout(loadData, 2000);
   };
 
   const handleAction = async (deviceId: string, actionName: string, deviceName: string) => {
@@ -314,6 +359,16 @@ function App() {
     }
   };
 
+  const handleSaveDeviceAsTemplate = async (deviceId: string, templateName: string) => {
+    try {
+      await saveDeviceAsTemplate(deviceId, templateName);
+      showToast(`Template "${templateName}" saved to library`, 'success');
+      loadTemplates();
+    } catch {
+      showToast('Failed to save template', 'danger');
+    }
+  };
+
   // Add device modal opener
   const openAddDeviceModal = (exhibitionId: string, artworkId: string) => {
     const exhibition = exhibitions.find(e => e.id === exhibitionId);
@@ -359,6 +414,7 @@ function App() {
         editMode={editMode}
         onEditModeChange={setEditMode}
         onOpenCredentials={() => setShowCredentialsModal(true)}
+        onOpenShellLibrary={() => setShowShellTemplatesModal(true)}
         onOpenLogs={() => openLogViewer()}
         onOpenTimeline={() => setShowTimeline(true)}
         showingLogs={showLogViewer}
@@ -386,6 +442,7 @@ function App() {
         editMode={editMode}
         onScrollTo={scrollToExhibition}
         onControl={handleExhibitionControl}
+        onControlAll={handleAllControl}
         onAddExhibition={() => setShowAddExhibitionModal(true)}
       />
 
@@ -456,6 +513,7 @@ function App() {
           onClose={() => setAddDeviceContext(null)}
           onSave={handleSaveDevice}
           credentials={credentials}
+          templates={templates}
         />
       )}
 
@@ -490,6 +548,17 @@ function App() {
         onSave={handleUpdateDevice}
         onDelete={handleDeleteDevice}
         credentials={credentials}
+        onSaveAsTemplate={handleSaveDeviceAsTemplate}
+      />
+
+      <ShellTemplatesModal
+        isOpen={showShellTemplatesModal}
+        onClose={() => setShowShellTemplatesModal(false)}
+        fetchShellTemplates={fetchShellTemplates}
+        createShellTemplate={createShellTemplate}
+        updateShellTemplate={updateShellTemplate}
+        deleteShellTemplate={deleteShellTemplate}
+        showToast={showToast}
       />
     </div>
   );
