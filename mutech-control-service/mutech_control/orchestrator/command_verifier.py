@@ -4,7 +4,9 @@ import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Dict, List, Literal
+from uuid import UUID
 
+from mutech_control.database.state_logger import update_device_state_with_log
 from mutech_control.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -263,7 +265,9 @@ class CommandVerifier:
                         timeout_seconds=initial_timeout,
                     )
                     self.state_monitor.unregister_fast_poll(device_id)
-                    await self._update_device_state(device_id, -1)
+                    await update_device_state_with_log(
+                        self.db_manager, UUID(device_id), -1, "verification"
+                    )
                     return
 
                 # Phase 2: Wait stable duration (keep fast polling for UI updates)
@@ -291,7 +295,9 @@ class CommandVerifier:
                         final_state=result.state,
                         attempts=attempt,
                     )
-                    await self._update_device_state(device_id, result.state)
+                    await update_device_state_with_log(
+                        self.db_manager, UUID(device_id), result.state, "verification"
+                    )
                     return
                 else:
                     # State changed during stable period - device lied
@@ -316,7 +322,9 @@ class CommandVerifier:
                 direction=direction.value.upper(),
                 max_retries=max_retries,
             )
-            await self._update_device_state(device_id, -1)
+            await update_device_state_with_log(
+                self.db_manager, UUID(device_id), -1, "verification"
+            )
 
         except asyncio.CancelledError:
             logger.info(
@@ -368,7 +376,8 @@ class CommandVerifier:
 
     def _get_verify_config(self, device_type: str) -> dict | None:
         """Get verification config for a device type."""
-        device_type_config = self.config.get("device_types", {}).get(device_type, {})
+        device_types = self.config.get("device_types", {})
+        device_type_config = device_types.get(device_type, {})
         verify_config = device_type_config.get("verify", {})
 
         if not verify_config.get("enabled", False):
@@ -380,27 +389,6 @@ class CommandVerifier:
         """Update attempt count in active verification tracking."""
         if device_id in self._active_verifications:
             self._active_verifications[device_id].attempt = attempt
-
-    async def _update_device_state(self, device_id: str, new_state: int) -> None:
-        """Update device state in database."""
-        try:
-            from datetime import datetime, timezone
-            from uuid import UUID
-
-            from sqlalchemy import update
-
-            from mutech_control.database.models import Device
-
-            async with self.db_manager.session() as session:
-                stmt = (
-                    update(Device)
-                    .where(Device.id == UUID(device_id))
-                    .values(state=new_state, last_checked_at=datetime.now(timezone.utc))
-                )
-                await session.execute(stmt)
-
-        except Exception as e:
-            logger.error(f"Error updating device state: {e}")
 
     async def _log_command(
         self,
