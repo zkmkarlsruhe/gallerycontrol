@@ -88,6 +88,9 @@ function App() {
   // Timeline page state
   const [showTimeline, setShowTimeline] = useState(false);
 
+  // Pending state changes (deviceId -> target state)
+  const [pendingStates, setPendingStates] = useState<Map<string, 'on' | 'off'>>(new Map());
+
   const [editExhibitionData, setEditExhibitionData] = useState<Exhibition | null>(null);
   const [editArtworkData, setEditArtworkData] = useState<{ id: string; name: string; enabled: boolean } | null>(null);
   const [editDeviceData, setEditDeviceData] = useState<Device | null>(null);
@@ -167,8 +170,51 @@ function App() {
     return () => clearInterval(interval);
   }, [loadData, loadCredentials, loadTemplates]);
 
+  // Clear pending states when device states match targets AND not in fast polling
+  useEffect(() => {
+    if (pendingStates.size === 0) return;
+
+    const deviceInfoMap = new Map<string, { state: number; isVerifying: boolean }>();
+    for (const exhibition of exhibitions) {
+      for (const artwork of exhibition.artworks) {
+        for (const device of artwork.devices) {
+          deviceInfoMap.set(device.id, {
+            state: device.state,
+            isVerifying: device.poll_status?.is_verifying || false,
+          });
+        }
+      }
+    }
+
+    const toRemove: string[] = [];
+    pendingStates.forEach((targetCommand, deviceId) => {
+      const deviceInfo = deviceInfoMap.get(deviceId);
+      if (deviceInfo !== undefined) {
+        // Don't clear while device is verifying (fast polling in progress)
+        if (deviceInfo.isVerifying) return;
+
+        // State 1 = on, State 0 = off
+        const targetState = targetCommand === 'on' ? 1 : 0;
+        if (deviceInfo.state === targetState) {
+          toRemove.push(deviceId);
+        }
+      }
+    });
+
+    if (toRemove.length > 0) {
+      setPendingStates(prev => {
+        const next = new Map(prev);
+        toRemove.forEach(id => next.delete(id));
+        return next;
+      });
+    }
+  }, [exhibitions, pendingStates]);
+
   // Control handlers
   const handleDeviceControl = async (deviceId: string, command: 'on' | 'off', deviceName: string) => {
+    // Set pending state immediately for visual feedback
+    setPendingStates(prev => new Map(prev).set(deviceId, command));
+
     try {
       const result = await controlDevice(deviceId, command);
       if (result.success) {
@@ -176,13 +222,35 @@ function App() {
         setTimeout(loadData, 1000);
       } else {
         showToast(`Failed: ${result.error || 'Unknown error'}`, 'danger');
+        // Clear pending state on failure
+        setPendingStates(prev => {
+          const next = new Map(prev);
+          next.delete(deviceId);
+          return next;
+        });
       }
     } catch {
       showToast('Network error', 'danger');
+      // Clear pending state on error
+      setPendingStates(prev => {
+        const next = new Map(prev);
+        next.delete(deviceId);
+        return next;
+      });
     }
   };
 
   const handleArtworkControl = async (artworkId: string, command: 'on' | 'off', artworkName: string) => {
+    // Set pending state for all automation-enabled devices in this artwork
+    const artwork = exhibitions.flatMap(e => e.artworks).find(a => a.id === artworkId);
+    if (artwork) {
+      setPendingStates(prev => {
+        const next = new Map(prev);
+        artwork.devices.filter(d => d.automation_enabled && d.enabled).forEach(d => next.set(d.id, command));
+        return next;
+      });
+    }
+
     try {
       const result = await controlArtwork(artworkId, command);
       if (result.success) {
@@ -197,6 +265,16 @@ function App() {
   };
 
   const handleExhibitionControl = async (exhibitionId: string, command: 'on' | 'off', exhibitionName: string) => {
+    // Set pending state for all automation-enabled devices in this exhibition
+    const exhibition = exhibitions.find(e => e.id === exhibitionId);
+    if (exhibition) {
+      setPendingStates(prev => {
+        const next = new Map(prev);
+        exhibition.artworks.flatMap(a => a.devices).filter(d => d.automation_enabled && d.enabled).forEach(d => next.set(d.id, command));
+        return next;
+      });
+    }
+
     try {
       const result = await controlExhibition(exhibitionId, command);
       if (result.success) {
@@ -216,6 +294,13 @@ function App() {
       showToast('No enabled exhibitions to control', 'info');
       return;
     }
+
+    // Set pending state for all automation-enabled devices in all exhibitions
+    setPendingStates(prev => {
+      const next = new Map(prev);
+      enabledExhibitions.flatMap(e => e.artworks).flatMap(a => a.devices).filter(d => d.automation_enabled && d.enabled).forEach(d => next.set(d.id, command));
+      return next;
+    });
 
     showToast(`Sending ${command.toUpperCase()} to all exhibitions...`, 'info');
 
@@ -453,6 +538,7 @@ function App() {
           exhibition={exhibition}
           editMode={editMode}
           expandedDevice={expandedDevice}
+          pendingStates={pendingStates}
           onToggleDevice={toggleDeviceAccordion}
           onExhibitionControl={handleExhibitionControl}
           onArtworkControl={handleArtworkControl}

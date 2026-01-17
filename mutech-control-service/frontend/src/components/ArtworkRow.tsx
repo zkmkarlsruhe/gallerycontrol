@@ -9,6 +9,7 @@ interface ArtworkRowProps {
   isAlternate: boolean;
   editMode: boolean;
   expandedDevice: string | null;
+  pendingStates: Map<string, 'on' | 'off'>;
   onToggleDevice: (deviceId: string) => void;
   onArtworkControl: (artworkId: string, command: 'on' | 'off', artworkName: string) => void;
   onDeviceControl: (deviceId: string, command: 'on' | 'off', deviceName: string) => void;
@@ -45,6 +46,7 @@ export function ArtworkRow({
   isAlternate,
   editMode,
   expandedDevice,
+  pendingStates,
   onToggleDevice,
   onArtworkControl,
   onDeviceControl,
@@ -92,8 +94,16 @@ export function ArtworkRow({
               </div>
             </div>
             <div className="devices-table">
-              {sortedDevices.map(device => (
-                <div key={device.id} className={`device-table-row ${!device.enabled ? 'disabled' : ''} ${!device.automation_enabled ? 'manual-device' : ''}`}>
+              {sortedDevices.map(device => {
+                const pendingState = pendingStates.get(device.id);
+                const isVerifying = device.poll_status?.is_verifying || false;
+                const pendingClass = pendingState
+                  ? `pending-${pendingState}`
+                  : isVerifying
+                    ? `pending-${device.state === 1 ? 'on' : 'off'}`
+                    : '';
+                return (
+                <div key={device.id} className={`device-table-row ${!device.enabled ? 'disabled' : ''} ${!device.automation_enabled ? 'manual-device' : ''} ${pendingClass}`}>
                   <div className="device-table-info" onClick={() => onToggleDevice(device.id)}>
                     <span className={`device-state-dot ${getDeviceStateClass(device.state)}`}></span>
                     <span className="device-table-name">{device.name}</span>
@@ -128,7 +138,8 @@ export function ArtworkRow({
                     )}
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           </>
         ) : (
@@ -148,6 +159,7 @@ export function ArtworkRow({
                       key={device.id}
                       device={device}
                       isExpanded={expandedDevice === device.id}
+                      pendingState={pendingStates.get(device.id)}
                       onClick={() => onToggleDevice(device.id)}
                     />
                   ))}
@@ -184,6 +196,7 @@ export function ArtworkRow({
                   <DeviceBadge
                     device={device}
                     isExpanded={expandedDevice === device.id}
+                    pendingState={pendingStates.get(device.id)}
                     onClick={() => onToggleDevice(device.id)}
                   />
                   <div className="manual-device-buttons">
@@ -225,6 +238,7 @@ export function ArtworkRow({
           device={device}
           isOpen={expandedDevice === device.id}
           editMode={editMode}
+          pendingState={pendingStates.get(device.id)}
           onControl={onDeviceControl}
           onAction={onDeviceAction}
           onEdit={onEditDevice}
