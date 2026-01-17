@@ -413,14 +413,12 @@ function App() {
         />
       ))}
 
-      {/* State Timeline (Edit Mode) */}
-      {editMode && exhibitions.length > 0 && (
-        <div className="container-fluid px-3 pb-3">
-          <StateTimeline
-            editMode={editMode}
-            filterDeviceId={logFilterDeviceId}
-          />
-        </div>
+      {/* State Timeline Page (Full Page) */}
+      {showTimeline && (
+        <StateTimelinePage
+          onClose={() => setShowTimeline(false)}
+          devices={allDevices}
+        />
       )}
 
       {/* Log Viewer (Full Page) */}

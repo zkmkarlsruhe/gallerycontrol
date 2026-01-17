@@ -1,0 +1,9 @@
+{
+  "name": "MuTech Control",
+  "short_name": "MuTech",
+  "description": "Museum device control system",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2196F3"
+}
