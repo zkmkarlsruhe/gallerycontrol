@@ -1,7 +1,6 @@
 """Command orchestrator - coordinates device control operations."""
 
 import asyncio
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Dict, List, Literal
 from uuid import UUID
 
@@ -9,6 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from mutech_control.database.models import Artwork, CommandLog, Device, Exhibition
+from mutech_control.database.operation_logger import log_device_operation
+from mutech_control.database.state_logger import update_device_state_with_log
 from mutech_control.orchestrator.command_verifier import CommandVerifier
 from mutech_control.utils.logging import get_logger, set_request_id
 
@@ -154,7 +155,7 @@ class CommandOrchestrator:
                         .join(Artwork)
                         .join(Exhibition)
                         .where(Exhibition.id == target_uuid)
-                        .options(selectinload(Device.artwork))
+                        .options(selectinload(Device.artwork).selectinload(Artwork.exhibition))
                     )
                     result = await session.execute(stmt)
                     devices = result.scalars().all()
@@ -164,14 +165,14 @@ class CommandOrchestrator:
                     stmt = (
                         select(Device)
                         .where(Device.artwork_id == target_uuid)
-                        .options(selectinload(Device.artwork))
+                        .options(selectinload(Device.artwork).selectinload(Artwork.exhibition))
                     )
                     result = await session.execute(stmt)
                     devices = result.scalars().all()
 
                 elif target_type == "device":
                     # Get single device
-                    stmt = select(Device).where(Device.id == target_uuid).options(selectinload(Device.artwork))
+                    stmt = select(Device).where(Device.id == target_uuid).options(selectinload(Device.artwork).selectinload(Artwork.exhibition))
                     result = await session.execute(stmt)
                     device = result.scalar_one_or_none()
                     devices = [device] if device else []
@@ -215,10 +216,10 @@ class CommandOrchestrator:
                 logger.debug(f"Skipping effectively disabled device: {device.name}")
                 continue
 
-            # Skip devices excluded from auto on/off (shell reboot commands, etc.)
-            if device.exclude_from_auto_onoff and command in ["on", "off"]:
+            # Skip devices with automation disabled (requires manual control)
+            if not device.automation_enabled and command in ["on", "off"]:
                 logger.debug(
-                    f"Skipping device excluded from auto on/off: {device.name}"
+                    f"Skipping device with automation disabled: {device.name}"
                 )
                 continue
 
@@ -351,20 +352,38 @@ class CommandOrchestrator:
             }
 
         try:
+            state_before = device.state
+
             # Execute command
             result = await manager.set_power(device, command == "on")
 
             # Update database state if successful
             if result.success:
-                await self._update_device_state(device.id, result.state)
+                await update_device_state_with_log(
+                    self.db_manager, device.id, result.state, "command", device.state
+                )
 
-            # Log command
+            # Log command to CommandLog (existing)
             await self._log_command(
                 device_id=device.id,
                 command=command,
                 source=source,
                 success=result.success,
                 error=result.error,
+                duration_ms=result.duration_ms,
+            )
+
+            # Log detailed operation with raw response (new debug log)
+            await log_device_operation(
+                db_manager=self.db_manager,
+                device_id=device.id,
+                operation_type=f"power_{command}",
+                source=source,
+                success=result.success,
+                state_before=state_before,
+                state_after=result.state if result.success else None,
+                raw_response=result.raw_response,
+                error_message=result.error,
                 duration_ms=result.duration_ms,
             )
 
@@ -387,22 +406,6 @@ class CommandOrchestrator:
                 "success": False,
                 "error": str(e),
             }
-
-    async def _update_device_state(self, device_id: UUID, new_state: int) -> None:
-        """Update device state in database."""
-        try:
-            from sqlalchemy import update
-
-            async with self.db_manager.session() as session:
-                stmt = (
-                    update(Device)
-                    .where(Device.id == device_id)
-                    .values(state=new_state, last_checked_at=datetime.now(timezone.utc))
-                )
-                await session.execute(stmt)
-
-        except Exception as e:
-            logger.error(f"Error updating device state: {e}")
 
     async def _log_command(
         self,
