@@ -87,41 +87,46 @@ export function AddDeviceModal({
           };
           break;
         case 'shell':
-          // Build commands object in the format the backend expects
+          // Build commands object - combined mode supports both ON/OFF and actions
           const shellCommands: Record<string, any> = {};
-          if (shellData.onoff_mode) {
-            if (shellData.on_cmd) {
-              shellCommands.on = { cmd: shellData.on_cmd };
-            }
-            if (shellData.off_cmd) {
-              shellCommands.off = { cmd: shellData.off_cmd };
-            }
-            if (shellData.status_cmd) {
-              shellCommands.status = {
-                cmd: shellData.status_cmd,
-                onPattern: shellData.on_pattern || undefined,
-                offPattern: shellData.off_pattern || undefined,
-              };
-            }
-          } else {
-            // Custom actions mode - add each action as a command
-            shellData.actions.filter(a => a.name && a.cmd).forEach(action => {
-              shellCommands[action.name] = { cmd: action.cmd };
-            });
+
+          // Status command (always included if set)
+          if (shellData.status_cmd) {
+            shellCommands.status = {
+              cmd: shellData.status_cmd,
+              onPattern: shellData.on_pattern || undefined,
+              offPattern: shellData.off_pattern || undefined,
+            };
           }
-          // Status command for custom mode (no on/off)
-          if (!shellData.onoff_mode && shellData.status_cmd) {
-            shellCommands.status = { cmd: shellData.status_cmd };
+
+          // ON/OFF commands (optional)
+          if (shellData.on_cmd) {
+            shellCommands.on = { cmd: shellData.on_cmd };
           }
+          if (shellData.off_cmd) {
+            shellCommands.off = { cmd: shellData.off_cmd };
+          }
+
+          // Custom actions - stored in separate actions array
+          const shellActions = shellData.actions
+            .filter(a => a.name && a.cmd)
+            .map(a => ({ name: a.name, cmd: a.cmd }));
+
+          // Determine if automation should be enabled:
+          // - Must have both ON and OFF commands
+          // - User must have checked the automation checkbox
+          const hasOnOff = !!(shellData.on_cmd && shellData.off_cmd);
+
           data = {
             name: shellData.name,
             device_type: 'shell',
             host: '#nohost',
             enabled: shellData.enabled,
-            automation_enabled: shellData.onoff_mode ? shellData.automation_enabled : false,
+            automation_enabled: hasOnOff && shellData.automation_enabled,
             config: {
               credential_id: shellData.credential_id || undefined,
               commands: shellCommands,
+              actions: shellActions.length > 0 ? shellActions : undefined,
             },
           };
           break;

@@ -990,7 +990,17 @@ async def save_device_as_template(
             raise HTTPException(status_code=400, detail="Only shell devices can be saved as templates")
 
         commands = device.config.get("commands", {})
+
+        # Get actions from new format first, then fall back to old format
         actions = device.config.get("actions", [])
+        if not actions and isinstance(commands, dict):
+            # Old format: extract custom commands that aren't on/off/status
+            standard_commands = {"on", "off", "status"}
+            actions = [
+                {"name": name, "cmd": cfg.get("cmd")}
+                for name, cfg in commands.items()
+                if name not in standard_commands and isinstance(cfg, dict) and cfg.get("cmd")
+            ]
 
         # Determine mode: if has on/off commands, it's onoff_mode=True
         has_onoff = bool(commands.get("on") or commands.get("off") or commands.get("status"))

@@ -9,7 +9,7 @@ interface ShellAction {
 interface ShellFormData {
   name: string;
   credential_id: string;
-  onoff_mode: boolean;
+  onoff_mode: boolean; // Kept for backwards compatibility, now means "has ON/OFF commands"
   automation_enabled: boolean;
   status_cmd: string;
   on_pattern: string;
@@ -51,16 +51,19 @@ export function ShellForm({ data, onChange, credentials = [], templates = [] }: 
     const template = templates.find(t => t.id === selectedTemplateId);
     if (!template) return;
 
+    // In combined mode, templates can have both ON/OFF and actions
+    const hasOnOff = !!(template.on_command && template.off_command);
+
     onChange({
       ...data,
-      onoff_mode: template.onoff_mode,
+      onoff_mode: hasOnOff, // Set based on actual presence of ON/OFF commands
       status_cmd: template.status_command || '',
       on_pattern: template.status_on_pattern || '',
       off_pattern: template.status_off_pattern || '',
       on_cmd: template.on_command || '',
       off_cmd: template.off_command || '',
       actions: template.actions?.length ? template.actions : [{ name: '', cmd: '' }],
-      automation_enabled: template.onoff_mode, // Enable automation for ON/OFF templates
+      automation_enabled: hasOnOff, // Enable automation only if has ON/OFF
     });
     setSelectedTemplateId('');
   };
@@ -149,11 +152,16 @@ export function ShellForm({ data, onChange, credentials = [], templates = [] }: 
               onChange={(e) => setSelectedTemplateId(e.target.value)}
             >
               <option value="">Select a template...</option>
-              {templates.map(tmpl => (
-                <option key={tmpl.id} value={tmpl.id}>
-                  {tmpl.name} {tmpl.onoff_mode ? '(ON/OFF)' : '(Custom)'}{tmpl.description ? ` - ${tmpl.description}` : ''}
-                </option>
-              ))}
+              {templates.map(tmpl => {
+                const hasOnOff = !!(tmpl.on_command && tmpl.off_command);
+                const hasActions = tmpl.actions && tmpl.actions.length > 0;
+                const modeLabel = hasOnOff && hasActions ? '(Combined)' : hasOnOff ? '(ON/OFF)' : '(Actions)';
+                return (
+                  <option key={tmpl.id} value={tmpl.id}>
+                    {tmpl.name} {modeLabel}{tmpl.description ? ` - ${tmpl.description}` : ''}
+                  </option>
+                );
+              })}
             </select>
             <button
               type="button"
@@ -217,196 +225,150 @@ export function ShellForm({ data, onChange, credentials = [], templates = [] }: 
         </div>
       </div>
 
+      {/* Status Command - Always Required */}
       <div className="form-section">
-        <div className="section-title">Command Mode</div>
-        <div className="shell-mode-switch">
-          <div className="form-check form-switch mb-2">
+        <div className="section-title">
+          <i className="bi bi-activity me-1"></i> Status Detection
+        </div>
+        <div className="command-input-group">
+          <label className="form-label">
+            <strong>Status Command</strong> <span className="text-danger">(required)</span>
+          </label>
+          <div className="input-group mb-2">
             <input
-              className="form-check-input"
-              type="checkbox"
-              id="shell-onoff-mode"
-              checked={data.onoff_mode}
-              onChange={(e) => update('onoff_mode', e.target.checked)}
+              type="text"
+              className="form-control"
+              placeholder="systemctl status myapp"
+              value={data.status_cmd}
+              onChange={(e) => update('status_cmd', e.target.value)}
             />
-            <label className="form-check-label" htmlFor="shell-onoff-mode">
-              <strong>ON/OFF Control Mode</strong>
-            </label>
+            <TestButton command={data.status_cmd} label="Status" />
           </div>
-          <small className="text-muted">
-            {data.onoff_mode
-              ? 'System can turn device ON/OFF and detect current state'
-              : 'Manual custom commands only - no automatic state detection'
-            }
-          </small>
+          <small className="form-text text-muted">Command to check device state (exit 0 = reachable)</small>
+          <div className="row mt-2">
+            <div className="col-md-6">
+              <label className="form-label small">ON Pattern (regex)</label>
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                placeholder="active \(running\)"
+                value={data.on_pattern}
+                onChange={(e) => update('on_pattern', e.target.value)}
+              />
+              <small className="form-text text-muted">Regex to detect ON state</small>
+            </div>
+            <div className="col-md-6">
+              <label className="form-label small">OFF Pattern (regex)</label>
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                placeholder="inactive"
+                value={data.off_pattern}
+                onChange={(e) => update('off_pattern', e.target.value)}
+              />
+              <small className="form-text text-muted">Regex to detect OFF state</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ON/OFF Commands - Optional */}
+      <div className="form-section">
+        <div className="section-title">
+          <i className="bi bi-power me-1"></i> ON/OFF Control <span className="badge bg-secondary ms-2">Optional</span>
+        </div>
+        <small className="text-muted d-block mb-3">
+          Add ON and OFF commands to enable power control and automation. Leave empty for action-only devices.
+        </small>
+
+        <div className="command-input-group">
+          <label className="form-label">
+            <strong>ON Command</strong>
+          </label>
+          <div className="input-group mb-2">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="systemctl start myapp (optional)"
+              value={data.on_cmd}
+              onChange={(e) => update('on_cmd', e.target.value)}
+            />
+            <TestButton command={data.on_cmd} label="ON" />
+          </div>
+          <small className="form-text text-muted">Command to turn device ON</small>
         </div>
 
-        {/* ON/OFF Mode */}
-        {data.onoff_mode && (
-          <div id="shell-onoff">
-            <div className="command-input-group">
-              <label className="form-label">
-                <strong>Status Command</strong> <span className="text-danger">(required)</span>
-              </label>
-              <div className="input-group mb-2">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="systemctl status myapp"
-                  value={data.status_cmd}
-                  onChange={(e) => update('status_cmd', e.target.value)}
-                />
-                <TestButton command={data.status_cmd} label="Status" />
-              </div>
-              <small className="form-text text-muted">Command to check if device is ON or OFF</small>
-              <div className="row mt-2">
-                <div className="col-md-6">
-                  <label className="form-label small">ON Pattern (regex)</label>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    placeholder="active \(running\)"
-                    value={data.on_pattern}
-                    onChange={(e) => update('on_pattern', e.target.value)}
-                  />
-                  <small className="form-text text-muted">Regex to detect ON state</small>
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label small">OFF Pattern (regex)</label>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    placeholder="inactive"
-                    value={data.off_pattern}
-                    onChange={(e) => update('off_pattern', e.target.value)}
-                  />
-                  <small className="form-text text-muted">Regex to detect OFF state</small>
-                </div>
-              </div>
-            </div>
+        <div className="command-input-group">
+          <label className="form-label">
+            <strong>OFF Command</strong>
+          </label>
+          <div className="input-group mb-2">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="systemctl stop myapp (optional)"
+              value={data.off_cmd}
+              onChange={(e) => update('off_cmd', e.target.value)}
+            />
+            <TestButton command={data.off_cmd} label="OFF" />
+          </div>
+          <small className="form-text text-muted">Command to turn device OFF</small>
+        </div>
 
-            <div className="command-input-group">
-              <label className="form-label">
-                <strong>ON Command</strong> <span className="text-danger">(required)</span>
-              </label>
-              <div className="input-group mb-2">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="systemctl start myapp"
-                  value={data.on_cmd}
-                  onChange={(e) => update('on_cmd', e.target.value)}
-                />
-                <TestButton command={data.on_cmd} label="ON" />
-              </div>
-              <small className="form-text text-muted">Command to turn device ON</small>
-            </div>
-
-            <div className="command-input-group">
-              <label className="form-label">
-                <strong>OFF Command</strong> <span className="text-danger">(required)</span>
-              </label>
-              <div className="input-group mb-2">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="systemctl stop myapp"
-                  value={data.off_cmd}
-                  onChange={(e) => update('off_cmd', e.target.value)}
-                />
-                <TestButton command={data.off_cmd} label="OFF" />
-              </div>
-              <small className="form-text text-muted">Command to turn device OFF</small>
-            </div>
+        {/* Show warning if only one of ON/OFF is set */}
+        {((data.on_cmd && !data.off_cmd) || (!data.on_cmd && data.off_cmd)) && (
+          <div className="alert alert-warning py-2 mt-2">
+            <i className="bi bi-exclamation-triangle me-1"></i>
+            Both ON and OFF commands are required for automation. Add both or leave both empty.
           </div>
         )}
+      </div>
 
-        {/* Custom Commands Mode */}
-        {!data.onoff_mode && (
-          <div id="shell-custom">
-            <div className="alert alert-info">
-              <strong>Custom Commands Mode:</strong> Define custom commands with labels. Status command checks reachability.
-            </div>
+      {/* Custom Actions - Optional */}
+      <div className="form-section">
+        <div className="section-title">
+          <i className="bi bi-lightning me-1"></i> Custom Actions <span className="badge bg-secondary ms-2">Optional</span>
+        </div>
+        <small className="text-muted d-block mb-3">
+          Add custom action buttons (e.g., Restart, Reboot, Check Logs). These appear alongside ON/OFF buttons.
+        </small>
 
-            <div className="command-input-group">
-              <label className="form-label">
-                <strong>Status Command</strong> <span className="text-danger">(required)</span>
-              </label>
+        <div id="custom-commands-container">
+          {data.actions.map((action, index) => (
+            <div key={index} className="command-input-group">
+              <button
+                type="button"
+                className="btn btn-sm btn-delete remove-btn"
+                onClick={() => removeAction(index)}
+                title="Remove action"
+              >
+                <i className="bi bi-x"></i>
+              </button>
+              <label className="form-label"><strong>Action {index + 1}</strong></label>
+              <input
+                type="text"
+                className="form-control mb-2"
+                placeholder="Button label (e.g. Restart Service)"
+                value={action.name}
+                onChange={(e) => updateAction(index, 'name', e.target.value)}
+              />
               <div className="input-group mb-2">
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="ping -c 1 server.local"
-                  value={data.status_cmd}
-                  onChange={(e) => update('status_cmd', e.target.value)}
+                  placeholder="Command to execute"
+                  value={action.cmd}
+                  onChange={(e) => updateAction(index, 'cmd', e.target.value)}
                 />
-                <TestButton command={data.status_cmd} label="Status" />
-              </div>
-              <small className="form-text text-muted">Command to check device state (exit 0 = reachable, patterns determine ON/OFF)</small>
-              <div className="row mt-2">
-                <div className="col-md-6">
-                  <label className="form-label small">ON Pattern (regex)</label>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    placeholder="online|running|true"
-                    value={data.on_pattern}
-                    onChange={(e) => update('on_pattern', e.target.value)}
-                  />
-                  <small className="form-text text-muted">Regex to detect ON state</small>
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label small">OFF Pattern (regex)</label>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    placeholder="offline|stopped|false"
-                    value={data.off_pattern}
-                    onChange={(e) => update('off_pattern', e.target.value)}
-                  />
-                  <small className="form-text text-muted">Regex to detect OFF state</small>
-                </div>
+                <TestButton command={action.cmd} label={action.name || `Action ${index + 1}`} />
               </div>
             </div>
+          ))}
+        </div>
 
-            <div id="custom-commands-container">
-              {data.actions.map((action, index) => (
-                <div key={index} className="command-input-group">
-                  {data.actions.length > 1 && (
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-delete remove-btn"
-                      onClick={() => removeAction(index)}
-                    >
-                      <i className="bi bi-x"></i>
-                    </button>
-                  )}
-                  <label className="form-label"><strong>Command {index + 1}</strong></label>
-                  <input
-                    type="text"
-                    className="form-control mb-2"
-                    placeholder="Button label (e.g. Restart Service)"
-                    value={action.name}
-                    onChange={(e) => updateAction(index, 'name', e.target.value)}
-                  />
-                  <div className="input-group mb-2">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Command"
-                      value={action.cmd}
-                      onChange={(e) => updateAction(index, 'cmd', e.target.value)}
-                    />
-                    <TestButton command={action.cmd} label={action.name || `Action ${index + 1}`} />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <button type="button" className="btn btn-add btn-sm" onClick={addAction}>
-              <i className="bi bi-plus-circle"></i> Add Another Command
-            </button>
-          </div>
-        )}
+        <button type="button" className="btn btn-add btn-sm" onClick={addAction}>
+          <i className="bi bi-plus-circle"></i> Add Action
+        </button>
       </div>
 
       {/* Test Output Panel */}
@@ -494,7 +456,8 @@ export function ShellForm({ data, onChange, credentials = [], templates = [] }: 
           </label>
           <small className="d-block text-muted">When disabled, device is ignored by the system</small>
         </div>
-        {data.onoff_mode && (
+        {/* Show automation checkbox only when both ON and OFF commands exist */}
+        {data.on_cmd && data.off_cmd ? (
           <div className="form-check mb-3">
             <input
               className="form-check-input"
@@ -508,10 +471,9 @@ export function ShellForm({ data, onChange, credentials = [], templates = [] }: 
             </label>
             <small className="d-block text-muted">Included in bulk ON/OFF operations for artwork/exhibition</small>
           </div>
-        )}
-        {!data.onoff_mode && (
+        ) : (
           <small className="d-block text-muted">
-            <i className="bi bi-info-circle"></i> Custom command devices are not included in automation (no ON/OFF state)
+            <i className="bi bi-info-circle"></i> Add both ON and OFF commands to enable automation
           </small>
         )}
       </div>

@@ -25,31 +25,41 @@ def _get_shell_actions(device) -> list:
 
     For shell devices, actions are custom commands that are not on/off/status.
     These become clickable buttons in the UI.
+
+    Supports two formats:
+    1. New format: config.actions array of {name, cmd}
+    2. Old format: commands in the commands dict that are not on/off/status
     """
     if device.device_type != "shell" or not device.config:
         return []
 
-    commands = device.config.get("commands", {})
-    if not commands:
-        return []
-
-    # Standard commands that are not shown as action buttons
-    standard_commands = {"on", "off", "status"}
-
-    # Extract custom commands as actions
     actions = []
 
-    # Handle both dict format {"cmd_name": {"cmd": "..."}} and list format [{"name": "...", "cmd": "..."}]
-    if isinstance(commands, dict):
-        for name, cfg in commands.items():
-            if name not in standard_commands and isinstance(cfg, dict) and cfg.get("cmd"):
-                actions.append({"name": name, "cmd": cfg["cmd"]})
-    elif isinstance(commands, list):
-        for cfg in commands:
-            if isinstance(cfg, dict):
-                name = cfg.get("name", "").lower()
-                if name not in standard_commands and cfg.get("cmd"):
-                    actions.append({"name": cfg.get("name", "action"), "cmd": cfg["cmd"]})
+    # New format: check for actions array first
+    if "actions" in device.config and isinstance(device.config["actions"], list):
+        for action in device.config["actions"]:
+            if isinstance(action, dict) and action.get("name") and action.get("cmd"):
+                actions.append({"name": action["name"], "cmd": action["cmd"]})
+
+    # If no actions found, fall back to old format (commands dict)
+    if not actions:
+        commands = device.config.get("commands", {})
+        if commands:
+            # Standard commands that are not shown as action buttons
+            standard_commands = {"on", "off", "status"}
+
+            # Handle dict format {"cmd_name": {"cmd": "..."}}
+            if isinstance(commands, dict):
+                for name, cfg in commands.items():
+                    if name not in standard_commands and isinstance(cfg, dict) and cfg.get("cmd"):
+                        actions.append({"name": name, "cmd": cfg["cmd"]})
+            # Handle list format [{"name": "...", "cmd": "..."}]
+            elif isinstance(commands, list):
+                for cfg in commands:
+                    if isinstance(cfg, dict):
+                        name = cfg.get("name", "").lower()
+                        if name not in standard_commands and cfg.get("cmd"):
+                            actions.append({"name": cfg.get("name", "action"), "cmd": cfg["cmd"]})
 
     return actions
 

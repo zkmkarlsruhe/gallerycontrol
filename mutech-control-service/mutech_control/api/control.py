@@ -125,9 +125,21 @@ async def execute_device_action(
         if device.device_type != "shell":
             raise HTTPException(status_code=400, detail="Actions only available for shell devices")
 
-        # Find action
-        actions = device.config.get("actions", [])
-        action = next((a for a in actions if a.get("name") == action_name), None)
+        # Find action - check both new format (actions array) and old format (commands dict)
+        action = None
+
+        # New format: config.actions array
+        actions_array = device.config.get("actions", [])
+        if actions_array:
+            action = next((a for a in actions_array if a.get("name") == action_name), None)
+
+        # Old format: custom commands in commands dict
+        if not action:
+            commands = device.config.get("commands", {})
+            if isinstance(commands, dict) and action_name in commands:
+                cmd_config = commands[action_name]
+                if isinstance(cmd_config, dict) and cmd_config.get("cmd"):
+                    action = {"name": action_name, "cmd": cmd_config["cmd"]}
 
         if not action:
             raise HTTPException(status_code=404, detail=f"Action '{action_name}' not found")
