@@ -81,7 +81,12 @@ class NETIOManager(DeviceManager):
 
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
-                return DeviceResult(success=True, state=outlet_state, duration_ms=duration_ms)
+                return DeviceResult(
+                    success=True,
+                    state=outlet_state,
+                    duration_ms=duration_ms,
+                    raw_response=response.text,
+                )
 
         except asyncio.TimeoutError:
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
@@ -152,7 +157,12 @@ class NETIOManager(DeviceManager):
 
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
-                return DeviceResult(success=True, state=new_state, duration_ms=duration_ms)
+                return DeviceResult(
+                    success=True,
+                    state=new_state,
+                    duration_ms=duration_ms,
+                    raw_response=response.text,
+                )
 
         except asyncio.TimeoutError:
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)

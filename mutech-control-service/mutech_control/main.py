@@ -6,19 +6,20 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from mutech_control.api import admin, control, fast, state
+from mutech_control.api import admin, control, debug, fast, state
 from mutech_control.config import get_config
 from mutech_control.database.connection import get_db_manager
 from mutech_control.devices.anel_client import ANELClient
 from mutech_control.devices.anel_manager import ANELManager
 from mutech_control.devices.netio_manager import NETIOManager
 from mutech_control.devices.pjlink_manager import PJLinkManager
-from mutech_control.devices.shell_manager import ShellManager
+from mutech_control.devices.shell_manager import ShellManager, load_credentials
 from mutech_control.monitoring.state_monitor import StateMonitor
 from mutech_control.orchestrator.command_orchestrator import CommandOrchestrator
+from mutech_control.services.sse_broadcaster import SSEBroadcaster
 
 # Configure logging
 logging.basicConfig(
@@ -38,6 +39,10 @@ async def lifespan(app: FastAPI):
     # Initialize database
     db_manager = get_db_manager()
     logger.info("Database initialized")
+
+    # Load credentials into cache for shell command placeholder replacement
+    async with db_manager.session() as session:
+        await load_credentials(session)
 
     # Initialize device managers
     device_types_config = config.get("device_types", {})
@@ -64,8 +69,15 @@ async def lifespan(app: FastAPI):
     orchestrator = CommandOrchestrator(db_manager, device_managers, orchestrator_config)
     logger.info("Command orchestrator initialized")
 
-    # Initialize state monitor
-    state_monitor = StateMonitor(db_manager, device_managers, orchestrator_config)
+    # Initialize SSE broadcaster for real-time updates
+    sse_broadcaster = SSEBroadcaster()
+    await sse_broadcaster.start()
+    logger.info("SSE broadcaster initialized")
+
+    # Initialize state monitor with SSE broadcaster
+    state_monitor = StateMonitor(
+        db_manager, device_managers, orchestrator_config, sse_broadcaster=sse_broadcaster
+    )
     logger.info("State monitor initialized")
 
     # Connect orchestrator's verifier to state monitor for unified polling
@@ -77,16 +89,32 @@ async def lifespan(app: FastAPI):
     app.state.device_managers = device_managers
     app.state.orchestrator = orchestrator
     app.state.state_monitor = state_monitor
+    app.state.sse_broadcaster = sse_broadcaster
 
-    # Start config watching (hot-reload)
+    # Start config watching (hot-reload) with SSE broadcast
     def on_config_change(loader):
-        """Callback when config changes."""
-        logger.info("Configuration changed - updating managers")
-        # TODO: Update device manager configs dynamically
-        # For now, changes will be picked up on next operation
+        """Callback when config changes - broadcast to SSE clients."""
+        logger.info("Configuration changed - broadcasting to clients")
+        new_config = get_config()
+        monitoring_config = {
+            "poll_interval_seconds": new_config.get("monitoring.poll_interval_seconds", 60),
+            "fast_poll_interval_seconds": new_config.get("monitoring.fast_poll_interval_seconds", 30),
+            "batch_size": new_config.get("monitoring.batch_size", 30),
+            "device_timeout_seconds": new_config.get("monitoring.device_timeout_seconds", 5),
+        }
+
+        # Update state monitor intervals
+        state_monitor.interval = monitoring_config["poll_interval_seconds"]
+        state_monitor.fast_interval = monitoring_config["fast_poll_interval_seconds"]
+        state_monitor.batch_size = monitoring_config["batch_size"]
+        state_monitor.device_timeout = monitoring_config["device_timeout_seconds"]
+
+        # Broadcast config change to SSE clients
+        import asyncio
+        asyncio.create_task(sse_broadcaster.send_config_change(monitoring_config))
 
     config.start_watching(callback=on_config_change)
-    logger.info("Configuration hot-reload enabled")
+    logger.info("Configuration hot-reload enabled with SSE broadcast")
 
     # Start state monitoring
     await state_monitor.start()
@@ -145,6 +173,7 @@ app.include_router(control.router)
 app.include_router(fast.router)
 app.include_router(state.router)
 app.include_router(admin.router)
+app.include_router(debug.router)
 
 # Mount static files directory if it exists
 static_dir = Path(__file__).parent.parent / "static"
@@ -166,6 +195,52 @@ async def root():
 async def health():
     """Health check endpoint."""
     return {"status": "healthy"}
+
+
+# PWA files - serve from root for proper service worker scope
+@app.get("/sw.js")
+async def service_worker():
+    """Serve service worker from root for proper scope."""
+    sw_path = static_dir / "sw.js"
+    if sw_path.exists():
+        return FileResponse(sw_path, media_type="application/javascript")
+    return Response(status_code=404)
+
+
+@app.get("/manifest.json")
+async def manifest():
+    """Serve PWA manifest from root."""
+    manifest_path = static_dir / "manifest.json"
+    if manifest_path.exists():
+        return FileResponse(manifest_path, media_type="application/manifest+json")
+    return Response(status_code=404)
+
+
+@app.get("/icon-{size}.png")
+async def pwa_icon(size: str):
+    """Serve PWA icons from root."""
+    icon_path = static_dir / f"icon-{size}.png"
+    if icon_path.exists():
+        return FileResponse(icon_path, media_type="image/png")
+    return Response(status_code=404)
+
+
+@app.get("/apple-touch-icon.png")
+async def apple_touch_icon():
+    """Serve Apple touch icon from root."""
+    icon_path = static_dir / "apple-touch-icon.png"
+    if icon_path.exists():
+        return FileResponse(icon_path, media_type="image/png")
+    return Response(status_code=404)
+
+
+@app.get("/icon.svg")
+async def svg_icon():
+    """Serve SVG icon from root."""
+    icon_path = static_dir / "icon.svg"
+    if icon_path.exists():
+        return FileResponse(icon_path, media_type="image/svg+xml")
+    return Response(status_code=404)
 
 
 @app.get("/info")

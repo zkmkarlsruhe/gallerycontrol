@@ -1,8 +1,54 @@
+import { useState } from 'react';
 import type { Device } from '../types';
 import { ConfirmButton } from './ui/ConfirmButton';
 import { useDevicePollProgress } from '../context/PollStatusContext';
 
 type DeviceState = -1 | 0 | 1 | 2 | 3;
+
+/** Extract host/URL from device - for shell devices, parse from commands */
+function extractDeviceHost(device: Device): string | null {
+  // For non-shell devices, use host directly (unless it's a placeholder)
+  if (device.device_type !== 'shell') {
+    return device.host || null;
+  }
+
+  // For shell devices, extract from command URLs
+  const commands = device.config?.commands;
+  if (!commands || typeof commands !== 'object') return null;
+
+  // Look through all commands for URLs
+  const urlPattern = /https?:\/\/([a-zA-Z0-9._-]+(?::\d+)?)/;
+
+  for (const cmd of Object.values(commands)) {
+    const cmdStr = typeof cmd === 'object' && cmd !== null ? (cmd as any).cmd : cmd;
+    if (typeof cmdStr === 'string') {
+      const match = cmdStr.match(urlPattern);
+      if (match) {
+        return match[1]; // Return just the host:port part
+      }
+    }
+  }
+
+  return null;
+}
+
+/** Build a clickable URL for the device */
+function buildDeviceUrl(host: string, deviceType: string): string | null {
+  if (!host || host === '#nohost') return null;
+
+  // If host already has a port, use http
+  if (host.includes(':')) {
+    return `http://${host}`;
+  }
+
+  // For projectors, typically no web interface on default port
+  if (deviceType === 'pjlink') {
+    return null; // PJLink uses port 4352, not HTTP
+  }
+
+  // For power strips and shell devices, try http
+  return `http://${host}`;
+}
 
 interface DeviceAccordionProps {
   device: Device;
@@ -33,6 +79,56 @@ function PollProgressBar({ progress, isFastPolling, isVerifying }: { progress: n
         style={{ width: `${progress}%` }}
       />
     </div>
+  );
+}
+
+/** Clickable host link with copy button */
+function HostLink({ device }: { device: Device }) {
+  const [copied, setCopied] = useState(false);
+
+  const host = extractDeviceHost(device);
+  const url = host ? buildDeviceUrl(host, device.device_type) : null;
+
+  if (!host || host === '#nohost') {
+    return <span className="host-value">-</span>;
+  }
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(host);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <span className="host-link-container">
+      {url ? (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="host-link"
+          onClick={(e) => e.stopPropagation()}
+          title={`Open ${url}`}
+        >
+          {host}
+        </a>
+      ) : (
+        <span className="host-value">{host}</span>
+      )}
+      <button
+        className="btn-copy"
+        onClick={handleCopy}
+        title="Copy to clipboard"
+      >
+        {copied ? '✓' : '📋'}
+      </button>
+    </span>
   );
 }
 
@@ -71,7 +167,7 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
         )}
       </div>
       <div className="device-info-compact">
-        <span><strong>Host:</strong> {device.host}</span>
+        <span><strong>Host:</strong> <HostLink device={device} /></span>
         <span><strong>Type:</strong> {device.device_type}</span>
         {device.device_type !== 'shell' && <span><strong>Port:</strong> {device.port || '-'}</span>}
         <span><strong>State:</strong> {getDeviceStateLabel(device.state as DeviceState)}</span>

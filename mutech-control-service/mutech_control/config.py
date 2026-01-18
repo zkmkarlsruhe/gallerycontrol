@@ -100,19 +100,19 @@ class ConfigLoader:
             def on_modified(self, event):
                 if event.src_path.endswith(".yaml"):
                     try:
-                        logger.info("Config file changed, reloading", path=event.src_path)
+                        logger.info(f"Config file changed, reloading: {event.src_path}")
                         self.loader.load()
                         logger.info("Configuration reloaded successfully")
                         if self.callback:
                             self.callback(self.loader)
                     except Exception as e:
-                        logger.error("Error reloading configuration", error=str(e))
+                        logger.error(f"Error reloading configuration: {e}")
 
         self._observer = Observer()
         handler = ConfigChangeHandler(self, callback)
         self._observer.schedule(handler, str(self.config_dir), recursive=False)
         self._observer.start()
-        logger.info("Started watching configuration directory", path=str(self.config_dir))
+        logger.info(f"Started watching configuration directory: {self.config_dir}")
 
     def stop_watching(self) -> None:
         """Stop watching config files."""

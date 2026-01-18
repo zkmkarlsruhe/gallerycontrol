@@ -18,6 +18,7 @@ import {
   LogViewer,
   StateTimelinePage,
 } from './components';
+import { EmailInventoryModal } from './components/modals/EmailInventoryModal';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './App.css';
@@ -64,6 +65,9 @@ function App() {
     updateShellTemplate,
     deleteShellTemplate,
     saveDeviceAsTemplate,
+    fetchEmailConfig,
+    fetchInventoryPreview,
+    sendInventoryEmail,
   } = useApi();
 
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
@@ -80,6 +84,7 @@ function App() {
   const [showAddExhibitionModal, setShowAddExhibitionModal] = useState(false);
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   const [showShellTemplatesModal, setShowShellTemplatesModal] = useState(false);
+  const [showEmailInventoryModal, setShowEmailInventoryModal] = useState(false);
 
   // Log viewer state
   const [showLogViewer, setShowLogViewer] = useState(false);
@@ -500,6 +505,7 @@ function App() {
         onEditModeChange={setEditMode}
         onOpenCredentials={() => setShowCredentialsModal(true)}
         onOpenShellLibrary={() => setShowShellTemplatesModal(true)}
+        onOpenEmailInventory={() => setShowEmailInventoryModal(true)}
         onOpenLogs={() => openLogViewer()}
         onOpenTimeline={() => setShowTimeline(true)}
         showingLogs={showLogViewer}
@@ -644,6 +650,16 @@ function App() {
         createShellTemplate={createShellTemplate}
         updateShellTemplate={updateShellTemplate}
         deleteShellTemplate={deleteShellTemplate}
+        showToast={showToast}
+      />
+
+      <EmailInventoryModal
+        isOpen={showEmailInventoryModal}
+        onClose={() => setShowEmailInventoryModal(false)}
+        exhibitions={exhibitions}
+        fetchEmailConfig={fetchEmailConfig}
+        fetchInventoryPreview={fetchInventoryPreview}
+        sendInventoryEmail={sendInventoryEmail}
         showToast={showToast}
       />
     </div>

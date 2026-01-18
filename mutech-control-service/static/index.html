@@ -2,15 +2,37 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#2196F3" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#1976D2" />
     <meta name="description" content="MuTech Museum Device Control System" />
+
+    <!-- iOS PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="MuTech" />
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icon-96x96.png" />
+    <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
+
     <title>MuTech Control</title>
     <link rel="manifest" href="/static/manifest.json" />
-    <script type="module" crossorigin src="/static/assets/index-BYA1e9Pp.js"></script>
-    <link rel="stylesheet" crossorigin href="/static/assets/index-DWTH7Rs9.css">
+    <script type="module" crossorigin src="/static/assets/index-D5TY-0IU.js"></script>
+    <link rel="stylesheet" crossorigin href="/static/assets/index-BuZl5G8K.css">
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('[App] Service worker registered:', reg.scope))
+            .catch(err => console.error('[App] Service worker registration failed:', err));
+        });
+      }
+    </script>
   </body>
 </html>

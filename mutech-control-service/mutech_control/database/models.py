@@ -172,6 +172,8 @@ class ShellTemplate(Base):
     status_off_pattern = Column(String(255), nullable=True)
     on_command = Column(Text, nullable=True)
     off_command = Column(Text, nullable=True)
+    actions = Column(JSON, nullable=True)  # Array of {name, cmd} for custom actions
+    onoff_mode = Column(Boolean, default=True, nullable=False)  # True=ON/OFF mode, False=Actions mode
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

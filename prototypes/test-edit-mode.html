@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Edit Mode</title>
+  <style>
+    body.edit-mode .edit-only {
+      display: block !important;
+    }
+    .edit-only {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Test Edit Mode Toggle</h1>
+  <label>
+    <input type="checkbox" id="edit-mode-checkbox" onchange="toggleEditMode(this)">
+    Edit Mode
+  </label>
+
+  <div class="edit-only" style="margin-top: 20px; padding: 20px; background: yellow;">
+    <p>This should only be visible in edit mode!</p>
+  </div>
+
+  <script>
+    function toggleEditMode(checkbox) {
+      console.log('toggleEditMode called with checked:', checkbox.checked);
+      if (checkbox.checked) {
+        document.body.classList.add('edit-mode');
+        console.log('Added edit-mode class');
+      } else {
+        document.body.classList.remove('edit-mode');
+        console.log('Removed edit-mode class');
+      }
+    }
+  </script>
+</body>
+</html>

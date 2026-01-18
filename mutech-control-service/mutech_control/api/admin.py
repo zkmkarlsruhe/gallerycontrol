@@ -1,5 +1,6 @@
 """Admin API endpoints for managing exhibitions, artworks, and devices."""
 
+import asyncio
 import logging
 from typing import Any, Dict, List
 from uuid import UUID
@@ -10,7 +11,8 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.orm import selectinload
 
 from mutech_control.database.connection import get_session
-from mutech_control.database.models import Artwork, Device, Exhibition
+from mutech_control.database.models import Artwork, Credential, Device, Exhibition, ShellTemplate
+from mutech_control.devices.shell_manager import load_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +60,6 @@ class DeviceCreate(BaseModel):
     port: int | None = None
     enabled: bool = True
     automation_enabled: bool = True
-    exclude_from_auto_onoff: bool = False
     config: Dict[str, Any] = {}
 
 
@@ -71,7 +72,6 @@ class DeviceUpdate(BaseModel):
     port: int | None = None
     enabled: bool | None = None
     automation_enabled: bool | None = None
-    exclude_from_auto_onoff: bool | None = None
     config: Dict[str, Any] | None = None
 
 
@@ -408,8 +408,7 @@ async def list_devices(
                 "enabled": dev.enabled,
                 "effective_enabled": compute_effective_enabled(dev),
                 "automation_enabled": dev.automation_enabled,
-                "exclude_from_auto_onoff": dev.exclude_from_auto_onoff,
-                "state": dev.state,
+                                "state": dev.state,
                 "config": dev.config,
                 "created_at": dev.created_at.isoformat(),
                 "updated_at": dev.updated_at.isoformat(),
@@ -457,7 +456,6 @@ async def get_device(device_id: str, session=Depends(get_session)):
             "enabled": device.enabled,
             "effective_enabled": effective_enabled,
             "automation_enabled": device.automation_enabled,
-            "exclude_from_auto_onoff": device.exclude_from_auto_onoff,
             "state": device.state,
             "config": device.config,
             "last_checked_at": device.last_checked_at.isoformat() if device.last_checked_at else None,
@@ -484,7 +482,6 @@ async def create_device(device: DeviceCreate, session=Depends(get_session)):
             port=device.port,
             enabled=device.enabled,
             automation_enabled=device.automation_enabled,
-            exclude_from_auto_onoff=device.exclude_from_auto_onoff,
             config=device.config,
         )
         session.add(new_device)
@@ -499,7 +496,6 @@ async def create_device(device: DeviceCreate, session=Depends(get_session)):
             "artwork_id": str(new_device.artwork_id),
             "enabled": new_device.enabled,
             "automation_enabled": new_device.automation_enabled,
-            "exclude_from_auto_onoff": new_device.exclude_from_auto_onoff,
         }
 
     except Exception as e:
@@ -545,7 +541,6 @@ async def update_device(
             "artwork_id": str(updated.artwork_id),
             "enabled": updated.enabled,
             "automation_enabled": updated.automation_enabled,
-            "exclude_from_auto_onoff": updated.exclude_from_auto_onoff,
         }
 
     except HTTPException:
@@ -585,3 +580,977 @@ async def reload_config():
     except Exception as e:
         logger.error(f"Error reloading config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# State change cleanup endpoint
+@router.post("/state-changes/cleanup")
+async def cleanup_state_changes(
+    retention_days: int = 90, session=Depends(get_session)
+):
+    """Delete old state change logs.
+
+    Args:
+        retention_days: Keep logs from the last N days (default 90)
+
+    Returns:
+        Count of deleted records
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from mutech_control.database.models import StateChangeLog
+
+    try:
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=retention_days)
+
+        stmt = delete(StateChangeLog).where(StateChangeLog.timestamp < cutoff_date)
+        result = await session.execute(stmt)
+        deleted_count = result.rowcount
+
+        logger.info(
+            f"State change cleanup completed: deleted {deleted_count} records older than {retention_days} days"
+        )
+
+        return {
+            "success": True,
+            "deleted_count": deleted_count,
+            "retention_days": retention_days,
+            "cutoff_date": cutoff_date.isoformat(),
+        }
+
+    except Exception as e:
+        logger.error(f"Error cleaning up state changes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Pydantic models for Credentials
+class CredentialCreate(BaseModel):
+    """Credential creation model."""
+
+    name: str
+    credential_type: str = "shell"  # shell, pjlink, netio, anel
+    username: str | None = None
+    password: str
+    description: str | None = None
+
+
+class CredentialUpdate(BaseModel):
+    """Credential update model."""
+
+    name: str | None = None
+    credential_type: str | None = None
+    username: str | None = None
+    password: str | None = None
+    description: str | None = None
+
+
+# Credential endpoints
+@router.get("/credentials")
+async def list_credentials(credential_type: str | None = None, session=Depends(get_session)):
+    """List all credentials (passwords masked). Optional filter by type."""
+    try:
+        stmt = select(Credential).order_by(Credential.credential_type, Credential.name)
+
+        # Filter by type if specified
+        if credential_type:
+            stmt = stmt.where(Credential.credential_type == credential_type)
+
+        result = await session.execute(stmt)
+        credentials = result.scalars().all()
+
+        return [
+            {
+                "id": str(cred.id),
+                "name": cred.name,
+                "credential_type": cred.credential_type,
+                "username": cred.username,
+                "password": "********",  # Masked
+                "description": cred.description,
+                "created_at": cred.created_at.isoformat(),
+                "updated_at": cred.updated_at.isoformat(),
+            }
+            for cred in credentials
+        ]
+
+    except Exception as e:
+        logger.error(f"Error listing credentials: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/credentials/{credential_id}")
+async def get_credential(credential_id: str, session=Depends(get_session)):
+    """Get a single credential by ID (password masked)."""
+    try:
+        stmt = select(Credential).where(Credential.id == UUID(credential_id))
+        result = await session.execute(stmt)
+        cred = result.scalar_one_or_none()
+
+        if not cred:
+            raise HTTPException(status_code=404, detail="Credential not found")
+
+        return {
+            "id": str(cred.id),
+            "name": cred.name,
+            "credential_type": cred.credential_type,
+            "username": cred.username,
+            "password": "********",  # Masked
+            "description": cred.description,
+            "created_at": cred.created_at.isoformat(),
+            "updated_at": cred.updated_at.isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting credential: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/credentials", status_code=201)
+async def create_credential(credential: CredentialCreate, session=Depends(get_session)):
+    """Create a new credential."""
+    try:
+        new_credential = Credential(
+            name=credential.name,
+            credential_type=credential.credential_type,
+            username=credential.username,
+            password=credential.password,
+            description=credential.description,
+        )
+        session.add(new_credential)
+        await session.flush()
+
+        # Reload credentials cache
+        await load_credentials(session)
+
+        return {
+            "id": str(new_credential.id),
+            "name": new_credential.name,
+            "credential_type": new_credential.credential_type,
+            "username": new_credential.username,
+            "description": new_credential.description,
+        }
+
+    except Exception as e:
+        logger.error(f"Error creating credential: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/credentials/{credential_id}")
+async def update_credential(
+    credential_id: str, credential: CredentialUpdate, session=Depends(get_session)
+):
+    """Update a credential."""
+    try:
+        values = {k: v for k, v in credential.dict().items() if v is not None}
+
+        if not values:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        stmt = (
+            update(Credential)
+            .where(Credential.id == UUID(credential_id))
+            .values(**values)
+            .returning(Credential)
+        )
+        result = await session.execute(stmt)
+        updated = result.scalar_one_or_none()
+
+        if not updated:
+            raise HTTPException(status_code=404, detail="Credential not found")
+
+        # Reload credentials cache
+        await load_credentials(session)
+
+        return {
+            "id": str(updated.id),
+            "name": updated.name,
+            "credential_type": updated.credential_type,
+            "username": updated.username,
+            "description": updated.description,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating credential: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/credentials/{credential_id}", status_code=204)
+async def delete_credential(credential_id: str, session=Depends(get_session)):
+    """Delete a credential."""
+    try:
+        stmt = delete(Credential).where(Credential.id == UUID(credential_id))
+        result = await session.execute(stmt)
+
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Credential not found")
+
+        # Reload credentials cache
+        await load_credentials(session)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting credential: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Pydantic models for Shell Templates
+class ShellTemplateCreate(BaseModel):
+    """Shell template creation model."""
+
+    name: str
+    description: str | None = None
+    status_command: str | None = None
+    status_on_pattern: str | None = None
+    status_off_pattern: str | None = None
+    on_command: str | None = None
+    off_command: str | None = None
+    actions: list[dict] | None = None  # Array of {name, cmd}
+    onoff_mode: bool = True  # True=ON/OFF mode, False=Actions mode
+
+
+class ShellTemplateUpdate(BaseModel):
+    """Shell template update model."""
+
+    name: str | None = None
+    description: str | None = None
+    status_command: str | None = None
+    status_on_pattern: str | None = None
+    status_off_pattern: str | None = None
+    on_command: str | None = None
+    off_command: str | None = None
+    actions: list[dict] | None = None
+    onoff_mode: bool | None = None
+
+
+# Shell Template endpoints
+@router.get("/shell-templates")
+async def list_shell_templates(session=Depends(get_session)):
+    """List all shell templates."""
+    try:
+        stmt = select(ShellTemplate).order_by(ShellTemplate.name)
+        result = await session.execute(stmt)
+        templates = result.scalars().all()
+
+        return [
+            {
+                "id": str(t.id),
+                "name": t.name,
+                "description": t.description,
+                "status_command": t.status_command,
+                "status_on_pattern": t.status_on_pattern,
+                "status_off_pattern": t.status_off_pattern,
+                "on_command": t.on_command,
+                "off_command": t.off_command,
+                "actions": t.actions or [],
+                "onoff_mode": t.onoff_mode,
+                "created_at": t.created_at.isoformat(),
+                "updated_at": t.updated_at.isoformat(),
+            }
+            for t in templates
+        ]
+
+    except Exception as e:
+        logger.error(f"Error listing shell templates: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/shell-templates/{template_id}")
+async def get_shell_template(template_id: str, session=Depends(get_session)):
+    """Get a single shell template by ID."""
+    try:
+        stmt = select(ShellTemplate).where(ShellTemplate.id == UUID(template_id))
+        result = await session.execute(stmt)
+        template = result.scalar_one_or_none()
+
+        if not template:
+            raise HTTPException(status_code=404, detail="Shell template not found")
+
+        return {
+            "id": str(template.id),
+            "name": template.name,
+            "description": template.description,
+            "status_command": template.status_command,
+            "status_on_pattern": template.status_on_pattern,
+            "status_off_pattern": template.status_off_pattern,
+            "on_command": template.on_command,
+            "off_command": template.off_command,
+            "actions": template.actions or [],
+            "onoff_mode": template.onoff_mode,
+            "created_at": template.created_at.isoformat(),
+            "updated_at": template.updated_at.isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting shell template: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/shell-templates", status_code=201)
+async def create_shell_template(template: ShellTemplateCreate, session=Depends(get_session)):
+    """Create a new shell template."""
+    try:
+        new_template = ShellTemplate(
+            name=template.name,
+            description=template.description,
+            status_command=template.status_command,
+            status_on_pattern=template.status_on_pattern,
+            status_off_pattern=template.status_off_pattern,
+            on_command=template.on_command,
+            off_command=template.off_command,
+            actions=template.actions,
+            onoff_mode=template.onoff_mode,
+        )
+        session.add(new_template)
+        await session.flush()
+
+        return {
+            "id": str(new_template.id),
+            "name": new_template.name,
+            "description": new_template.description,
+            "onoff_mode": new_template.onoff_mode,
+        }
+
+    except Exception as e:
+        logger.error(f"Error creating shell template: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/shell-templates/{template_id}")
+async def update_shell_template(
+    template_id: str, template: ShellTemplateUpdate, session=Depends(get_session)
+):
+    """Update a shell template."""
+    try:
+        values = {k: v for k, v in template.dict().items() if v is not None}
+
+        if not values:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        stmt = (
+            update(ShellTemplate)
+            .where(ShellTemplate.id == UUID(template_id))
+            .values(**values)
+            .returning(ShellTemplate)
+        )
+        result = await session.execute(stmt)
+        updated = result.scalar_one_or_none()
+
+        if not updated:
+            raise HTTPException(status_code=404, detail="Shell template not found")
+
+        return {
+            "id": str(updated.id),
+            "name": updated.name,
+            "description": updated.description,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating shell template: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/shell-templates/{template_id}", status_code=204)
+async def delete_shell_template(template_id: str, session=Depends(get_session)):
+    """Delete a shell template."""
+    try:
+        stmt = delete(ShellTemplate).where(ShellTemplate.id == UUID(template_id))
+        result = await session.execute(stmt)
+
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Shell template not found")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting shell template: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/devices/{device_id}/save-as-template", status_code=201)
+async def save_device_as_template(
+    device_id: str, name: str | None = None, session=Depends(get_session)
+):
+    """Save a shell device's config as a template."""
+    try:
+        stmt = select(Device).where(Device.id == UUID(device_id))
+        result = await session.execute(stmt)
+        device = result.scalar_one_or_none()
+
+        if not device:
+            raise HTTPException(status_code=404, detail="Device not found")
+
+        if device.device_type != "shell":
+            raise HTTPException(status_code=400, detail="Only shell devices can be saved as templates")
+
+        commands = device.config.get("commands", {})
+        actions = device.config.get("actions", [])
+
+        # Determine mode: if has on/off commands, it's onoff_mode=True
+        has_onoff = bool(commands.get("on") or commands.get("off") or commands.get("status"))
+        onoff_mode = has_onoff or not actions
+
+        new_template = ShellTemplate(
+            name=name or f"Template from {device.name}",
+            description=f"Created from device: {device.name} ({device.host})",
+            status_command=commands.get("status", {}).get("cmd"),
+            status_on_pattern=commands.get("status", {}).get("onPattern"),
+            status_off_pattern=commands.get("status", {}).get("offPattern"),
+            on_command=commands.get("on", {}).get("cmd"),
+            off_command=commands.get("off", {}).get("cmd"),
+            actions=actions if actions else None,
+            onoff_mode=onoff_mode,
+        )
+        session.add(new_template)
+        await session.flush()
+
+        return {
+            "id": str(new_template.id),
+            "name": new_template.name,
+            "description": new_template.description,
+            "onoff_mode": new_template.onoff_mode,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error saving device as template: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Inventory export endpoint
+@router.get("/inventory/export")
+async def export_inventory(session=Depends(get_session)):
+    """Generate device inventory as plain text (for email or display)."""
+    from datetime import datetime, timezone
+
+    try:
+        stmt = (
+            select(Exhibition)
+            .options(
+                selectinload(Exhibition.artworks).selectinload(Artwork.devices)
+            )
+            .order_by(Exhibition.name)
+        )
+        result = await session.execute(stmt)
+        exhibitions = result.scalars().all()
+
+        lines = [
+            "MuTech Device Inventory",
+            f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+            "",
+        ]
+
+        device_type_names = {
+            "pjlink": "Projector",
+            "netio": "Power Strip",
+            "anel": "Power Strip",
+            "shell": "Shell",
+        }
+
+        for exhibition in exhibitions:
+            lines.append(f"### {exhibition.name}")
+            lines.append("")
+
+            for artwork in sorted(exhibition.artworks, key=lambda a: a.name):
+                lines.append(f"## {artwork.name}")
+
+                for device in sorted(artwork.devices, key=lambda d: d.name):
+                    device_type_display = device_type_names.get(device.device_type, device.device_type)
+
+                    if device.device_type == "shell":
+                        # For shell, show host or first command
+                        if device.host and device.host != "#nohost":
+                            lines.append(f"* {device_type_display}: {device.host}")
+                        else:
+                            lines.append(f"* {device_type_display}: {device.name}")
+                    elif device.port:
+                        lines.append(f"* {device_type_display}: http://{device.host} Port: {device.port}")
+                    else:
+                        lines.append(f"* {device_type_display}: http://{device.host}")
+
+                lines.append("")
+
+        return {
+            "content": "\n".join(lines),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "exhibition_count": len(exhibitions),
+        }
+
+    except Exception as e:
+        logger.error(f"Error exporting inventory: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Pydantic model for inventory email request
+class InventoryEmailRequest(BaseModel):
+    """Inventory email request model."""
+
+    exhibition_ids: List[str] | None = None  # Optional filter
+    include_disabled: bool = False  # Include disabled items
+
+
+@router.get("/inventory/email-config")
+async def get_email_config():
+    """Get email configuration (recipients, subject, from address)."""
+    from mutech_control.config import get_config
+
+    config = get_config()
+
+    return {
+        "recipients": config.get("email.recipients", []),
+        "subject": config.get("email.subject", "MuTech Device Inventory"),
+        "from_address": config.get("email.from_address", ""),
+        "smtp_configured": bool(config.get("email.smtp_host")),
+    }
+
+
+@router.post("/inventory/email")
+async def send_inventory_email(
+    request: InventoryEmailRequest, session=Depends(get_session)
+):
+    """Send device inventory via email.
+
+    Recipients and subject are taken from config.
+
+    Args:
+        exhibition_ids: Optional list of exhibition IDs to include (default: all enabled)
+
+    Returns:
+        Success status and message
+    """
+    from mutech_control.config import get_config
+    from mutech_control.services.inventory import send_inventory_email as send_email
+
+    config = get_config()
+    recipients = config.get("email.recipients", [])
+    subject = config.get("email.subject", "MuTech Device Inventory")
+
+    if not recipients:
+        return {
+            "success": False,
+            "message": "No recipients configured in email.recipients",
+        }
+
+    try:
+        # Build query for exhibitions
+        stmt = (
+            select(Exhibition)
+            .options(
+                selectinload(Exhibition.artworks).selectinload(Artwork.devices)
+            )
+            .order_by(Exhibition.name)
+        )
+
+        # Filter by enabled only (unless include_disabled)
+        if not request.include_disabled:
+            stmt = stmt.where(Exhibition.enabled == True)
+
+        # Filter by exhibition IDs if provided
+        if request.exhibition_ids:
+            exhibition_uuids = [UUID(eid) for eid in request.exhibition_ids]
+            stmt = stmt.where(Exhibition.id.in_(exhibition_uuids))
+
+        result = await session.execute(stmt)
+        exhibitions = result.scalars().all()
+
+        # Convert to dict format for the generator
+        exhibitions_data = []
+        for ex in exhibitions:
+            if not request.include_disabled and not ex.enabled:
+                continue
+
+            artworks_data = []
+            for aw in ex.artworks:
+                effective_aw_enabled = aw.enabled and ex.enabled
+                if not request.include_disabled and not effective_aw_enabled:
+                    continue
+
+                devices_data = []
+                for dev in aw.devices:
+                    effective_dev_enabled = dev.enabled and effective_aw_enabled
+                    if not request.include_disabled and not effective_dev_enabled:
+                        continue
+                    devices_data.append({
+                        "id": str(dev.id),
+                        "name": dev.name,
+                        "device_type": dev.device_type,
+                        "host": dev.host,
+                        "port": dev.port,
+                        "config": dev.config,
+                        "effective_enabled": effective_dev_enabled,
+                    })
+
+                if devices_data:  # Only add artwork if it has devices
+                    artworks_data.append({
+                        "id": str(aw.id),
+                        "name": aw.name,
+                        "effective_enabled": effective_aw_enabled,
+                        "devices": devices_data,
+                    })
+
+            if artworks_data:  # Only add exhibition if it has artworks
+                exhibitions_data.append({
+                    "id": str(ex.id),
+                    "name": ex.name,
+                    "effective_enabled": ex.enabled,
+                    "artworks": artworks_data,
+                })
+
+        if not exhibitions_data:
+            return {
+                "success": False,
+                "message": "No enabled devices found to export",
+            }
+
+        # Send email
+        result = await send_email(
+            recipients=recipients,
+            subject=subject,
+            exhibitions=exhibitions_data,
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Error sending inventory email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/inventory/preview")
+async def preview_inventory(
+    exhibition_ids: str | None = None,
+    include_disabled: bool = False,
+    session=Depends(get_session),
+):
+    """Preview the inventory text that would be sent in email.
+
+    Args:
+        exhibition_ids: Optional comma-separated list of exhibition IDs
+        include_disabled: Include disabled exhibitions/artworks/devices
+
+    Returns:
+        The plain text content that would be sent
+    """
+    from mutech_control.services.inventory import generate_inventory_text
+
+    try:
+        # Build query for exhibitions
+        stmt = (
+            select(Exhibition)
+            .options(
+                selectinload(Exhibition.artworks).selectinload(Artwork.devices)
+            )
+            .order_by(Exhibition.name)
+        )
+
+        # Filter by enabled only (unless include_disabled)
+        if not include_disabled:
+            stmt = stmt.where(Exhibition.enabled == True)
+
+        # Filter by exhibition IDs if provided
+        if exhibition_ids:
+            exhibition_uuids = [UUID(eid.strip()) for eid in exhibition_ids.split(",")]
+            stmt = stmt.where(Exhibition.id.in_(exhibition_uuids))
+
+        result = await session.execute(stmt)
+        exhibitions = result.scalars().all()
+
+        # Convert to dict format for the generator
+        exhibitions_data = []
+        for ex in exhibitions:
+            if not include_disabled and not ex.enabled:
+                continue
+
+            artworks_data = []
+            for aw in ex.artworks:
+                effective_aw_enabled = aw.enabled and ex.enabled
+                if not include_disabled and not effective_aw_enabled:
+                    continue
+
+                devices_data = []
+                for dev in aw.devices:
+                    effective_dev_enabled = dev.enabled and effective_aw_enabled
+                    if not include_disabled and not effective_dev_enabled:
+                        continue
+                    devices_data.append({
+                        "id": str(dev.id),
+                        "name": dev.name,
+                        "device_type": dev.device_type,
+                        "host": dev.host,
+                        "port": dev.port,
+                        "config": dev.config,
+                        "effective_enabled": effective_dev_enabled,
+                    })
+
+                if devices_data:
+                    artworks_data.append({
+                        "id": str(aw.id),
+                        "name": aw.name,
+                        "effective_enabled": effective_aw_enabled,
+                        "devices": devices_data,
+                    })
+
+            if artworks_data:
+                exhibitions_data.append({
+                    "id": str(ex.id),
+                    "name": ex.name,
+                    "effective_enabled": ex.enabled,
+                    "artworks": artworks_data,
+                })
+
+        # Generate plain text inventory
+        inventory_text = generate_inventory_text(exhibitions_data)
+
+        return {
+            "content": inventory_text,
+            "exhibition_count": len(exhibitions_data),
+            "device_count": sum(
+                len(d)
+                for ex in exhibitions_data
+                for aw in ex.get("artworks", [])
+                for d in [aw.get("devices", [])]
+            ),
+        }
+
+    except Exception as e:
+        logger.error(f"Error previewing inventory: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== Shell Command Testing ==========
+
+
+class ShellTestRequest(BaseModel):
+    """Request model for testing shell commands."""
+
+    command: str
+    timeout: int = 5  # seconds (max 5 to prevent stale connections)
+
+
+class ShellTestResponse(BaseModel):
+    """Response model for shell command test results."""
+
+    success: bool
+    exit_code: int | None
+    stdout: str
+    stderr: str
+    duration_ms: int
+    error: str | None = None
+
+
+@router.post("/shell/test", response_model=ShellTestResponse)
+async def test_shell_command(request: ShellTestRequest):
+    """Test a shell command and return stdout, stderr, and exit code.
+
+    This endpoint is for testing shell commands before saving them to a device.
+    Commands are executed with credential placeholders replaced.
+    Max timeout is 5 seconds to prevent stale connections.
+    """
+    import asyncio
+    import signal
+    import time
+
+    from mutech_control.devices.shell_manager import replace_credential_placeholders
+
+    # Enforce max timeout of 5 seconds
+    timeout = min(request.timeout, 5)
+
+    cmd = replace_credential_placeholders(request.command)
+    start_time = time.monotonic()
+    proc = None
+
+    try:
+        proc = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            start_new_session=True,  # Create new process group for clean kill
+        )
+
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(), timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            # Kill entire process group to handle child processes
+            try:
+                import os
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            except (ProcessLookupError, OSError):
+                pass
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=1.0)
+            except asyncio.TimeoutError:
+                pass
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            return ShellTestResponse(
+                success=False,
+                exit_code=None,
+                stdout="",
+                stderr="",
+                duration_ms=duration_ms,
+                error=f"Command timed out after {timeout} seconds",
+            )
+
+        duration_ms = int((time.monotonic() - start_time) * 1000)
+
+        # Truncate output to prevent huge responses
+        max_output = 10000
+        stdout_str = stdout.decode(errors="replace")[:max_output]
+        stderr_str = stderr.decode(errors="replace")[:max_output]
+
+        return ShellTestResponse(
+            success=proc.returncode == 0,
+            exit_code=proc.returncode,
+            stdout=stdout_str,
+            stderr=stderr_str,
+            duration_ms=duration_ms,
+        )
+
+    except Exception as e:
+        duration_ms = int((time.monotonic() - start_time) * 1000)
+        logger.error(f"Error testing shell command: {e}")
+        # Ensure process is killed on error
+        if proc and proc.returncode is None:
+            try:
+                proc.kill()
+                await asyncio.wait_for(proc.wait(), timeout=1.0)
+            except Exception:
+                pass
+        return ShellTestResponse(
+            success=False,
+            exit_code=None,
+            stdout="",
+            stderr="",
+            duration_ms=duration_ms,
+            error=str(e),
+        )
+
+
+# Host reachability check
+class HostCheckRequest(BaseModel):
+    """Host check request model."""
+
+    host: str
+    port: int = 80  # Default port for basic TCP check
+    device_type: str = "generic"  # pjlink, netio, anel, or generic
+
+
+class HostCheckResponse(BaseModel):
+    """Host check response model."""
+
+    reachable: bool
+    host: str
+    port: int
+    error: str | None = None
+    duration_ms: int = 0
+
+
+@router.post("/check-host")
+async def check_host_reachability(request: HostCheckRequest) -> HostCheckResponse:
+    """Check if a host is reachable via TCP connection.
+
+    This performs a quick TCP connect test to verify the host is reachable.
+    For device-specific ports:
+    - pjlink: default port 4352
+    - netio: default port 80 (HTTP API)
+    - anel: default port 80 (HTTP API)
+    """
+    import socket
+    import time
+
+    # Use device-specific default ports if port is default
+    port = request.port
+    if request.device_type == "pjlink" and port == 80:
+        port = 4352
+    elif request.device_type in ("netio", "anel") and port == 80:
+        port = 80  # HTTP API
+
+    start_time = time.monotonic()
+
+    try:
+        # First resolve the hostname
+        try:
+            # Use getaddrinfo for proper DNS resolution
+            loop = asyncio.get_event_loop()
+            infos = await loop.getaddrinfo(
+                request.host, port, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM
+            )
+            if not infos:
+                return HostCheckResponse(
+                    reachable=False,
+                    host=request.host,
+                    port=port,
+                    error=f"Could not resolve hostname: {request.host}",
+                    duration_ms=int((time.monotonic() - start_time) * 1000),
+                )
+        except socket.gaierror as e:
+            return HostCheckResponse(
+                reachable=False,
+                host=request.host,
+                port=port,
+                error=f"DNS resolution failed: {e}",
+                duration_ms=int((time.monotonic() - start_time) * 1000),
+            )
+
+        # Try to connect with a short timeout
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(request.host, port),
+                timeout=3.0,  # 3 second timeout
+            )
+            writer.close()
+            await writer.wait_closed()
+
+            return HostCheckResponse(
+                reachable=True,
+                host=request.host,
+                port=port,
+                duration_ms=int((time.monotonic() - start_time) * 1000),
+            )
+
+        except asyncio.TimeoutError:
+            return HostCheckResponse(
+                reachable=False,
+                host=request.host,
+                port=port,
+                error="Connection timed out",
+                duration_ms=int((time.monotonic() - start_time) * 1000),
+            )
+        except ConnectionRefusedError:
+            return HostCheckResponse(
+                reachable=False,
+                host=request.host,
+                port=port,
+                error="Connection refused",
+                duration_ms=int((time.monotonic() - start_time) * 1000),
+            )
+        except OSError as e:
+            return HostCheckResponse(
+                reachable=False,
+                host=request.host,
+                port=port,
+                error=f"Connection failed: {e}",
+                duration_ms=int((time.monotonic() - start_time) * 1000),
+            )
+
+    except Exception as e:
+        logger.error(f"Error checking host reachability: {e}")
+        return HostCheckResponse(
+            reachable=False,
+            host=request.host,
+            port=port,
+            error=str(e),
+            duration_ms=int((time.monotonic() - start_time) * 1000),
+        )

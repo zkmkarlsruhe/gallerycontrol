@@ -61,3 +61,9 @@ htmlcov/
 node_modules/
 .npm
 .pnpm-store
+
+# Agentbox (Claude Code session data)
+.agentbox.yml
+.agentbox/
+.claude/
+.mcp.json

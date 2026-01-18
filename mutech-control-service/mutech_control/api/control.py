@@ -1,9 +1,16 @@
 """Control API endpoints for device control."""
 
+import asyncio
 import logging
 from typing import Literal
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+
+from mutech_control.database.connection import get_session
+from mutech_control.database.models import Device
+from mutech_control.devices.shell_manager import replace_credential_placeholders
 
 logger = logging.getLogger(__name__)
 
@@ -92,4 +99,72 @@ async def control_device(
 
     except Exception as e:
         logger.error(f"Error controlling device: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/device/{device_id}/action/{action_name}")
+async def execute_device_action(
+    device_id: str,
+    action_name: str,
+    session=Depends(get_session),
+):
+    """
+    Execute a shell device action (e.g., Reboot, Restart App).
+
+    Actions are defined in the device config and are manual-only commands.
+    """
+    try:
+        # Get device
+        stmt = select(Device).where(Device.id == UUID(device_id))
+        result = await session.execute(stmt)
+        device = result.scalar_one_or_none()
+
+        if not device:
+            raise HTTPException(status_code=404, detail="Device not found")
+
+        if device.device_type != "shell":
+            raise HTTPException(status_code=400, detail="Actions only available for shell devices")
+
+        # Find action
+        actions = device.config.get("actions", [])
+        action = next((a for a in actions if a.get("name") == action_name), None)
+
+        if not action:
+            raise HTTPException(status_code=404, detail=f"Action '{action_name}' not found")
+
+        cmd = replace_credential_placeholders(action["cmd"])
+
+        logger.info(f"Executing action '{action_name}' for device {device.name}")
+
+        # Execute command
+        proc = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+
+        if proc.returncode == 0:
+            return {
+                "success": True,
+                "action": action_name,
+                "output": stdout.decode()[:500] if stdout else None,
+            }
+        else:
+            return {
+                "success": False,
+                "action": action_name,
+                "error": stderr.decode()[:500] if stderr else "Command failed",
+            }
+
+    except asyncio.TimeoutError:
+        logger.error(f"Action timeout for {device_id}")
+        return {"success": False, "action": action_name, "error": "Command timeout"}
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error(f"Error executing action: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -12,9 +12,19 @@ from mutech_control.devices.base import (
     DeviceResult,
 )
 from mutech_control.devices.cooldown_manager import CooldownManager
+from mutech_control.devices.shell_manager import get_credential
 from mutech_control.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _get_device_password(device) -> str | None:
+    """Get password for device from credential cache."""
+    credential_name = device.config.get("credential_name")
+    if not credential_name:
+        return None
+    cred = get_credential(credential_name)
+    return cred.get("password") if cred else None
 
 
 class PJLinkManager(DeviceManager):
@@ -93,7 +103,7 @@ class PJLinkManager(DeviceManager):
         try:
             timeout = self.config.get("request_timeout", 10)
             port = device.config.get("port", 4352)
-            password = device.config.get("password")
+            password = _get_device_password(device)
 
             async with asyncio.timeout(timeout):
                 logger.info("Getting device state",
@@ -124,7 +134,12 @@ class PJLinkManager(DeviceManager):
 
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
-                return DeviceResult(success=True, state=state, duration_ms=duration_ms)
+                return DeviceResult(
+                    success=True,
+                    state=state,
+                    duration_ms=duration_ms,
+                    raw_response=response,
+                )
 
         except asyncio.TimeoutError:
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
@@ -164,7 +179,7 @@ class PJLinkManager(DeviceManager):
         try:
             timeout = self.config.get("request_timeout", 10)
             port = device.config.get("port", 4352)
-            password = device.config.get("password")
+            password = _get_device_password(device)
             command_str = "on" if on else "off"
 
             async with asyncio.timeout(timeout):
@@ -197,7 +212,12 @@ class PJLinkManager(DeviceManager):
 
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
-                return DeviceResult(success=True, state=new_state, duration_ms=duration_ms)
+                return DeviceResult(
+                    success=True,
+                    state=new_state,
+                    duration_ms=duration_ms,
+                    raw_response=response,
+                )
 
         except asyncio.TimeoutError:
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
@@ -221,7 +241,7 @@ class PJLinkManager(DeviceManager):
         try:
             timeout = self.config.get("request_timeout", 10)
             port = device.config.get("port", 4352)
-            password = device.config.get("password")
+            password = _get_device_password(device)
 
             async with asyncio.timeout(timeout):
                 logger.info(f"PJLink: Testing connection to {device.host}")

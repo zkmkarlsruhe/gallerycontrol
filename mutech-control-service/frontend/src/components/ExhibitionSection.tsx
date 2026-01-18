@@ -7,6 +7,7 @@ interface ExhibitionSectionProps {
   exhibition: Exhibition;
   editMode: boolean;
   expandedDevice: string | null;
+  pendingStates: Map<string, 'on' | 'off'>;
   onToggleDevice: (deviceId: string) => void;
   onExhibitionControl: (exhibitionId: string, command: 'on' | 'off', exhibitionName: string) => void;
   onArtworkControl: (artworkId: string, command: 'on' | 'off', artworkName: string) => void;
@@ -27,6 +28,7 @@ export function ExhibitionSection({
   exhibition,
   editMode,
   expandedDevice,
+  pendingStates,
   onToggleDevice,
   onExhibitionControl,
   onArtworkControl,
@@ -91,6 +93,7 @@ export function ExhibitionSection({
             isAlternate={artworkIndex % 2 === 1}
             editMode={editMode}
             expandedDevice={expandedDevice}
+            pendingStates={pendingStates}
             onToggleDevice={onToggleDevice}
             onArtworkControl={onArtworkControl}
             onDeviceControl={onDeviceControl}

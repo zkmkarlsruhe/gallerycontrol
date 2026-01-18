@@ -126,7 +126,6 @@ def mock_device_model():
         port: int | None
         enabled: bool
         automation_enabled: bool
-        exclude_from_auto_onoff: bool
         config: dict
         state: int
 
@@ -139,7 +138,6 @@ def mock_device_model():
         port=4352,
         enabled=True,
         automation_enabled=True,
-        exclude_from_auto_onoff=False,
         config={"password": "panasonic"},
         state=0,
     )

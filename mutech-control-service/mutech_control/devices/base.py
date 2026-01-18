@@ -28,6 +28,7 @@ class DeviceResult:
     state: DeviceState
     error: str | None = None
     duration_ms: int | None = None
+    raw_response: str | None = None
 
 
 @dataclass

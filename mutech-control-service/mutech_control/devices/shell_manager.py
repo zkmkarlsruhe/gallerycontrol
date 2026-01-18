@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import re
+from typing import Dict, Optional
 
 from mutech_control.devices.base import (
     ConnectionResult,
@@ -13,6 +14,69 @@ from mutech_control.devices.base import (
 from mutech_control.devices.cooldown_manager import CooldownManager
 
 logger = logging.getLogger(__name__)
+
+# Credential cache - populated by load_credentials()
+_credential_cache: Dict[str, dict] = {}
+
+
+async def load_credentials(db_session) -> None:
+    """Load all credentials into cache. Call this at startup and when credentials change."""
+    global _credential_cache
+    from sqlalchemy import select
+    from mutech_control.database.models import Credential
+
+    stmt = select(Credential)
+    result = await db_session.execute(stmt)
+    credentials = result.scalars().all()
+
+    _credential_cache = {
+        cred.name: {"username": cred.username, "password": cred.password}
+        for cred in credentials
+    }
+    logger.info(f"Loaded {len(_credential_cache)} credentials into cache")
+
+
+def get_credential(name: str) -> dict | None:
+    """Get credential by name from cache.
+
+    Args:
+        name: The credential name to look up
+
+    Returns:
+        Dict with 'username' and 'password' keys, or None if not found
+    """
+    return _credential_cache.get(name)
+
+
+def replace_credential_placeholders(cmd: str) -> str:
+    """Replace {{PASSWORD:name}} and {{USER:name}} placeholders with actual values.
+
+    Example:
+        Input:  "sshpass -p {{PASSWORD:museumstechnik}} ssh {{USER:museumstechnik}}@host"
+        Output: "sshpass -p actualpassword ssh actualuser@host"
+    """
+    if not cmd or "{{" not in cmd:
+        return cmd
+
+    def replace_placeholder(match):
+        placeholder_type = match.group(1).upper()  # PASSWORD or USER
+        cred_name = match.group(2)
+
+        cred = _credential_cache.get(cred_name)
+        if not cred:
+            logger.warning(f"Credential '{cred_name}' not found in cache")
+            return match.group(0)  # Return original placeholder
+
+        if placeholder_type == "PASSWORD":
+            return cred.get("password", "")
+        elif placeholder_type == "USER":
+            return cred.get("username", "")
+        else:
+            return match.group(0)
+
+    # Match {{PASSWORD:name}} or {{USER:name}}
+    pattern = r"\{\{(PASSWORD|USER):([^}]+)\}\}"
+    return re.sub(pattern, replace_placeholder, cmd, flags=re.IGNORECASE)
 
 
 class ShellManager(DeviceManager):
@@ -41,7 +105,7 @@ class ShellManager(DeviceManager):
         if not status_cmd or not status_cmd.get("cmd"):
             return DeviceResult(success=False, state=-1, error="No status command configured")
 
-        cmd = status_cmd["cmd"]
+        cmd = replace_credential_placeholders(status_cmd["cmd"])
         on_pattern = status_cmd.get("onPattern")
         off_pattern = status_cmd.get("offPattern")
 
@@ -49,7 +113,8 @@ class ShellManager(DeviceManager):
 
         try:
             timeout = self.config.get("request_timeout", 30)
-            logger.info(f"Shell: Executing status command for {device.name}: {cmd}")
+            # Log command without credentials for security
+            logger.info(f"Shell: Executing status command for {device.name}")
 
             proc = await asyncio.create_subprocess_shell(
                 cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
@@ -72,7 +137,19 @@ class ShellManager(DeviceManager):
 
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
-            return DeviceResult(success=True, state=state, duration_ms=duration_ms)
+            # Combine stdout and stderr for raw response
+            raw_output = output
+            if stderr:
+                stderr_text = stderr.decode()
+                if stderr_text:
+                    raw_output += f"\n--- stderr ---\n{stderr_text}"
+
+            return DeviceResult(
+                success=True,
+                state=state,
+                duration_ms=duration_ms,
+                raw_response=raw_output,
+            )
 
         except asyncio.TimeoutError:
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
@@ -108,19 +185,27 @@ class ShellManager(DeviceManager):
                 success=False, state=device.state, error=f"No {command_name} command configured"
             )
 
-        cmd = command_cfg["cmd"]
+        cmd = replace_credential_placeholders(command_cfg["cmd"])
 
         start_time = asyncio.get_event_loop().time()
 
         try:
             timeout = self.config.get("request_timeout", 30)
-            logger.info(f"Shell: Executing {command_name} command for {device.name}: {cmd}")
+            # Log command without credentials for security
+            logger.info(f"Shell: Executing {command_name} command for {device.name}")
 
             proc = await asyncio.create_subprocess_shell(
                 cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
 
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+
+            # Combine stdout and stderr for raw response
+            output = stdout.decode() if stdout else ""
+            stderr_text = stderr.decode() if stderr else ""
+            raw_output = output
+            if stderr_text:
+                raw_output += f"\n--- stderr ---\n{stderr_text}"
 
             # Check exit code
             if proc.returncode == 0:
@@ -132,12 +217,21 @@ class ShellManager(DeviceManager):
 
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
-                return DeviceResult(success=True, state=new_state, duration_ms=duration_ms)
+                return DeviceResult(
+                    success=True,
+                    state=new_state,
+                    duration_ms=duration_ms,
+                    raw_response=raw_output,
+                )
             else:
-                error_output = stderr.decode() if stderr else "Command failed"
+                error_output = stderr_text if stderr_text else "Command failed"
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
                 return DeviceResult(
-                    success=False, state=device.state, error=error_output, duration_ms=duration_ms
+                    success=False,
+                    state=device.state,
+                    error=error_output,
+                    duration_ms=duration_ms,
+                    raw_response=raw_output,
                 )
 
         except asyncio.TimeoutError:
@@ -168,8 +262,9 @@ class ShellManager(DeviceManager):
             if not status_cmd:
                 return ConnectionResult(success=False, error="No status command configured")
 
+            cmd = replace_credential_placeholders(status_cmd)
             proc = await asyncio.create_subprocess_shell(
-                status_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )
 
             await asyncio.wait_for(proc.communicate(), timeout=5.0)

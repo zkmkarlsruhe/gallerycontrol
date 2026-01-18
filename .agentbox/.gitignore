@@ -1,7 +1,0 @@
-# Runtime state (auto-generated)
-claude/state/
-codex/state/
-
-# Environment secrets (if used)
-.env
-.env.local

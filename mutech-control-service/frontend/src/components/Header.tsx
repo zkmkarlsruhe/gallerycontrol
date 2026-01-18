@@ -2,6 +2,8 @@ interface HeaderProps {
   editMode: boolean;
   onEditModeChange: (enabled: boolean) => void;
   onOpenCredentials?: () => void;
+  onOpenShellLibrary?: () => void;
+  onOpenEmailInventory?: () => void;
   onOpenLogs?: () => void;
   onOpenTimeline?: () => void;
   showingLogs?: boolean;
@@ -12,6 +14,8 @@ export function Header({
   editMode,
   onEditModeChange,
   onOpenCredentials,
+  onOpenShellLibrary,
+  onOpenEmailInventory,
   onOpenLogs,
   onOpenTimeline,
   showingLogs,
@@ -37,10 +41,22 @@ export function Header({
           <i className="bi bi-terminal me-1"></i>
           Logs
         </button>
+        {editMode && onOpenShellLibrary && (
+          <button className="btn btn-shell-library btn-sm" onClick={onOpenShellLibrary}>
+            <i className="bi bi-bookmark me-1"></i>
+            Shell Library
+          </button>
+        )}
         {editMode && onOpenCredentials && (
           <button className="btn btn-credentials btn-sm" onClick={onOpenCredentials}>
             <i className="bi bi-key me-1"></i>
             Credentials
+          </button>
+        )}
+        {editMode && onOpenEmailInventory && (
+          <button className="btn btn-email-inventory btn-sm" onClick={onOpenEmailInventory}>
+            <i className="bi bi-envelope me-1"></i>
+            Email Inventory
           </button>
         )}
         <div className="edit-mode-toggle">

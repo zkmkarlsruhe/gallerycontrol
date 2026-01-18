@@ -87,6 +87,17 @@ body {
   color: white;
 }
 
+.btn-email-inventory {
+  background: #0277bd;
+  color: white;
+  border: none;
+}
+
+.btn-email-inventory:hover {
+  background: #01579b;
+  color: white;
+}
+
 .edit-mode-toggle {
   display: flex;
   align-items: center;
@@ -732,6 +743,40 @@ body {
 
 .device-info-compact strong {
   color: #212529;
+}
+
+/* Host link with copy button */
+.host-link-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.host-link {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.host-link:hover {
+  text-decoration: underline;
+}
+
+.host-value {
+  color: #6c757d;
+}
+
+.btn-copy {
+  background: none;
+  border: none;
+  padding: 0 0.15rem;
+  cursor: pointer;
+  font-size: 0.7rem;
+  opacity: 0.6;
+  line-height: 1;
+}
+
+.btn-copy:hover {
+  opacity: 1;
 }
 
 .device-actions {

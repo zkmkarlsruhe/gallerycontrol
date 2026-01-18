@@ -22,6 +22,11 @@ from uuid import uuid4
 import asyncpg
 
 
+def row_to_dict(row: sqlite3.Row) -> dict:
+    """Convert sqlite3.Row to dict for easier access."""
+    return {key: row[key] for key in row.keys()}
+
+
 async def migrate(sqlite_db_path: str, postgres_url: str):
     """Main migration function."""
     print(f"Starting migration from {sqlite_db_path}")
@@ -53,7 +58,7 @@ async def migrate_exhibitions(cursor: sqlite3.Cursor, pg_conn):
     print("\n📦 Migrating exhibitions...")
 
     cursor.execute("SELECT * FROM exhibits")
-    exhibits = cursor.fetchall()
+    exhibits = [row_to_dict(row) for row in cursor.fetchall()]
 
     # Create mapping of old IDs to new UUIDs
     id_map = {}
@@ -85,15 +90,7 @@ async def migrate_works(cursor: sqlite3.Cursor, pg_conn):
     print("\n🎨 Migrating artworks...")
 
     cursor.execute("SELECT * FROM works")
-    works = cursor.fetchall()
-
-    # Get exhibition ID mapping
-    cursor.execute("SELECT id FROM exhibits")
-    exhibits = {row["id"]: uuid4() for row in cursor.fetchall()}
-
-    # Re-query for works with correct mapping
-    cursor.execute("SELECT * FROM works")
-    works = cursor.fetchall()
+    works = [row_to_dict(row) for row in cursor.fetchall()]
 
     id_map = {}
 
@@ -108,7 +105,7 @@ async def migrate_works(cursor: sqlite3.Cursor, pg_conn):
         exhibit_row = cursor.fetchone()
 
         if not exhibit_row:
-            print(f"   ⚠️ Warning: No exhibition found for work {work['name']}")
+            print(f"   Warning: No exhibition found for work {work['name']}")
             continue
 
         # Get new exhibition UUID
@@ -124,7 +121,7 @@ async def migrate_works(cursor: sqlite3.Cursor, pg_conn):
         )
 
         if not new_exhibition_id:
-            print(f"   ⚠️ Warning: Could not map exhibition for work {work['name']}")
+            print(f"   Warning: Could not map exhibition for work {work['name']}")
             continue
 
         await pg_conn.execute(
@@ -151,7 +148,7 @@ async def migrate_units(cursor: sqlite3.Cursor, pg_conn):
     print("\n🔌 Migrating devices...")
 
     cursor.execute("SELECT * FROM units")
-    units = cursor.fetchall()
+    units = [row_to_dict(row) for row in cursor.fetchall()]
 
     migrated = 0
     skipped = 0
@@ -165,7 +162,7 @@ async def migrate_units(cursor: sqlite3.Cursor, pg_conn):
         work = cursor.fetchone()
 
         if not work:
-            print(f"   ⚠️ Warning: No artwork found for device {unit.get('host')}")
+            print(f"   Warning: No artwork found for device {unit.get('host')}")
             skipped += 1
             continue
 
@@ -175,7 +172,7 @@ async def migrate_units(cursor: sqlite3.Cursor, pg_conn):
         )
 
         if not new_artwork_id:
-            print(f"   ⚠️ Warning: Could not map artwork for device {unit.get('host')}")
+            print(f"   Warning: Could not map artwork for device {unit.get('host')}")
             skipped += 1
             continue
 
@@ -223,8 +220,8 @@ async def migrate_units(cursor: sqlite3.Cursor, pg_conn):
                 device_type,
                 unit["host"],
                 unit.get("port"),
-                unit.get("active", True),
-                unit.get("automation", True),
+                bool(unit.get("active", 1)),  # Convert SQLite int to bool
+                bool(unit.get("automation", 1)),  # Convert SQLite int to bool
                 exclude_from_auto,
                 json.dumps(args),
                 unit.get("state", -1),
@@ -236,7 +233,7 @@ async def migrate_units(cursor: sqlite3.Cursor, pg_conn):
             migrated += 1
 
         except Exception as e:
-            print(f"   ⚠️ Error migrating device {unit.get('host')}: {e}")
+            print(f"   Error migrating device {unit.get('host')}: {e}")
             skipped += 1
 
     print(f"   Migrated {migrated} devices ({skipped} skipped)")

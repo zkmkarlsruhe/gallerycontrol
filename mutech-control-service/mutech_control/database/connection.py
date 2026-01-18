@@ -19,6 +19,24 @@ class DatabaseManager:
         """Initialize database engine and session factory."""
         config = get_config()
         database_url = config.get("database.url")
+
+        # Validate database URL - only PostgreSQL is supported
+        if not database_url:
+            raise ValueError(
+                "DATABASE_URL environment variable is required. "
+                "Must be a PostgreSQL connection string (postgresql+asyncpg://...)"
+            )
+        if "sqlite" in database_url.lower():
+            raise ValueError(
+                "SQLite is not supported. Use PostgreSQL instead. "
+                "Set DATABASE_URL=postgresql+asyncpg://user:pass@host:port/dbname"
+            )
+        if not database_url.startswith("postgresql"):
+            raise ValueError(
+                f"Invalid database URL: {database_url[:30]}... "
+                "Must be a PostgreSQL connection string (postgresql+asyncpg://...)"
+            )
+
         pool_size = config.get("database.pool_size", 20)
         pool_pre_ping = config.get("database.pool_pre_ping", True)
         echo = config.get("database.echo", False)

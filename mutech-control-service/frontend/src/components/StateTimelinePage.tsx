@@ -37,6 +37,7 @@ interface DeviceOption {
   type: string;
   artworkName: string;
   exhibitionName: string;
+  state: number;
 }
 
 interface StateTimelinePageProps {
@@ -155,38 +156,32 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
 
   // Process state changes into grouped segments
   const processSegments = useCallback((): { segments: TimeSegment[]; rows: RowInfo[]; totalRows: number } => {
-    if (stateChanges.length === 0) return { segments: [], rows: [], totalRows: 0 };
-
     const { from, to } = getTimeRangeDates(timeRange);
 
-    // Filter changes by exhibition if needed
-    const filteredChanges = filteredDeviceIds
-      ? stateChanges.filter(c => filteredDeviceIds.has(c.device_id))
-      : stateChanges;
+    // Filter devices by exhibition if needed
+    const filteredDevices = filteredDeviceIds
+      ? devices.filter(d => filteredDeviceIds.has(d.id))
+      : devices;
+
+    if (filteredDevices.length === 0) return { segments: [], rows: [], totalRows: 0 };
 
     // Group state changes by device
     const deviceChanges = new Map<string, StateChange[]>();
-    for (const change of filteredChanges) {
+    for (const change of stateChanges) {
       if (!deviceChanges.has(change.device_id)) {
         deviceChanges.set(change.device_id, []);
       }
       deviceChanges.get(change.device_id)!.push(change);
     }
 
-    // Create device lookup
-    const deviceLookup = new Map(devices.map(d => [d.id, d]));
-
-    // Get devices that have state changes and sort them
-    const devicesWithChanges = Array.from(deviceChanges.keys())
-      .map(id => deviceLookup.get(id))
-      .filter((d): d is DeviceOption => d !== undefined)
-      .sort((a, b) => {
-        const exCmp = a.exhibitionName.localeCompare(b.exhibitionName);
-        if (exCmp !== 0) return exCmp;
-        const awCmp = a.artworkName.localeCompare(b.artworkName);
-        if (awCmp !== 0) return awCmp;
-        return a.name.localeCompare(b.name);
-      });
+    // Sort all filtered devices (not just those with changes)
+    const sortedDevices = [...filteredDevices].sort((a, b) => {
+      const exCmp = a.exhibitionName.localeCompare(b.exhibitionName);
+      if (exCmp !== 0) return exCmp;
+      const awCmp = a.artworkName.localeCompare(b.artworkName);
+      if (awCmp !== 0) return awCmp;
+      return a.name.localeCompare(b.name);
+    });
 
     // Build rows with exhibition and artwork headers
     const rows: RowInfo[] = [];
@@ -195,7 +190,7 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
     let currentArtwork = '';
     let rowIndex = 0;
 
-    for (const device of devicesWithChanges) {
+    for (const device of sortedDevices) {
       // Add exhibition header if new exhibition
       if (device.exhibitionName !== currentExhibition) {
         currentExhibition = device.exhibitionName;
@@ -228,38 +223,53 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
       });
 
       // Process segments for this device
-      const changes = deviceChanges.get(device.id)!;
-      changes.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      const changes = deviceChanges.get(device.id);
 
-      for (let i = 0; i < changes.length; i++) {
-        const change = changes[i];
-        const changeTime = new Date(change.timestamp);
+      if (changes && changes.length > 0) {
+        // Device has state changes - process them
+        changes.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-        // First segment: previous state from range start to first change
-        if (i === 0 && change.previous_state !== undefined) {
+        for (let i = 0; i < changes.length; i++) {
+          const change = changes[i];
+          const changeTime = new Date(change.timestamp);
+
+          // First segment: previous state from range start to first change
+          if (i === 0 && change.previous_state !== undefined) {
+            segments.push({
+              device_id: device.id,
+              device_name: device.name,
+              device_type: device.type,
+              state: change.previous_state,
+              start: from,
+              end: changeTime,
+              rowIndex: rowIndex,
+            });
+          }
+
+          // Segment for new state
+          const segmentEnd = i < changes.length - 1
+            ? new Date(changes[i + 1].timestamp)
+            : to;
+
           segments.push({
             device_id: device.id,
             device_name: device.name,
             device_type: device.type,
-            state: change.previous_state,
-            start: from,
-            end: changeTime,
+            state: change.new_state,
+            start: changeTime,
+            end: segmentEnd,
             rowIndex: rowIndex,
           });
         }
-
-        // Segment for new state
-        const segmentEnd = i < changes.length - 1
-          ? new Date(changes[i + 1].timestamp)
-          : to;
-
+      } else {
+        // Device has no state changes - show current state for entire range
         segments.push({
           device_id: device.id,
           device_name: device.name,
           device_type: device.type,
-          state: change.new_state,
-          start: changeTime,
-          end: segmentEnd,
+          state: device.state,
+          start: from,
+          end: to,
           rowIndex: rowIndex,
         });
       }
@@ -562,11 +572,21 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
     renderChart(xScale);
     updateAxes(xScale);
 
-    // Setup zoom behavior
+    // Setup zoom behavior - require Ctrl/Cmd for scroll zoom to allow normal page scrolling
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 50])
       .translateExtent([[0, 0], [innerWidth, height]])
       .extent([[0, 0], [innerWidth, height]])
+      .filter((event) => {
+        // Allow programmatic zoom and touch events
+        if (!event) return true;
+        // For wheel events, require Ctrl/Cmd key to zoom (allow normal scroll otherwise)
+        if (event.type === 'wheel') {
+          return event.ctrlKey || event.metaKey;
+        }
+        // Allow other events (drag for pan, double-click, touch pinch)
+        return !event.button;
+      })
       .on('zoom', (event) => {
         currentTransformRef.current = event.transform;
         const newXScale = event.transform.rescaleX(xScale);
@@ -785,14 +805,14 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
           </div>
         )}
 
-        {!loading && !error && stateChanges.length === 0 && (
+        {!loading && !error && deviceCount === 0 && (
           <div className="timeline-empty">
             <i className="bi bi-inbox me-2"></i>
-            No state changes in the selected time range.
+            No devices to display.
           </div>
         )}
 
-        {stateChanges.length > 0 && (
+        {deviceCount > 0 && (
           <div className="timeline-chart-scroll">
             <svg ref={svgRef}></svg>
           </div>
@@ -802,7 +822,7 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
       {/* Zoom hint */}
       <div className="timeline-zoom-hint">
         <i className="bi bi-mouse me-1"></i>
-        Scroll to zoom, drag to pan
+        Ctrl+Scroll to zoom, drag to pan
       </div>
 
       {/* Tooltip */}
