@@ -24,7 +24,7 @@ class VerificationDirection(Enum):
 
 @dataclass
 class VerificationTask:
-    """Tracks a single device verification task."""
+    """Tracks a single device enforcement task."""
 
     device_id: str
     device_name: str
@@ -32,26 +32,28 @@ class VerificationTask:
     direction: VerificationDirection
     target_states: List[int]
     task: asyncio.Task
-    state_reached_event: asyncio.Event
+    enforcement_duration: int = 300  # Duration in seconds (default 5 min)
     reached_state: int | None = None
-    attempt: int = 0
+    deviated_state: int | None = None
+    correction_count: int = 0  # Number of correction commands sent
     created_at: float = field(default_factory=lambda: asyncio.get_event_loop().time())
 
 
 class CommandVerifier:
-    """Verify device states after ON/OFF commands with stability check and retries.
+    """Verify and enforce device states after ON/OFF commands.
 
-    Uses StateMonitor for polling instead of polling directly. When target state
-    is reached, StateMonitor notifies via callback.
+    Uses StateMonitor for polling instead of polling directly.
 
-    Verification algorithm:
-    1. Register with StateMonitor for fast polling until desired state reached
-    2. If initial_timeout_seconds passes without reaching state -> mark as ERROR (broken)
-    3. Once state reached, wait stable_duration_seconds
-    4. Check state again
-    5. If still in desired state -> SUCCESS
-    6. If state changed (device lied) -> retry command, back to step 1
-    7. After max_retries -> mark as ERROR
+    Active Enforcement Algorithm:
+    1. Start active enforcement period (default 5 minutes)
+    2. Register with StateMonitor for fast polling (every 30s)
+    3. On every poll during the period:
+       - If state is correct (in success_states): good, keep monitoring
+       - If state is wrong: immediately send command to correct it
+       - If device is offline: skip, don't mark as error
+    4. Period ends when timer expires:
+       - Final state check: correct -> SUCCESS, wrong -> ERROR
+    5. Frontend command cancels current enforcement and starts fresh with new target
     """
 
     def __init__(
@@ -113,10 +115,9 @@ class CommandVerifier:
                 )
                 continue
 
-            # Create event for waiting on target state
-            state_reached_event = asyncio.Event()
+            enforcement_duration = verify_config.get("stable_duration_seconds", 300)
 
-            # Start new verification task
+            # Start new enforcement task
             task = asyncio.create_task(
                 self._verify_single_device(device, ver_direction, verify_config)
             )
@@ -128,13 +129,14 @@ class CommandVerifier:
                 direction=ver_direction,
                 target_states=success_states,
                 task=task,
-                state_reached_event=state_reached_event,
-                attempt=0,
+                enforcement_duration=enforcement_duration,
+                correction_count=0,
             )
 
             logger.info(
-                "Verification task started",
+                "Enforcement task started",
                 device=device.name,
+                enforcement_duration_seconds=enforcement_duration,
                 device_id=device_id[:8],
                 direction=direction.upper(),
                 type=device.device_type,
@@ -196,26 +198,107 @@ class CommandVerifier:
 
         task_info = self._active_verifications[device_id]
         task_info.reached_state = state
-        task_info.state_reached_event.set()
 
-        logger.debug(
-            "State reached callback received",
+        # Calculate remaining enforcement time
+        elapsed = asyncio.get_event_loop().time() - task_info.created_at
+        remaining = max(0, task_info.enforcement_duration - elapsed)
+
+        logger.info(
+            "State OK during enforcement",
             device=task_info.device_name,
             state=state,
+            enforcement_remaining_seconds=int(remaining),
+            corrections_sent=task_info.correction_count,
         )
+
+    async def on_state_deviated(self, device_id: str, state: int) -> None:
+        """Callback from StateMonitor when device state deviates from target.
+
+        During active enforcement, this triggers an immediate correction command.
+        We keep trying for the full enforcement period (no max retries).
+        """
+        if device_id not in self._active_verifications:
+            return
+
+        task_info = self._active_verifications[device_id]
+        task_info.deviated_state = state
+        task_info.correction_count += 1
+
+        # Calculate remaining enforcement time
+        elapsed = asyncio.get_event_loop().time() - task_info.created_at
+        remaining = max(0, task_info.enforcement_duration - elapsed)
+
+        logger.warning(
+            "State WRONG during enforcement - sending correction",
+            device=task_info.device_name,
+            detected_state=state,
+            target_states=task_info.target_states,
+            enforcement_remaining_seconds=int(remaining),
+            correction_count=task_info.correction_count,
+        )
+
+        # Send correction command
+        await self._send_correction_command(device_id, task_info)
+
+    async def _send_correction_command(self, device_id: str, task_info: VerificationTask) -> None:
+        """Send correction command to device during active enforcement."""
+        # We need to get the device from DB to send the command
+        try:
+            from mutech_control.database.models import Device
+            from sqlalchemy import select
+
+            async with self.db_manager.session() as session:
+                stmt = select(Device).where(Device.id == UUID(device_id))
+                result = await session.execute(stmt)
+                device = result.scalar_one_or_none()
+
+                if device:
+                    manager = self.device_managers.get(device.device_type)
+                    if manager:
+                        is_on = task_info.direction == VerificationDirection.ON
+                        command = "on" if is_on else "off"
+
+                        result = await manager.set_power(device, is_on)
+
+                        logger.info(
+                            "Correction command sent",
+                            device=device.name,
+                            command=command,
+                            success=result.success,
+                            correction_count=task_info.correction_count,
+                        )
+
+                        # Log the correction command
+                        await self._log_command(
+                            device_id=device_id,
+                            command=command,
+                            source="enforcement",
+                            success=result.success,
+                            error=result.error,
+                            duration_ms=result.duration_ms,
+                        )
+        except Exception as e:
+            logger.error(
+                "Error sending correction command",
+                device_id=device_id[:8],
+                error=str(e),
+            )
 
     # ========== Verification Logic ==========
 
     async def _verify_single_device(
         self, device, direction: VerificationDirection, verify_config: dict
     ) -> None:
-        """Verify a single device with the stability-based algorithm."""
+        """Active enforcement for a single device.
+
+        Runs for the full enforcement period (default 5 min), sending correction
+        commands whenever the state deviates from target. No max retries - we
+        keep trying for the entire period.
+        """
         device_id = str(device.id)
 
         try:
-            initial_timeout = verify_config.get("initial_timeout_seconds", 300)
-            stable_duration = verify_config.get("stable_duration_seconds", 300)
-            max_retries = verify_config.get("max_retries", 3)
+            enforcement_duration = verify_config.get("stable_duration_seconds", 300)
 
             direction_config = verify_config.get(direction.value, {})
             success_states = direction_config.get("success_states", [])
@@ -225,106 +308,65 @@ class CommandVerifier:
                 logger.error(f"No manager found for device type {device.device_type}")
                 return
 
-            attempt = 0
+            task_info = self._active_verifications[device_id]
 
-            while attempt < max_retries:
-                attempt += 1
-                self._update_attempt_count(device_id, attempt)
-
-                logger.info(
-                    "Verification attempt started",
-                    device=device.name,
-                    direction=direction.value.upper(),
-                    attempt=f"{attempt}/{max_retries}",
-                )
-
-                # Phase 1: Register for fast polling and wait for target state
-                task_info = self._active_verifications[device_id]
-                task_info.state_reached_event.clear()
-                task_info.reached_state = None
-
-                # Register with StateMonitor for fast polling
-                self.state_monitor.register_fast_poll(
-                    device_id=device_id,
-                    target_states=success_states,
-                    callback=self.on_state_reached,
-                )
-
-                try:
-                    # Wait for StateMonitor to notify us that target state reached
-                    await asyncio.wait_for(
-                        task_info.state_reached_event.wait(),
-                        timeout=initial_timeout,
-                    )
-                except asyncio.TimeoutError:
-                    # Device never reached state - mark as broken, stop
-                    logger.error(
-                        "Device failed to reach target state - marking as error",
-                        device=device.name,
-                        direction=direction.value.upper(),
-                        timeout_seconds=initial_timeout,
-                    )
-                    self.state_monitor.unregister_fast_poll(device_id)
-                    await update_device_state_with_log(
-                        self.db_manager, UUID(device_id), -1, "verification"
-                    )
-                    return
-
-                # Phase 2: Wait stable duration (keep fast polling for UI updates)
-                logger.info(
-                    "Initial state reached, waiting for stability",
-                    device=device.name,
-                    reached_state=task_info.reached_state,
-                    stable_duration_seconds=stable_duration,
-                )
-
-                await asyncio.sleep(stable_duration)
-
-                # Phase 3: Verify state is still in desired state
-                # Unregister from fast polling first
-                self.state_monitor.unregister_fast_poll(device_id)
-
-                result = await manager.get_state(device)
-
-                if result.success and result.state in success_states:
-                    # SUCCESS! Device is stable in desired state
-                    logger.info(
-                        "Device verified successfully",
-                        device=device.name,
-                        direction=direction.value.upper(),
-                        final_state=result.state,
-                        attempts=attempt,
-                    )
-                    await update_device_state_with_log(
-                        self.db_manager, UUID(device_id), result.state, "verification"
-                    )
-                    return
-                else:
-                    # State changed during stable period - device lied
-                    current_state = result.state if result.success else -1
-                    logger.warning(
-                        "State changed during stability period",
-                        device=device.name,
-                        expected_states=success_states,
-                        actual_state=current_state,
-                        attempt=attempt,
-                    )
-
-                    if attempt < max_retries:
-                        # Retry the command
-                        await self._retry_command(device, manager, direction, attempt)
-                    # Loop continues for next attempt
-
-            # All retries exhausted
-            logger.error(
-                "Verification failed - max retries exceeded",
+            logger.info(
+                "Active enforcement started",
                 device=device.name,
                 direction=direction.value.upper(),
-                max_retries=max_retries,
+                duration_seconds=enforcement_duration,
             )
-            await update_device_state_with_log(
-                self.db_manager, UUID(device_id), -1, "verification"
+
+            # Register with StateMonitor for fast polling
+            # The deviation_callback will handle corrections automatically
+            self.state_monitor.register_fast_poll(
+                device_id=device_id,
+                target_states=success_states,
+                callback=self.on_state_reached,
+                deviation_callback=self.on_state_deviated,
             )
+
+            # Wait for the full enforcement period
+            await asyncio.sleep(enforcement_duration)
+
+            # Enforcement period ended - do final state check
+            self.state_monitor.unregister_fast_poll(device_id)
+
+            result = await manager.get_state(device)
+
+            if result.success and result.state in success_states:
+                # SUCCESS! Device is in correct state at end of enforcement
+                logger.info(
+                    "Active enforcement completed successfully",
+                    device=device.name,
+                    direction=direction.value.upper(),
+                    final_state=result.state,
+                    corrections_sent=task_info.correction_count,
+                )
+                await update_device_state_with_log(
+                    self.db_manager, UUID(device_id), result.state, "enforcement"
+                )
+            elif not result.success:
+                # Device offline at end - don't mark as error, just log
+                logger.warning(
+                    "Device offline at end of enforcement period - skipping",
+                    device=device.name,
+                    direction=direction.value.upper(),
+                    error=result.error,
+                )
+            else:
+                # State is wrong at end of enforcement
+                logger.error(
+                    "Active enforcement failed - wrong state at end",
+                    device=device.name,
+                    direction=direction.value.upper(),
+                    expected_states=success_states,
+                    actual_state=result.state,
+                    corrections_sent=task_info.correction_count,
+                )
+                await update_device_state_with_log(
+                    self.db_manager, UUID(device_id), -1, "enforcement"
+                )
 
         except asyncio.CancelledError:
             logger.info(
@@ -349,29 +391,6 @@ class CommandVerifier:
             if device_id in self._active_verifications:
                 del self._active_verifications[device_id]
 
-    async def _retry_command(
-        self, device, manager, direction: VerificationDirection, attempt: int
-    ) -> None:
-        """Retry the ON or OFF command."""
-        is_on = direction == VerificationDirection.ON
-        command = "on" if is_on else "off"
-
-        logger.info(
-            "Retrying command", device=device.name, command=command.upper(), attempt=attempt
-        )
-
-        result = await manager.set_power(device, is_on)
-
-        # Log retry command
-        await self._log_command(
-            device_id=str(device.id),
-            command=command,
-            source="verification",
-            success=result.success,
-            error=result.error,
-            duration_ms=result.duration_ms,
-        )
-
     # ========== Helper Methods ==========
 
     def _get_verify_config(self, device_type: str) -> dict | None:
@@ -384,11 +403,6 @@ class CommandVerifier:
             return None
 
         return verify_config
-
-    def _update_attempt_count(self, device_id: str, attempt: int) -> None:
-        """Update attempt count in active verification tracking."""
-        if device_id in self._active_verifications:
-            self._active_verifications[device_id].attempt = attempt
 
     async def _log_command(
         self,
@@ -430,17 +444,22 @@ class CommandVerifier:
         return device_id in self._active_verifications
 
     def get_verification_info(self, device_id: str) -> dict | None:
-        """Get information about an active verification."""
+        """Get information about an active enforcement."""
         if device_id not in self._active_verifications:
             return None
 
         task_info = self._active_verifications[device_id]
+        elapsed = asyncio.get_event_loop().time() - task_info.created_at
+        remaining = max(0, task_info.enforcement_duration - elapsed)
+
         return {
             "device_id": task_info.device_id,
             "device_name": task_info.device_name,
             "device_type": task_info.device_type,
             "direction": task_info.direction.value,
-            "attempt": task_info.attempt,
+            "correction_count": task_info.correction_count,
+            "enforcement_duration_seconds": task_info.enforcement_duration,
+            "enforcement_remaining_seconds": int(remaining),
             "created_at": task_info.created_at,
         }
 

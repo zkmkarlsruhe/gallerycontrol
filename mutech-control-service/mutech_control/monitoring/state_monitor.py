@@ -26,6 +26,7 @@ class FastPollEntry:
     device_id: str
     target_states: List[int]
     callback: Callable[[str, int], Awaitable[None]]  # async callback(device_id, state)
+    deviation_callback: Callable[[str, int], Awaitable[None]] | None = None  # called when state NOT in target
     registered_at: float = field(default_factory=lambda: asyncio.get_event_loop().time())
 
 
@@ -117,6 +118,7 @@ class StateMonitor:
         device_id: str,
         target_states: List[int],
         callback: Callable[[str, int], Awaitable[None]],
+        deviation_callback: Callable[[str, int], Awaitable[None]] | None = None,
     ) -> None:
         """Register a device for fast polling during verification.
 
@@ -124,11 +126,13 @@ class StateMonitor:
             device_id: UUID string of the device
             target_states: List of states that trigger callback (e.g., [0, 2] for OFF/cooling)
             callback: Async function called when target state reached: callback(device_id, state)
+            deviation_callback: Async function called when state NOT in target_states (for enforcement)
         """
         self._fast_poll_devices[device_id] = FastPollEntry(
             device_id=device_id,
             target_states=target_states,
             callback=callback,
+            deviation_callback=deviation_callback,
         )
         # Clear last poll time so device gets polled on next cycle
         self._last_polled.pop(device_id, None)
@@ -263,9 +267,13 @@ class StateMonitor:
                     except asyncio.TimeoutError:
                         # Mark as polled to prevent retry storm
                         poll_time = datetime.now(timezone.utc)
-                        self._last_polled[str(device.id)] = poll_time
+                        device_id = str(device.id)
+                        self._last_polled[device_id] = poll_time
 
-                        # Log the timeout for debug visibility (guarded so state update still runs)
+                        # Check if device is in enforcement mode
+                        is_enforcing = device_id in self._fast_poll_devices
+
+                        # Log the timeout for debug visibility
                         try:
                             await log_device_operation(
                                 db_manager=self.db_manager,
@@ -281,20 +289,24 @@ class StateMonitor:
                         except Exception as log_err:
                             logger.warning(f"Failed to log timeout for {device.name}: {log_err}")
 
-                        # Update device state to error (-1) on timeout - must run even if logging failed
-                        await update_device_state_with_log(
-                            self.db_manager, device.id, -1, "polling", device.state
-                        )
+                        if is_enforcing:
+                            # During enforcement, skip - device may be temporarily busy
+                            logger.warning(f"Timeout during enforcement for {device.name} - skipping")
+                        else:
+                            # Update device state to error (-1) on timeout (normal polling only)
+                            await update_device_state_with_log(
+                                self.db_manager, device.id, -1, "polling", device.state
+                            )
+
                         # Broadcast timeout via SSE
                         if self._sse:
-                            device_id = str(device.id)
-                            poll_interval = self.fast_interval if device_id in self._fast_poll_devices else self.interval
+                            poll_interval = self.fast_interval if is_enforcing else self.interval
                             next_poll_at = poll_time + timedelta(seconds=poll_interval)
                             asyncio.create_task(
                                 self._sse.send_poll_complete(
                                     device_id=device_id,
                                     success=False,
-                                    state=-1,
+                                    state=device.state if is_enforcing else -1,
                                     duration_ms=self.device_timeout * 1000,
                                     next_poll_at=next_poll_at,
                                     poll_interval=poll_interval,
@@ -426,18 +438,38 @@ class StateMonitor:
                         asyncio.create_task(
                             self._notify_target_reached(device_id, result.state, entry.callback)
                         )
+                    elif entry.deviation_callback is not None:
+                        # State deviated from target - notify for enforcement
+                        logger.warning("Device state deviated from target",
+                                      device=device.name,
+                                      state=result.state,
+                                      target_states=entry.target_states)
+                        asyncio.create_task(
+                            self._notify_state_deviated(device_id, result.state, entry.deviation_callback)
+                        )
 
                 return True
             else:
-                logger.warning("Failed to get device state",
-                              device=device.name,
-                              host=device.host,
-                              error=result.error)
+                # During enforcement (fast poll), skip failures - device may be temporarily offline
+                # During normal polling, mark as error
+                is_enforcing = device_id in self._fast_poll_devices
 
-                # Update database to error state (-1) on poll failure
-                await update_device_state_with_log(
-                    self.db_manager, device.id, -1, "polling", device.state
-                )
+                if is_enforcing:
+                    logger.warning("Device offline during enforcement - skipping",
+                                  device=device.name,
+                                  host=device.host,
+                                  error=result.error)
+                    # Don't update state to error, don't call deviation callback
+                    # Just broadcast the poll failure for UI and wait for next poll
+                else:
+                    logger.warning("Failed to get device state",
+                                  device=device.name,
+                                  host=device.host,
+                                  error=result.error)
+                    # Update database to error state (-1) on poll failure (normal polling only)
+                    await update_device_state_with_log(
+                        self.db_manager, device.id, -1, "polling", device.state
+                    )
 
                 # Broadcast poll failure via SSE (still useful for frontend)
                 if self._sse:
@@ -445,7 +477,7 @@ class StateMonitor:
                         self._sse.send_poll_complete(
                             device_id=device_id,
                             success=False,
-                            state=-1,  # Error state
+                            state=device.state if is_enforcing else -1,
                             duration_ms=duration_ms,
                             next_poll_at=next_poll_at,
                             poll_interval=poll_interval,
@@ -456,20 +488,30 @@ class StateMonitor:
 
         except Exception as e:
             duration_ms = int((time.monotonic() - start_time) * 1000)
-            logger.error("Error polling device",
-                        device=device.name,
-                        host=device.host,
-                        error=str(e))
-            # Update to error state and send SSE on exception
-            await update_device_state_with_log(
-                self.db_manager, device.id, -1, "polling", device.state
-            )
+            is_enforcing = device_id in self._fast_poll_devices
+
+            if is_enforcing:
+                logger.warning("Error polling device during enforcement - skipping",
+                              device=device.name,
+                              host=device.host,
+                              error=str(e))
+                # Don't update state to error during enforcement
+            else:
+                logger.error("Error polling device",
+                            device=device.name,
+                            host=device.host,
+                            error=str(e))
+                # Update to error state on exception (normal polling only)
+                await update_device_state_with_log(
+                    self.db_manager, device.id, -1, "polling", device.state
+                )
+
             if self._sse:
                 asyncio.create_task(
                     self._sse.send_poll_complete(
                         device_id=device_id,
                         success=False,
-                        state=-1,
+                        state=device.state if is_enforcing else -1,
                         duration_ms=duration_ms,
                         next_poll_at=next_poll_at,
                         poll_interval=poll_interval,
@@ -488,6 +530,20 @@ class StateMonitor:
             await callback(device_id, state)
         except Exception as e:
             logger.error("Error in target state callback",
+                        device_id=device_id[:8],
+                        error=str(e))
+
+    async def _notify_state_deviated(
+        self,
+        device_id: str,
+        state: int,
+        callback: Callable[[str, int], Awaitable[None]],
+    ) -> None:
+        """Notify callback that device state deviated from target."""
+        try:
+            await callback(device_id, state)
+        except Exception as e:
+            logger.error("Error in state deviation callback",
                         device_id=device_id[:8],
                         error=str(e))
 
