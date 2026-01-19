@@ -439,7 +439,10 @@ body {
 }
 
 .manual-indent {
-  /* Empty cell placeholder for grid alignment */
+  /* Empty cell placeholder for grid alignment - must have min-width to match api-link column */
+}
+.manual-indent:first-child {
+  min-width: 0.75rem;  /* Match approximate width of # link */
 }
 
 /* Manual device content with colored background */
