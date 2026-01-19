@@ -218,48 +218,98 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
           }
         </div>
       )}
-      <div className="device-actions">
-        {/* Custom action buttons (always shown if device has actions) */}
-        {device.actions && device.actions.length > 0 && (
-          <div className="device-custom-commands">
-            {device.actions.map(action => (
+      {/* For shell devices with BOTH on/off AND actions, split into two visual blocks */}
+      {device.device_type === 'shell' &&
+       device.config?.commands?.on?.cmd && device.config?.commands?.off?.cmd &&
+       device.actions && device.actions.length > 0 ? (
+        <>
+          {/* Block 1: ON/OFF controls */}
+          <div className="device-actions device-actions-onoff">
+            <span className="actions-label">Power</span>
+            <div className="btn-group">
               <ConfirmButton
-                key={action.name}
-                className="btn btn-action btn-sm"
-                onConfirm={() => onAction(device.id, action.name, device.name)}
-                confirmText="Run?"
+                className="btn btn-on btn-sm"
+                onConfirm={() => onControl(device.id, 'on', device.name)}
+                confirmText="ON?"
               >
-                {action.name}
+                ON
               </ConfirmButton>
-            ))}
+              <ConfirmButton
+                className="btn btn-off btn-sm"
+                onConfirm={() => onControl(device.id, 'off', device.name)}
+                confirmText="OFF?"
+              >
+                OFF
+              </ConfirmButton>
+            </div>
+            {!device.automation_enabled && (
+              <span className="manual-indicator" title="Manual control only - not in bulk ON/OFF">
+                <i className="bi bi-hand-index"></i> Manual
+              </span>
+            )}
           </div>
-        )}
-        {/* ON/OFF buttons - shown for devices that support ON/OFF */}
-        {(device.device_type !== 'shell' || (device.config?.commands?.on?.cmd && device.config?.commands?.off?.cmd)) && (
-          <div className="btn-group">
-            <ConfirmButton
-              className="btn btn-on btn-sm"
-              onConfirm={() => onControl(device.id, 'on', device.name)}
-              confirmText="ON?"
-            >
-              ON
-            </ConfirmButton>
-            <ConfirmButton
-              className="btn btn-off btn-sm"
-              onConfirm={() => onControl(device.id, 'off', device.name)}
-              confirmText="OFF?"
-            >
-              OFF
-            </ConfirmButton>
+          {/* Block 2: Custom actions */}
+          <div className="device-actions device-actions-custom">
+            <span className="actions-label">Actions</span>
+            <div className="device-custom-commands">
+              {device.actions.map(action => (
+                <ConfirmButton
+                  key={action.name}
+                  className="btn btn-action btn-sm"
+                  onConfirm={() => onAction(device.id, action.name, device.name)}
+                  confirmText="Run?"
+                >
+                  {action.name}
+                </ConfirmButton>
+              ))}
+            </div>
           </div>
-        )}
-        {/* Show indicator if manual control only */}
-        {!device.automation_enabled && (
-          <span className="manual-indicator" title="Manual control only - not in bulk ON/OFF">
-            <i className="bi bi-hand-index"></i> Manual
-          </span>
-        )}
-      </div>
+        </>
+      ) : (
+        /* Standard layout for devices with only one type of control */
+        <div className="device-actions">
+          {/* Custom action buttons (always shown if device has actions) */}
+          {device.actions && device.actions.length > 0 && (
+            <div className="device-custom-commands">
+              {device.actions.map(action => (
+                <ConfirmButton
+                  key={action.name}
+                  className="btn btn-action btn-sm"
+                  onConfirm={() => onAction(device.id, action.name, device.name)}
+                  confirmText="Run?"
+                >
+                  {action.name}
+                </ConfirmButton>
+              ))}
+            </div>
+          )}
+          {/* ON/OFF buttons - shown for devices that support ON/OFF */}
+          {(device.device_type !== 'shell' || (device.config?.commands?.on?.cmd && device.config?.commands?.off?.cmd)) && (
+            <div className="btn-group">
+              <ConfirmButton
+                className="btn btn-on btn-sm"
+                onConfirm={() => onControl(device.id, 'on', device.name)}
+                confirmText="ON?"
+              >
+                ON
+              </ConfirmButton>
+              <ConfirmButton
+                className="btn btn-off btn-sm"
+                onConfirm={() => onControl(device.id, 'off', device.name)}
+                confirmText="OFF?"
+              >
+                OFF
+              </ConfirmButton>
+            </div>
+          )}
+          {/* Show indicator if manual control only */}
+          {!device.automation_enabled && (
+            <span className="manual-indicator" title="Manual control only - not in bulk ON/OFF">
+              <i className="bi bi-hand-index"></i> Manual
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -793,6 +793,77 @@ body {
   margin-right: 0.5rem;
 }
 
+/* Split blocks for shell devices with both ON/OFF and actions */
+.device-actions-onoff,
+.device-actions-custom {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+}
+
+.device-actions-onoff {
+  background: rgba(var(--bs-success-rgb), 0.08);
+  border: 1px solid rgba(var(--bs-success-rgb), 0.2);
+}
+
+.device-actions-custom {
+  background: rgba(var(--bs-info-rgb), 0.08);
+  border: 1px solid rgba(var(--bs-info-rgb), 0.2);
+}
+
+.actions-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #6c757d;
+  min-width: 50px;
+}
+
+.device-actions-onoff .actions-label {
+  color: var(--bs-success);
+}
+
+.device-actions-custom .actions-label {
+  color: var(--bs-info);
+}
+
+/* Split buttons for inline manual device row */
+.manual-device-buttons.split-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-group-labeled {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.buttons-separator {
+  color: #6c757d;
+  font-weight: 300;
+  margin: 0 0.25rem;
+}
+
+.power-group {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.actions-group {
+  display: flex;
+  gap: 0.25rem;
+}
+
+/* Action device label in automation action rows */
+.action-device-label {
+  font-size: 0.8rem;
+  color: #6c757d;
+  white-space: nowrap;
+}
 
 /* Empty State */
 .empty-state {

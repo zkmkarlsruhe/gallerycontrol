@@ -130,7 +130,7 @@ export function ArtworkRow({
                         ))}
                       </div>
                     )}
-                    {device.device_type !== 'shell' && (
+                    {(device.device_type !== 'shell' || (device.config?.commands?.on?.cmd && device.config?.commands?.off?.cmd)) && (
                       <div className="btn-group">
                         <ConfirmButton className="btn btn-on btn-sm" onConfirm={() => onDeviceControl(device.id, 'on', device.name)} confirmText="ON?">ON</ConfirmButton>
                         <ConfirmButton className="btn btn-off btn-sm" onConfirm={() => onDeviceControl(device.id, 'off', device.name)} confirmText="OFF?">OFF</ConfirmButton>
@@ -173,6 +173,29 @@ export function ArtworkRow({
               </div>
             )}
 
+            {/* Action rows for automation shell devices that have custom actions */}
+            {automationDevices
+              .filter(device => device.device_type === 'shell' && device.actions && device.actions.length > 0)
+              .map((device, index) => (
+                <div key={`actions-${device.id}`} className="artwork-inline-layout manual-row">
+                  <div className="manual-indent"></div>
+                  <div className="manual-indent"></div>
+                  <div className={`manual-device-content ${index % 2 === 0 ? 'bg-even' : 'bg-odd'}`}>
+                    <DeviceBadge
+                      device={device}
+                      isExpanded={expandedDevice === device.id}
+                      pendingState={pendingStates.get(device.id)}
+                      onClick={() => onToggleDevice(device.id)}
+                    />
+                    <div className="manual-device-buttons">
+                      {device.actions.map((action, idx) => (
+                        <ConfirmButton key={action.name} className={`btn btn-action btn-action-${idx + 1} btn-sm`} onConfirm={() => onDeviceAction(device.id, action.name, device.name)} confirmText="Run?">{action.name}</ConfirmButton>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
             {/* Manual devices - same inline layout with colored backgrounds on device section only */}
             {/* No artwork ON/OFF for manual-only artworks */}
             {manualDevices.map((device, index) => (
@@ -199,17 +222,35 @@ export function ArtworkRow({
                     pendingState={pendingStates.get(device.id)}
                     onClick={() => onToggleDevice(device.id)}
                   />
-                  <div className="manual-device-buttons">
-                    {device.actions && device.actions.map((action, idx) => (
-                      <ConfirmButton key={action.name} className={`btn btn-action btn-action-${idx + 1} btn-sm`} onConfirm={() => onDeviceAction(device.id, action.name, device.name)} confirmText="Run?">{action.name}</ConfirmButton>
-                    ))}
-                    {device.device_type !== 'shell' && (
-                      <div className="btn-group">
+                  {/* Split view for shell devices with both ON/OFF and actions */}
+                  {device.device_type === 'shell' &&
+                   device.config?.commands?.on?.cmd && device.config?.commands?.off?.cmd &&
+                   device.actions && device.actions.length > 0 ? (
+                    <div className="manual-device-buttons split-buttons">
+                      <div className="btn-group-labeled power-group">
                         <ConfirmButton className="btn btn-on btn-sm" onConfirm={() => onDeviceControl(device.id, 'on', device.name)} confirmText="ON?">ON</ConfirmButton>
                         <ConfirmButton className="btn btn-off btn-sm" onConfirm={() => onDeviceControl(device.id, 'off', device.name)} confirmText="OFF?">OFF</ConfirmButton>
                       </div>
-                    )}
-                  </div>
+                      <span className="buttons-separator">|</span>
+                      <div className="btn-group-labeled actions-group">
+                        {device.actions.map((action, idx) => (
+                          <ConfirmButton key={action.name} className={`btn btn-action btn-action-${idx + 1} btn-sm`} onConfirm={() => onDeviceAction(device.id, action.name, device.name)} confirmText="Run?">{action.name}</ConfirmButton>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="manual-device-buttons">
+                      {device.actions && device.actions.map((action, idx) => (
+                        <ConfirmButton key={action.name} className={`btn btn-action btn-action-${idx + 1} btn-sm`} onConfirm={() => onDeviceAction(device.id, action.name, device.name)} confirmText="Run?">{action.name}</ConfirmButton>
+                      ))}
+                      {(device.device_type !== 'shell' || (device.config?.commands?.on?.cmd && device.config?.commands?.off?.cmd)) && (
+                        <div className="btn-group">
+                          <ConfirmButton className="btn btn-on btn-sm" onConfirm={() => onDeviceControl(device.id, 'on', device.name)} confirmText="ON?">ON</ConfirmButton>
+                          <ConfirmButton className="btn btn-off btn-sm" onConfirm={() => onDeviceControl(device.id, 'off', device.name)} confirmText="OFF?">OFF</ConfirmButton>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
