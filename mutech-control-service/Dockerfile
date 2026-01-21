@@ -30,6 +30,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     netcat-openbsd \
     curl \
+    jq \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
