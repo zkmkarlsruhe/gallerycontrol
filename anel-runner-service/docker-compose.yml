@@ -1,0 +1,65 @@
+# ANEL Runner Service - Docker Compose for development and production
+#
+# IMPORTANT: This service MUST run with network_mode: host to receive
+# UDP broadcasts from ANEL devices on port 9977.
+#
+# Usage:
+#   Development: docker compose up
+#   Production:  docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+#
+# Harbor deployment:
+#   docker build -t harbor.zkm.de/mutech/anel-runner:latest .
+#   docker push harbor.zkm.de/mutech/anel-runner:latest
+
+version: '3.8'
+
+services:
+  anel-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: anel-runner:latest
+    container_name: anel-runner
+
+    # CRITICAL: Must use host network to receive UDP broadcasts
+    network_mode: host
+
+    environment:
+      # API authentication
+      - API_KEY=${API_KEY:-dev-api-key-change-in-production}
+
+      # ANEL device credentials (defaults)
+      - ANEL_USERNAME=${ANEL_USERNAME:-admin}
+      - ANEL_PASSWORD=${ANEL_PASSWORD:-anel}
+
+      # Server configuration
+      - PORT=${PORT:-8001}
+      - HOST=0.0.0.0
+
+      # UDP bind address (use specific interface in production)
+      # Example: BIND_ADDRESS=192.168.50.2 for control network
+      - BIND_ADDRESS=${BIND_ADDRESS:-0.0.0.0}
+
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    # Health check (also defined in Dockerfile)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s

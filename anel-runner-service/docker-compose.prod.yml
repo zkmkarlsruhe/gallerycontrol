@@ -1,0 +1,39 @@
+# Production overlay for ANEL Runner Service
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Deploy to Harbor:
+#   docker build -t harbor.zkm.de/mutech/anel-runner:latest .
+#   docker push harbor.zkm.de/mutech/anel-runner:latest
+
+version: '3.8'
+
+services:
+  anel-runner:
+    # Use Harbor image in production
+    image: harbor.zkm.de/mutech/anel-runner:${VERSION:-latest}
+
+    # Don't build in production
+    build: !reset null
+
+    environment:
+      # Production API key (MUST be set in .env or environment)
+      - API_KEY=${API_KEY:?API_KEY must be set in production}
+
+      # Bind to specific network interface for control network
+      # Example: 192.168.50.2 for the control VLAN
+      - BIND_ADDRESS=${BIND_ADDRESS:?BIND_ADDRESS must be set in production}
+
+      # Production logging
+      - LOG_LEVEL=INFO
+
+    # Production restart policy
+    restart: always
+
+    # Logging driver for production
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

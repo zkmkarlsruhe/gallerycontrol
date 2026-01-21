@@ -59,3 +59,16 @@ tests/
 # CI/CD
 .github/
 .gitlab-ci.yml
+
+# Frontend source (we only need static/)
+frontend/
+node_modules/
+package.json
+package-lock.json
+
+# Agentbox
+.agentbox/
+
+# Development docs
+*.md
+!README.md

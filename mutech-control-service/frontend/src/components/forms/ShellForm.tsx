@@ -92,7 +92,11 @@ export function ShellForm({ data, onChange, credentials = [], templates = [] }: 
       const response = await fetch('/api/admin/shell/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command, timeout: 5 }),
+        body: JSON.stringify({
+          command,
+          timeout: 5,
+          credential_id: data.credential_id || null,
+        }),
       });
 
       const result = await response.json();

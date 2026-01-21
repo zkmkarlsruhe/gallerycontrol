@@ -1342,6 +1342,7 @@ class ShellTestRequest(BaseModel):
 
     command: str
     timeout: int = 5  # seconds (max 5 to prevent stale connections)
+    credential_id: str | None = None  # Optional credential to replace {{user}}/{{password}}
 
 
 class ShellTestResponse(BaseModel):
@@ -1356,7 +1357,9 @@ class ShellTestResponse(BaseModel):
 
 
 @router.post("/shell/test", response_model=ShellTestResponse)
-async def test_shell_command(request: ShellTestRequest):
+async def test_shell_command(
+    request: ShellTestRequest, db: AsyncSession = Depends(get_db)
+):
     """Test a shell command and return stdout, stderr, and exit code.
 
     This endpoint is for testing shell commands before saving them to a device.
@@ -1372,7 +1375,21 @@ async def test_shell_command(request: ShellTestRequest):
     # Enforce max timeout of 5 seconds
     timeout = min(request.timeout, 5)
 
-    cmd = replace_credential_placeholders(request.command)
+    cmd = request.command
+
+    # If credential_id provided, replace simple {{user}} and {{password}} placeholders
+    if request.credential_id:
+        from sqlalchemy import select
+
+        stmt = select(Credential).where(Credential.id == request.credential_id)
+        result = await db.execute(stmt)
+        cred = result.scalar_one_or_none()
+        if cred:
+            cmd = cmd.replace("{{user}}", cred.username or "")
+            cmd = cmd.replace("{{password}}", cred.password or "")
+
+    # Also replace named placeholders like {{PASSWORD:name}}
+    cmd = replace_credential_placeholders(cmd)
     start_time = time.monotonic()
     proc = None
 

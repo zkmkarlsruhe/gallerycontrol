@@ -1,0 +1,51 @@
+# Development mode for ANEL Runner Service
+#
+# This configuration allows running the ANEL runner in dev mode
+# with different networking options for testing cross-segment communication.
+#
+# Options:
+#
+# 1. HOST NETWORK MODE (simplest, requires host on ANEL network)
+#    docker compose -f docker-compose.yml up
+#
+# 2. MACVLAN MODE (container gets IP on ANEL network)
+#    First create the macvlan network (see dev-network.sh)
+#    docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# 3. DIRECT RUN (no Docker, for debugging)
+#    poetry run uvicorn anel_runner.main:app --host 0.0.0.0 --port 8001
+
+version: '3.8'
+
+services:
+  anel-runner:
+    # Override to not use host network in macvlan mode
+    network_mode: null
+
+    networks:
+      anel-net:
+        # Assign static IP on the ANEL network
+        ipv4_address: ${ANEL_RUNNER_IP:-192.168.50.100}
+
+    environment:
+      # Bind to the macvlan interface
+      - BIND_ADDRESS=${ANEL_RUNNER_IP:-192.168.50.100}
+
+      # Development API key
+      - API_KEY=${API_KEY:-dev-api-key}
+
+      # Verbose logging for development
+      - LOG_LEVEL=DEBUG
+
+    # Mount source for hot-reload during development
+    volumes:
+      - ./anel_runner:/app/anel_runner:ro
+
+    # Enable hot-reload
+    command: ["python", "-m", "uvicorn", "anel_runner.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+
+networks:
+  anel-net:
+    # Use existing macvlan network created by dev-network.sh
+    external: true
+    name: anel-macvlan
