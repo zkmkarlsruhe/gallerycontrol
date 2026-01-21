@@ -10,6 +10,8 @@ from pydantic import BaseModel
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import selectinload
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from mutech_control.database.connection import get_session
 from mutech_control.database.models import Artwork, Credential, Device, Exhibition, ShellTemplate
 from mutech_control.devices.shell_manager import load_credentials
@@ -1358,7 +1360,7 @@ class ShellTestResponse(BaseModel):
 
 @router.post("/shell/test", response_model=ShellTestResponse)
 async def test_shell_command(
-    request: ShellTestRequest, db: AsyncSession = Depends(get_db)
+    request: ShellTestRequest, db: AsyncSession = Depends(get_session)
 ):
     """Test a shell command and return stdout, stderr, and exit code.
 
