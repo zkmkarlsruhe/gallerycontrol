@@ -51,6 +51,9 @@ COPY static/ ./static/
 # Make entrypoint executable
 RUN chmod +x entrypoint.sh
 
+# Create logs directory
+RUN mkdir -p /app/logs
+
 # Change ownership
 RUN chown -R mutech:mutech /app
 

@@ -7,6 +7,7 @@ server:
 logging:
   level: "${LOG_LEVEL:-INFO}"
   format: "json"
+  file: "/app/logs/mutech-control.log"
 
 # Email configuration for ZKM internal network
 # smtp.zkm.de does not require authentication from internal network

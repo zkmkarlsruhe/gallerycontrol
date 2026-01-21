@@ -25,6 +25,9 @@ services:
       # - ANEL_RUNNER_URL=http://anel-runner:8001
       # - ANEL_API_KEY=${ANEL_API_KEY}
 
+    volumes:
+      - ./logs:/app/logs
+
     healthcheck:
       test: curl --fail http://localhost:8000/health || exit 1
       timeout: 10s
