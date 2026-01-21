@@ -16,7 +16,10 @@ services:
 
       # Application
       - ENVIRONMENT=production
-      - LOG_LEVEL=INFO
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # Email (defaults in production.yaml, can override here)
+      - EMAIL_RECIPIENT=${EMAIL_RECIPIENT:-marc@zkm.de}
 
       # ANEL Runner (if deployed separately)
       # - ANEL_RUNNER_URL=http://anel-runner:8001

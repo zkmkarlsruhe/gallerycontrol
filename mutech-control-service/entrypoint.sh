@@ -3,10 +3,21 @@ set -e
 
 echo "Starting MuTech Control Service..."
 
-# Wait for PostgreSQL to be ready
-echo "Waiting for PostgreSQL..."
-while ! nc -z postgres 5432; do
-  sleep 0.1
+# Extract database host from DATABASE_URL
+# Format: postgresql+asyncpg://user:pass@host:port/db
+if [ -n "$DATABASE_URL" ]; then
+    # Extract host:port from URL
+    DB_HOST=$(echo "$DATABASE_URL" | sed -n 's/.*@\([^:/]*\).*/\1/p')
+    DB_PORT=$(echo "$DATABASE_URL" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+    DB_PORT=${DB_PORT:-5432}
+else
+    DB_HOST=${DB_HOST:-mutech-postgres}
+    DB_PORT=${DB_PORT:-5432}
+fi
+
+echo "Waiting for PostgreSQL at ${DB_HOST}:${DB_PORT}..."
+while ! nc -z "$DB_HOST" "$DB_PORT"; do
+    sleep 0.5
 done
 echo "PostgreSQL is ready!"
 
@@ -17,4 +28,4 @@ alembic upgrade head
 
 # Start the FastAPI application
 echo "Starting FastAPI application..."
-exec uvicorn mutech_control.main:app --host 0.0.0.0 --port 8000
+exec uvicorn mutech_control.main:app --host 0.0.0.0 --port ${PORT:-8000}

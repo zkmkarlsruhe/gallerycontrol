@@ -1,0 +1,29 @@
+# Production configuration overrides for ZKM deployment
+# These values override default.yaml when ENVIRONMENT=production
+
+server:
+  reload: false
+
+logging:
+  level: "${LOG_LEVEL:-INFO}"
+  format: "json"
+
+# Email configuration for ZKM internal network
+# smtp.zkm.de does not require authentication from internal network
+email:
+  smtp_host: "smtp.zkm.de"
+  smtp_port: 465
+  smtp_user: ""
+  smtp_password: ""
+  smtp_use_tls: true
+  from_address: "mutech-control@zkm.de"
+  from_name: "MuTech Steuerung"
+  subject: "MuTech Device Status Report"
+  recipients:
+    - "${EMAIL_RECIPIENT:-marc@zkm.de}"
+
+# API settings
+api:
+  cors_origins:
+    - "https://ctrl.mutech.zkm.de"
+    - "https://steuerung.mutech.zkm.de"
