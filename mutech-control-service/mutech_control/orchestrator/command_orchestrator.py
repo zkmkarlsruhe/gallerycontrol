@@ -1,7 +1,7 @@
 """Command orchestrator - coordinates device control operations."""
 
 import asyncio
-from typing import TYPE_CHECKING, Dict, List, Literal
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional
 from uuid import UUID
 
 from sqlalchemy import select
@@ -15,6 +15,7 @@ from mutech_control.utils.logging import get_logger, set_request_id
 
 if TYPE_CHECKING:
     from mutech_control.monitoring.state_monitor import StateMonitor
+    from mutech_control.services.asset_service import AssetService
 
 logger = get_logger(__name__)
 
@@ -27,6 +28,7 @@ class CommandOrchestrator:
         self.device_managers = device_managers
         self.config = config
         self.command_verifier = CommandVerifier(db_manager, device_managers, config)
+        self._asset_service: Optional["AssetService"] = None
 
         orchestrator_config = config.get("orchestrator", {})
 
@@ -46,6 +48,10 @@ class CommandOrchestrator:
         as they have a circular dependency (verifier needs monitor, monitor needs managers).
         """
         self.command_verifier.set_state_monitor(state_monitor)
+
+    def set_asset_service(self, asset_service: "AssetService") -> None:
+        """Set asset service reference for lamp hours recording."""
+        self._asset_service = asset_service
 
     async def execute_control_command(
         self,
@@ -386,6 +392,18 @@ class CommandOrchestrator:
                 error_message=result.error,
                 duration_ms=result.duration_ms,
             )
+
+            # Record lamp hours for PJLink devices with asset link (background task)
+            if (
+                result.success
+                and device.device_type == "pjlink"
+                and device.asset_id
+                and self._asset_service
+            ):
+                event_type = "power_on" if command == "on" else "power_off"
+                asyncio.create_task(
+                    self._asset_service.record_lamp_hours_background(device.id, event_type)
+                )
 
             return {
                 "device_id": str(device.id),
