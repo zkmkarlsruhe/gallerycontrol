@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from mutech_control.api import admin, control, debug, fast, state
+from mutech_control.api import admin, assets, control, debug, fast, state
 from mutech_control.config import get_config
 from mutech_control.database.connection import get_db_manager
 from mutech_control.devices.anel_client import ANELClient
@@ -19,6 +19,8 @@ from mutech_control.devices.pjlink_manager import PJLinkManager
 from mutech_control.devices.shell_manager import ShellManager, load_credentials
 from mutech_control.monitoring.state_monitor import StateMonitor
 from mutech_control.orchestrator.command_orchestrator import CommandOrchestrator
+from mutech_control.scheduler import TaskScheduler
+from mutech_control.services.asset_service import AssetService
 from mutech_control.services.sse_broadcaster import SSEBroadcaster
 
 # Configure logging
@@ -80,9 +82,21 @@ async def lifespan(app: FastAPI):
     )
     logger.info("State monitor initialized")
 
+    # Initialize asset service for lamp hours tracking
+    asset_service = AssetService(db_manager, device_managers, orchestrator_config)
+    logger.info("Asset service initialized")
+
+    # Initialize task scheduler for periodic maintenance tasks
+    task_scheduler = TaskScheduler(db_manager, orchestrator_config, asset_service)
+    logger.info("Task scheduler initialized")
+
     # Connect orchestrator's verifier to state monitor for unified polling
     orchestrator.set_state_monitor(state_monitor)
     logger.info("Command verifier connected to state monitor")
+
+    # Connect orchestrator to asset service for lamp hours recording
+    orchestrator.set_asset_service(asset_service)
+    logger.info("Asset service connected to orchestrator")
 
     # Store in app state
     app.state.db_manager = db_manager
@@ -90,6 +104,8 @@ async def lifespan(app: FastAPI):
     app.state.orchestrator = orchestrator
     app.state.state_monitor = state_monitor
     app.state.sse_broadcaster = sse_broadcaster
+    app.state.asset_service = asset_service
+    app.state.task_scheduler = task_scheduler
 
     # Start config watching (hot-reload) with SSE broadcast
     def on_config_change(loader):
@@ -109,6 +125,9 @@ async def lifespan(app: FastAPI):
         state_monitor.batch_size = monitoring_config["batch_size"]
         state_monitor.device_timeout = monitoring_config["device_timeout_seconds"]
 
+        # Update task scheduler intervals
+        task_scheduler.refresh_from_config(new_config.get_all())
+
         # Broadcast config change to SSE clients
         import asyncio
         asyncio.create_task(sse_broadcaster.send_config_change(monitoring_config))
@@ -119,6 +138,9 @@ async def lifespan(app: FastAPI):
     # Start state monitoring
     await state_monitor.start()
 
+    # Start task scheduler for periodic maintenance
+    await task_scheduler.start()
+
     logger.info("MuTech Control Service started successfully")
     logger.info("API documentation available at /docs")
 
@@ -126,6 +148,9 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down MuTech Control Service...")
+
+    # Stop task scheduler
+    await task_scheduler.stop()
 
     # Stop state monitoring
     await state_monitor.stop()
@@ -174,6 +199,7 @@ app.include_router(fast.router)
 app.include_router(state.router)
 app.include_router(admin.router)
 app.include_router(debug.router)
+app.include_router(assets.router)
 
 # Mount static files directory if it exists
 static_dir = Path(__file__).parent.parent / "static"

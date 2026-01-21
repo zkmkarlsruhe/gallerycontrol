@@ -76,6 +76,21 @@ monitoring:
   batch_delay_seconds: 0          # No delay - batches run in parallel
   device_timeout_seconds: 5       # Per-device timeout (prevents slow devices blocking)
 
+scheduler:
+  enabled: true
+  check_interval_seconds: 60      # How often to check for tasks due to run
+
+  tasks:
+    asset_linker:
+      enabled: true
+      interval_minutes: 10        # Run every 10 minutes
+      batch_size: 20              # Max devices per run
+
+    log_cleanup:
+      enabled: true
+      interval_minutes: 60        # Run every hour
+      retention_hours: 24         # Keep 24 hours of operation logs
+
 logging:
   level: "INFO"
   format: "json"

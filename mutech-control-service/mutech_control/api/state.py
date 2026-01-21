@@ -97,6 +97,8 @@ class DeviceState(BaseModel):
     poll_status: DevicePollStatus | None = None
     actions: List[DeviceAction] = []
     config: dict | None = None  # Device-specific configuration
+    resolved: str | None = None  # Resolved hostname/IP from DNS
+    asset_id: str | None = None  # Linked asset ID (PJLink only)
 
     class Config:
         from_attributes = True
@@ -173,7 +175,7 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
                                 "enabled": dev.enabled,
                                 "effective_enabled": dev.enabled and aw.enabled and ex.enabled,
                                 "automation_enabled": dev.automation_enabled,
-                                                                "last_checked_at": dev.last_checked_at.isoformat()
+                                "last_checked_at": dev.last_checked_at.isoformat()
                                 if dev.last_checked_at
                                 else None,
                                 "next_check_allowed_at": dev.next_check_allowed_at.isoformat()
@@ -182,6 +184,8 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
                                 "poll_status": _get_poll_status(request, str(dev.id)),
                                 "actions": _get_shell_actions(dev),
                                 "config": dev.config,
+                                "resolved": dev.resolved,
+                                "asset_id": str(dev.asset_id) if dev.asset_id else None,
                             }
                             for dev in aw.devices
                         ],
@@ -236,7 +240,7 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
                             "enabled": dev.enabled,
                             "effective_enabled": dev.enabled and aw.enabled and exhibition.enabled,
                             "automation_enabled": dev.automation_enabled,
-                                                        "last_checked_at": dev.last_checked_at.isoformat()
+                            "last_checked_at": dev.last_checked_at.isoformat()
                             if dev.last_checked_at
                             else None,
                             "next_check_allowed_at": dev.next_check_allowed_at.isoformat()
@@ -245,6 +249,8 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
                             "poll_status": _get_poll_status(request, str(dev.id)),
                             "actions": _get_shell_actions(dev),
                             "config": dev.config,
+                            "resolved": dev.resolved,
+                            "asset_id": str(dev.asset_id) if dev.asset_id else None,
                         }
                         for dev in aw.devices
                     ],
@@ -301,6 +307,8 @@ async def get_device_state(request: Request, device_id: str, session=Depends(get
             "poll_status": _get_poll_status(request, device_id),
             "actions": _get_shell_actions(device),
             "config": device.config,
+            "resolved": device.resolved,
+            "asset_id": str(device.asset_id) if device.asset_id else None,
         }
 
     except HTTPException:

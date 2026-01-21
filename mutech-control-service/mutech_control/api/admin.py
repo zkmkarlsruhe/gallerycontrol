@@ -5,7 +5,7 @@ import logging
 from typing import Any, Dict, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import selectinload
@@ -473,7 +473,7 @@ async def get_device(device_id: str, session=Depends(get_session)):
 
 
 @router.post("/devices", status_code=201)
-async def create_device(device: DeviceCreate, session=Depends(get_session)):
+async def create_device(device: DeviceCreate, request: Request, session=Depends(get_session)):
     """Create a new device."""
     try:
         new_device = Device(
@@ -489,6 +489,20 @@ async def create_device(device: DeviceCreate, session=Depends(get_session)):
         session.add(new_device)
         await session.flush()
 
+        # For PJLink devices, link to asset and record onboard lamp hours
+        asset_number = None
+        if device.device_type == 'pjlink':
+            asset_service = getattr(request.app.state, 'asset_service', None)
+            if asset_service:
+                asset = await asset_service.link_device_to_asset(new_device, session)
+                if asset:
+                    asset_number = asset.asset_number
+                    # Record initial lamp hours (background task after commit)
+                    await session.commit()
+                    asyncio.create_task(
+                        asset_service.record_lamp_hours_background(new_device.id, 'onboard')
+                    )
+
         return {
             "id": str(new_device.id),
             "name": new_device.name,
@@ -498,6 +512,9 @@ async def create_device(device: DeviceCreate, session=Depends(get_session)):
             "artwork_id": str(new_device.artwork_id),
             "enabled": new_device.enabled,
             "automation_enabled": new_device.automation_enabled,
+            "asset_id": str(new_device.asset_id) if new_device.asset_id else None,
+            "asset_number": asset_number,
+            "resolved": new_device.resolved,
         }
 
     except Exception as e:
@@ -507,10 +524,18 @@ async def create_device(device: DeviceCreate, session=Depends(get_session)):
 
 @router.put("/devices/{device_id}")
 async def update_device(
-    device_id: str, device: DeviceUpdate, session=Depends(get_session)
+    device_id: str, device: DeviceUpdate, request: Request, session=Depends(get_session)
 ):
     """Update a device."""
     try:
+        # First get the existing device to check for changes
+        stmt = select(Device).where(Device.id == UUID(device_id))
+        result = await session.execute(stmt)
+        existing = result.scalar_one_or_none()
+
+        if not existing:
+            raise HTTPException(status_code=404, detail="Device not found")
+
         values = {}
         for key, value in device.dict().items():
             if value is not None:
@@ -522,6 +547,26 @@ async def update_device(
         if not values:
             raise HTTPException(status_code=400, detail="No fields to update")
 
+        # Check if host/port/device_type is changing for PJLink devices
+        asset_service = getattr(request.app.state, 'asset_service', None)
+        needs_asset_relink = (
+            existing.device_type == 'pjlink' and
+            asset_service and
+            (
+                ('host' in values and values['host'] != existing.host) or
+                ('port' in values and values['port'] != existing.port) or
+                ('device_type' in values and values['device_type'] != existing.device_type)
+            )
+        )
+
+        # If re-linking needed and device has existing asset, record offboard first
+        if needs_asset_relink and existing.asset_id:
+            await asset_service.unlink_device_from_asset(existing.id, session)
+            values['asset_id'] = None  # Clear the old asset link
+            values['resolved'] = None  # Clear old DNS resolution
+            values['resolved_at'] = None
+
+        # Perform the update
         stmt = (
             update(Device)
             .where(Device.id == UUID(device_id))
@@ -531,8 +576,14 @@ async def update_device(
         result = await session.execute(stmt)
         updated = result.scalar_one_or_none()
 
-        if not updated:
-            raise HTTPException(status_code=404, detail="Device not found")
+        # If host changed for PJLink, re-link to new asset
+        if needs_asset_relink and updated.device_type == 'pjlink':
+            # Refresh device from session to get updated values
+            await session.refresh(updated)
+            asset = await asset_service.link_device_to_asset(updated, session)
+            if asset:
+                # Record onboard lamp hours for new asset
+                await asset_service.record_lamp_hours(updated.id, 'onboard', session)
 
         return {
             "id": str(updated.id),
@@ -543,6 +594,7 @@ async def update_device(
             "artwork_id": str(updated.artwork_id),
             "enabled": updated.enabled,
             "automation_enabled": updated.automation_enabled,
+            "asset_id": str(updated.asset_id) if updated.asset_id else None,
         }
 
     except HTTPException:
@@ -553,14 +605,26 @@ async def update_device(
 
 
 @router.delete("/devices/{device_id}", status_code=204)
-async def delete_device(device_id: str, session=Depends(get_session)):
+async def delete_device(device_id: str, request: Request, session=Depends(get_session)):
     """Delete a device."""
     try:
-        stmt = delete(Device).where(Device.id == UUID(device_id))
+        # First get the device to check if it's PJLink with asset
+        stmt = select(Device).where(Device.id == UUID(device_id))
         result = await session.execute(stmt)
+        device = result.scalar_one_or_none()
 
-        if result.rowcount == 0:
+        if not device:
             raise HTTPException(status_code=404, detail="Device not found")
+
+        # For PJLink devices with asset, record offboard lamp hours before deletion
+        if device.device_type == 'pjlink' and device.asset_id:
+            asset_service = getattr(request.app.state, 'asset_service', None)
+            if asset_service:
+                await asset_service.unlink_device_from_asset(device.id, session)
+
+        # Now delete the device
+        stmt = delete(Device).where(Device.id == UUID(device_id))
+        await session.execute(stmt)
 
     except HTTPException:
         raise
@@ -659,9 +723,54 @@ async def list_credentials(credential_type: str | None = None, session=Depends(g
         result = await session.execute(stmt)
         credentials = result.scalars().all()
 
-        return [
-            {
-                "id": str(cred.id),
+        # Build response with device usage info
+        response = []
+
+        # Get all devices once for shell placeholder checking
+        all_devices_stmt = select(Device)
+        all_devices_result = await session.execute(all_devices_stmt)
+        all_devices = all_devices_result.scalars().all()
+
+        for cred in credentials:
+            cred_id = str(cred.id)
+            cred_name = cred.name
+
+            # Find devices using this credential by ID
+            devices_by_id = [d for d in all_devices if d.config.get("credential_id") == cred_id]
+
+            # Find shell devices using this credential by name in placeholders
+            # Look for {{PASSWORD:name}} or {{USER:name}} patterns
+            import re
+            placeholder_pattern = re.compile(rf"\{{\{{(PASSWORD|USER):{re.escape(cred_name)}\}}\}}", re.IGNORECASE)
+            devices_by_placeholder = []
+            for device in all_devices:
+                if device.device_type == "shell" and device.config.get("commands"):
+                    commands = device.config["commands"]
+                    # Check all command types (on, off, status, and custom actions)
+                    if isinstance(commands, dict):
+                        for cmd_key, cmd_data in commands.items():
+                            if isinstance(cmd_data, dict) and cmd_data.get("cmd"):
+                                if placeholder_pattern.search(cmd_data["cmd"]):
+                                    if device not in devices_by_placeholder:
+                                        devices_by_placeholder.append(device)
+                                    break
+
+            # Combine both lists, avoiding duplicates
+            devices_using = list(devices_by_id)
+            for d in devices_by_placeholder:
+                if d not in devices_using:
+                    devices_using.append(d)
+
+            # Format used_by: show up to 3 device names, then "and X more"
+            used_by = []
+            if devices_using:
+                device_names = [d.name for d in devices_using[:3]]
+                used_by = device_names
+                if len(devices_using) > 3:
+                    used_by.append(f"and {len(devices_using) - 3} more")
+
+            response.append({
+                "id": cred_id,
                 "name": cred.name,
                 "credential_type": cred.credential_type,
                 "username": cred.username,
@@ -669,9 +778,11 @@ async def list_credentials(credential_type: str | None = None, session=Depends(g
                 "description": cred.description,
                 "created_at": cred.created_at.isoformat(),
                 "updated_at": cred.updated_at.isoformat(),
-            }
-            for cred in credentials
-        ]
+                "used_by": used_by,
+                "used_by_count": len(devices_using),
+            })
+
+        return response
 
     except Exception as e:
         logger.error(f"Error listing credentials: {e}")
@@ -781,7 +892,54 @@ async def update_credential(
 @router.delete("/credentials/{credential_id}", status_code=204)
 async def delete_credential(credential_id: str, session=Depends(get_session)):
     """Delete a credential."""
+    import re
     try:
+        # First get the credential to know its name (for shell placeholder check)
+        cred_stmt = select(Credential).where(Credential.id == UUID(credential_id))
+        cred_result = await session.execute(cred_stmt)
+        credential = cred_result.scalar_one_or_none()
+
+        if not credential:
+            raise HTTPException(status_code=404, detail="Credential not found")
+
+        cred_name = credential.name
+
+        # Get all devices
+        all_devices_stmt = select(Device)
+        all_devices_result = await session.execute(all_devices_stmt)
+        all_devices = all_devices_result.scalars().all()
+
+        # Find devices using this credential by ID
+        devices_by_id = [d for d in all_devices if d.config.get("credential_id") == credential_id]
+
+        # Find shell devices using this credential by name in placeholders
+        placeholder_pattern = re.compile(rf"\{{\{{(PASSWORD|USER):{re.escape(cred_name)}\}}\}}", re.IGNORECASE)
+        devices_by_placeholder = []
+        for device in all_devices:
+            if device.device_type == "shell" and device.config.get("commands"):
+                commands = device.config["commands"]
+                if isinstance(commands, dict):
+                    for cmd_key, cmd_data in commands.items():
+                        if isinstance(cmd_data, dict) and cmd_data.get("cmd"):
+                            if placeholder_pattern.search(cmd_data["cmd"]):
+                                if device not in devices_by_placeholder:
+                                    devices_by_placeholder.append(device)
+                                break
+
+        # Combine both lists
+        devices_using = list(devices_by_id)
+        for d in devices_by_placeholder:
+            if d not in devices_using:
+                devices_using.append(d)
+
+        if devices_using:
+            device_names = [d.name for d in devices_using[:5]]  # Show first 5
+            count = len(devices_using)
+            detail = f"Cannot delete: credential is used by {count} device(s): {', '.join(device_names)}"
+            if count > 5:
+                detail += f" and {count - 5} more"
+            raise HTTPException(status_code=409, detail=detail)
+
         stmt = delete(Credential).where(Credential.id == UUID(credential_id))
         result = await session.execute(stmt)
 
@@ -1583,3 +1741,66 @@ async def check_host_reachability(request: HostCheckRequest) -> HostCheckRespons
             error=str(e),
             duration_ms=int((time.monotonic() - start_time) * 1000),
         )
+
+
+# ========== Task Scheduler Endpoints ==========
+
+
+@router.get("/scheduler/status")
+async def get_scheduler_status(request: Request):
+    """Get task scheduler status.
+
+    Returns status of all scheduled tasks including:
+    - enabled/running state
+    - last_run_at, next_run_at
+    - fail_count and circuit_open state
+    - last_result or last_error
+    """
+    scheduler = getattr(request.app.state, "task_scheduler", None)
+    if not scheduler:
+        raise HTTPException(status_code=503, detail="Scheduler not available")
+
+    return scheduler.get_status()
+
+
+@router.post("/scheduler/reset/{task_name}")
+async def reset_task_circuit(task_name: str, request: Request):
+    """Reset circuit breaker for a task.
+
+    After 5 consecutive failures, a task's circuit opens and it stops running.
+    This endpoint resets the circuit, allowing the task to run again.
+
+    Args:
+        task_name: Name of the task (e.g., 'asset_linker', 'log_cleanup')
+    """
+    scheduler = getattr(request.app.state, "task_scheduler", None)
+    if not scheduler:
+        raise HTTPException(status_code=503, detail="Scheduler not available")
+
+    if not scheduler.reset_circuit(task_name):
+        raise HTTPException(status_code=404, detail=f"Task '{task_name}' not found")
+
+    return {"status": "reset", "task": task_name}
+
+
+@router.post("/scheduler/trigger/{task_name}")
+async def trigger_task(task_name: str, request: Request):
+    """Trigger immediate execution of a task.
+
+    The task will run on the next scheduler check cycle (within ~60 seconds).
+    If the task is already running or circuit is open, this will fail.
+
+    Args:
+        task_name: Name of the task (e.g., 'asset_linker', 'log_cleanup')
+    """
+    scheduler = getattr(request.app.state, "task_scheduler", None)
+    if not scheduler:
+        raise HTTPException(status_code=503, detail="Scheduler not available")
+
+    if not scheduler.trigger_task(task_name):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Task '{task_name}' not found, already running, or circuit open",
+        )
+
+    return {"status": "triggered", "task": task_name}

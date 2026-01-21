@@ -91,6 +91,17 @@ class Device(Base):
     last_checked_at = Column(DateTime, nullable=True)
     next_check_allowed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+    # DNS resolution (all device types)
+    resolved = Column(String(255), nullable=True)  # Resolved hostname or IP
+    resolved_at = Column(DateTime, nullable=True)  # When DNS was last resolved
+
+    # Asset linking (PJLink only)
+    asset_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("assets.id", ondelete="SET NULL"),
+        nullable=True
+    )
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -98,12 +109,14 @@ class Device(Base):
     artwork = relationship("Artwork", back_populates="devices")
     command_logs = relationship("CommandLog", back_populates="device")
     state_changes = relationship("StateChangeLog", back_populates="device", cascade="all, delete-orphan")
+    asset = relationship("Asset", back_populates="devices")
 
     # Indexes and constraints
     __table_args__ = (
         Index("idx_devices_artwork", "artwork_id"),
         Index("idx_devices_enabled", "enabled"),
         Index("idx_devices_type", "device_type"),
+        Index("idx_devices_asset", "asset_id"),
         UniqueConstraint("host", "port", "device_type", name="unique_device"),
     )
 
@@ -246,3 +259,65 @@ class DeviceOperationLog(Base):
 
     def __repr__(self) -> str:
         return f"<DeviceOperationLog(id={self.id}, op='{self.operation_type}', success={self.success})>"
+
+
+class Asset(Base):
+    """Projector asset for tracking lamp hours across onboard/offboard cycles.
+
+    Only used for PJLink devices. Asset number is extracted from hostname.
+    All device details (manufacturer, model, lamp hours) come from PJLink queries.
+    """
+
+    __tablename__ = "assets"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    asset_number = Column(String(50), unique=True, nullable=False)  # e.g., "100018987"
+    hostname = Column(String(255), nullable=True)  # Full resolved hostname
+    hostname_manual = Column(Boolean, default=False, nullable=False)  # True if user manually set hostname
+    notes = Column(Text, nullable=True)  # Optional human notes
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    lamp_history = relationship("LampHoursLog", back_populates="asset", cascade="all, delete-orphan")
+    devices = relationship("Device", back_populates="asset")
+
+    def __repr__(self) -> str:
+        return f"<Asset(id={self.id}, asset_number='{self.asset_number}')>"
+
+
+class LampHoursLog(Base):
+    """Lamp hours history log for projector assets.
+
+    Records lamp hours at key events: onboard, power_on, offboard.
+    Keeps history even after device is offboarded.
+    """
+
+    __tablename__ = "lamp_hours_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    asset_id = Column(UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
+    device_id = Column(UUID(as_uuid=True), ForeignKey("devices.id", ondelete="SET NULL"), nullable=True)
+
+    lamp_hours = Column(Integer, nullable=False)
+    event_type = Column(String(20), nullable=False)  # 'onboard', 'power_on', 'offboard'
+
+    # Denormalized context at time of recording (for historical accuracy)
+    exhibition_name = Column(String(255), nullable=True)
+    artwork_name = Column(String(255), nullable=True)
+    device_name = Column(String(255), nullable=True)
+
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    asset = relationship("Asset", back_populates="lamp_history")
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_lamp_hours_asset", "asset_id"),
+        Index("idx_lamp_hours_timestamp", "timestamp"),
+        Index("idx_lamp_hours_event", "event_type"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<LampHoursLog(id={self.id}, asset={self.asset_id}, hours={self.lamp_hours}, event='{self.event_type}')>"

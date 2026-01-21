@@ -1,15 +1,16 @@
 """State monitoring service - periodically polls device states."""
 
 import asyncio
+import socket
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Awaitable, Callable, Dict, List
+from typing import TYPE_CHECKING, Awaitable, Callable, Dict, List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from mutech_control.database.models import Artwork, Device, Exhibition
-from mutech_control.database.operation_logger import cleanup_old_operation_logs, log_device_operation
+from mutech_control.database.operation_logger import log_device_operation
 from mutech_control.database.state_logger import update_device_state_with_log
 from mutech_control.utils.logging import get_logger
 
@@ -71,6 +72,10 @@ class StateMonitor:
         self._cycle_device_count: int = 0
         self._last_cycle_duration: float = 60.0  # Default estimate
 
+        # DNS resolution interval (default 1 hour)
+        asset_config = config.get("asset_tracking", {})
+        self.dns_resolve_interval = asset_config.get("dns_resolve_interval", 3600)
+
     async def start(self):
         """Start the monitoring service."""
         if not self.enabled:
@@ -83,7 +88,6 @@ class StateMonitor:
 
         self._running = True
         self._task = asyncio.create_task(self._monitor_loop())
-        self._cleanup_task = asyncio.create_task(self._cleanup_loop())
         logger.info("State monitoring started",
                    interval=self.interval,
                    fast_interval=self.fast_interval,
@@ -99,13 +103,6 @@ class StateMonitor:
             self._task.cancel()
             try:
                 await self._task
-            except asyncio.CancelledError:
-                pass
-
-        if hasattr(self, "_cleanup_task") and self._cleanup_task:
-            self._cleanup_task.cancel()
-            try:
-                await self._cleanup_task
             except asyncio.CancelledError:
                 pass
 
@@ -358,6 +355,9 @@ class StateMonitor:
         poll_interval = self._get_poll_interval(device_id)
         next_poll_at = poll_time + timedelta(seconds=poll_interval)
 
+        # Periodic DNS resolution (runs in background, doesn't block polling)
+        asyncio.create_task(self._update_device_dns(device))
+
         if not manager:
             logger.warning("No manager for device type",
                           device=device.name,
@@ -594,25 +594,105 @@ class StateMonitor:
             "batch_size": self.batch_size,
         }
 
-    # ========== Cleanup Loop ==========
+    # ========== DNS Resolution ==========
 
-    async def _cleanup_loop(self):
-        """Background cleanup of old operation logs (24h retention)."""
-        logger.info("Operation log cleanup loop started")
+    def _should_resolve_dns(self, device: Device) -> bool:
+        """Check if device DNS should be re-resolved.
 
-        while self._running:
+        Returns True if:
+        - Never resolved
+        - Resolved more than dns_resolve_interval seconds ago
+        """
+        if not device.resolved_at:
+            return True
+
+        # Use timezone-aware comparison
+        now = datetime.now(timezone.utc)
+        resolved_at = device.resolved_at
+        if resolved_at.tzinfo is None:
+            resolved_at = resolved_at.replace(tzinfo=timezone.utc)
+
+        elapsed = (now - resolved_at).total_seconds()
+        return elapsed >= self.dns_resolve_interval
+
+    async def _resolve_dns(self, host: str) -> Optional[str]:
+        """Resolve IP to hostname or hostname to IP.
+
+        Args:
+            host: IP address or hostname
+
+        Returns:
+            Resolved hostname if input was IP, resolved IP if input was hostname,
+            or None if resolution failed
+        """
+        try:
+            loop = asyncio.get_event_loop()
+
+            # Check if input looks like an IP
             try:
-                # Run cleanup every hour
-                await asyncio.sleep(3600)
+                socket.inet_aton(host)
+                is_ip = True
+            except socket.error:
+                is_ip = False
 
-                if not self._running:
-                    break
+            if is_ip:
+                # Reverse DNS lookup
+                result = await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: socket.gethostbyaddr(host)),
+                    timeout=3.0
+                )
+                return result[0]  # Returns (hostname, aliases, addresses)
+            else:
+                # Forward DNS lookup
+                result = await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: socket.gethostbyname(host)),
+                    timeout=3.0
+                )
+                return result
 
-                deleted = await cleanup_old_operation_logs(self.db_manager, retention_hours=24)
-                if deleted > 0:
-                    logger.info("Cleaned up old operation logs", deleted_count=deleted)
+        except (socket.herror, socket.gaierror, socket.timeout, asyncio.TimeoutError) as e:
+            logger.debug("DNS resolution failed", host=host, error=str(e))
+            return None
+        except Exception as e:
+            logger.warning("Unexpected DNS error", host=host, error=str(e))
+            return None
 
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error("Error in cleanup loop", error=str(e))
+    async def _update_device_dns(self, device: Device) -> None:
+        """Update DNS resolution for a device if needed.
+
+        Called during polling to periodically refresh DNS.
+        """
+        if not self._should_resolve_dns(device):
+            return
+
+        resolved = await self._resolve_dns(device.host)
+        if resolved and resolved != device.resolved:
+            # Update via database session
+            async with self.db_manager.session() as session:
+                stmt = (
+                    update(Device)
+                    .where(Device.id == device.id)
+                    .values(
+                        resolved=resolved,
+                        resolved_at=datetime.utcnow(),
+                    )
+                )
+                await session.execute(stmt)
+                await session.commit()
+
+            logger.debug(
+                "Updated DNS resolution",
+                device=device.name,
+                host=device.host,
+                resolved=resolved,
+            )
+        elif resolved is None and device.resolved_at is None:
+            # First resolution attempt failed, still mark as attempted
+            async with self.db_manager.session() as session:
+                stmt = (
+                    update(Device)
+                    .where(Device.id == device.id)
+                    .values(resolved_at=datetime.utcnow())
+                )
+                await session.execute(stmt)
+                await session.commit()
