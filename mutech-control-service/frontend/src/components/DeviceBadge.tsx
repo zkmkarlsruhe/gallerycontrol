@@ -1,5 +1,6 @@
 import type { Device } from '../types';
 import { useDevicePollProgress } from '../context/PollStatusContext';
+import { formatDeviceDisplayName } from '../utils/deviceDisplay';
 
 type DeviceState = -1 | 0 | 1 | 2 | 3;
 
@@ -67,7 +68,7 @@ export function DeviceBadge({ device, isExpanded, pendingState, onClick }: Devic
       <PollProgress device={device} />
       <span className="badge-content">
         <i className={`bi ${getDeviceTypeIcon(device.device_type)} badge-icon`}></i>
-        <span className="badge-name">{device.name}</span>
+        <span className="badge-name">{formatDeviceDisplayName(device)}</span>
         {!device.automation_enabled && (
           <i className="bi bi-hand-index badge-manual" title="Manual control only"></i>
         )}

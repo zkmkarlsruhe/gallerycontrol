@@ -17,6 +17,7 @@ import {
   ShellTemplatesModal,
   LogViewer,
   StateTimelinePage,
+  AssetBrowserPage,
 } from './components';
 import { EmailInventoryModal } from './components/modals/EmailInventoryModal';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -92,6 +93,9 @@ function App() {
 
   // Timeline page state
   const [showTimeline, setShowTimeline] = useState(false);
+
+  // Asset browser state
+  const [showAssets, setShowAssets] = useState(false);
 
   // Pending state changes (deviceId -> target state)
   const [pendingStates, setPendingStates] = useState<Map<string, 'on' | 'off'>>(new Map());
@@ -508,8 +512,10 @@ function App() {
         onOpenEmailInventory={() => setShowEmailInventoryModal(true)}
         onOpenLogs={() => openLogViewer()}
         onOpenTimeline={() => setShowTimeline(true)}
+        onOpenAssets={() => setShowAssets(true)}
         showingLogs={showLogViewer}
         showingTimeline={showTimeline}
+        showingAssets={showAssets}
       />
 
       {/* Error Banner */}
@@ -570,6 +576,13 @@ function App() {
         />
       )}
 
+      {/* Asset Browser Page (Full Page) */}
+      {showAssets && (
+        <AssetBrowserPage
+          onClose={() => setShowAssets(false)}
+        />
+      )}
+
       {/* Log Viewer (Full Page) */}
       {showLogViewer && (
         <LogViewer
@@ -625,7 +638,10 @@ function App() {
 
       <CredentialsModal
         isOpen={showCredentialsModal}
-        onClose={() => setShowCredentialsModal(false)}
+        onClose={() => {
+          setShowCredentialsModal(false);
+          loadCredentials(); // Refresh App-level credentials after modal closes
+        }}
         fetchCredentials={fetchCredentials}
         createCredential={createCredential}
         updateCredential={updateCredential}

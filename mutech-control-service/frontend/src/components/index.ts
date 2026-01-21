@@ -5,6 +5,7 @@ export { EmptyState } from './EmptyState';
 export { DebugSection } from './DebugSection';
 export { LogViewer } from './LogViewer';
 export { StateTimelinePage } from './StateTimelinePage';
+export { AssetBrowserPage } from './AssetBrowserPage';
 
 // Exhibition components
 export { ExhibitionOverview } from './ExhibitionOverview';

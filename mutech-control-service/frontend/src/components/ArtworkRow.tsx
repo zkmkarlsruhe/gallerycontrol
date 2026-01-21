@@ -3,6 +3,7 @@ import { DeviceBadge } from './DeviceBadge';
 import { DeviceAccordion } from './DeviceAccordion';
 import { ConfirmButton } from './ui/ConfirmButton';
 import { TouchSafeButton } from './ui/TouchSafeButton';
+import { formatDeviceDisplayName } from '../utils/deviceDisplay';
 
 interface ArtworkRowProps {
   artwork: Artwork;
@@ -106,7 +107,7 @@ export function ArtworkRow({
                 <div key={device.id} className={`device-table-row ${!device.enabled ? 'disabled' : ''} ${!device.automation_enabled ? 'manual-device' : ''} ${pendingClass}`}>
                   <div className="device-table-info" onClick={() => onToggleDevice(device.id)}>
                     <span className={`device-state-dot ${getDeviceStateClass(device.state)}`}></span>
-                    <span className="device-table-name">{device.name}</span>
+                    <span className="device-table-name">{formatDeviceDisplayName(device)}</span>
                     <span className="device-table-meta">{device.device_type} · {device.host}</span>
                     <span className="device-table-state">{getDeviceStateLabel(device.state)}</span>
                     {!device.automation_enabled && <span className="manual-badge">MANUAL</span>}

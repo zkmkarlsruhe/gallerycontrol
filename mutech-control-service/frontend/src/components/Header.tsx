@@ -6,8 +6,10 @@ interface HeaderProps {
   onOpenEmailInventory?: () => void;
   onOpenLogs?: () => void;
   onOpenTimeline?: () => void;
+  onOpenAssets?: () => void;
   showingLogs?: boolean;
   showingTimeline?: boolean;
+  showingAssets?: boolean;
 }
 
 export function Header({
@@ -18,8 +20,10 @@ export function Header({
   onOpenEmailInventory,
   onOpenLogs,
   onOpenTimeline,
+  onOpenAssets,
   showingLogs,
   showingTimeline,
+  showingAssets,
 }: HeaderProps) {
   return (
     <div className="app-header">
@@ -32,6 +36,14 @@ export function Header({
         >
           <i className="bi bi-bar-chart-steps me-1"></i>
           Timeline
+        </button>
+        <button
+          className={`btn btn-sm ${showingAssets ? 'btn-assets-active' : 'btn-assets'}`}
+          onClick={onOpenAssets}
+          title="Asset Browser"
+        >
+          <i className="bi bi-lamp me-1"></i>
+          Assets
         </button>
         <button
           className={`btn btn-sm ${showingLogs ? 'btn-logs-active' : 'btn-logs'}`}

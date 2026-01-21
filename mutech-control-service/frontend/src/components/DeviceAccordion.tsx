@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { Device } from '../types';
 import { ConfirmButton } from './ui/ConfirmButton';
 import { useDevicePollProgress } from '../context/PollStatusContext';
+import { useDeviceInfo } from '../hooks/useDeviceInfo';
+import { formatDeviceDisplayName } from '../utils/deviceDisplay';
 
 type DeviceState = -1 | 0 | 1 | 2 | 3;
 
@@ -82,6 +84,84 @@ function PollProgressBar({ progress, isFastPolling, isVerifying }: { progress: n
   );
 }
 
+/** Display extended device info based on device type */
+function DeviceInfoPanel({ info, loading, error, deviceType }: {
+  info: Record<string, any> | null;
+  loading: boolean;
+  error: string | null;
+  deviceType: string;
+}) {
+  if (loading) {
+    return (
+      <div className="device-info-extended">
+        <span className="text-muted"><i className="bi bi-arrow-repeat spin"></i> Loading device info...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="device-info-extended">
+        <span className="text-danger"><i className="bi bi-exclamation-triangle"></i> {error}</span>
+      </div>
+    );
+  }
+
+  if (!info) return null;
+
+  // Render based on device type
+  if (deviceType === 'pjlink') {
+    return (
+      <div className="device-info-extended">
+        {info.manufacturer && <span><strong>Manufacturer:</strong> {info.manufacturer}</span>}
+        {info.product && <span><strong>Model:</strong> {info.product}</span>}
+        {info.name && <span><strong>Name:</strong> {info.name}</span>}
+        {info.lamp_hours !== undefined && (
+          <span><strong>Lamp:</strong> {info.lamp_hours}h {info.lamp_on ? '(on)' : '(off)'}</span>
+        )}
+        {info.class && <span><strong>Class:</strong> {info.class}</span>}
+        {info.has_errors && <span className="text-danger"><strong>Errors:</strong> {info.errors}</span>}
+        {info.has_warnings && <span className="text-warning"><strong>Warnings:</strong> {info.errors}</span>}
+      </div>
+    );
+  }
+
+  if (deviceType === 'netio') {
+    return (
+      <div className="device-info-extended">
+        {info.model && <span><strong>Model:</strong> {info.model}</span>}
+        {info.mac && <span><strong>MAC:</strong> {info.mac}</span>}
+        {info.firmware && <span><strong>Firmware:</strong> {info.firmware}</span>}
+        {info.device_name && <span><strong>Name:</strong> {info.device_name}</span>}
+        {info.voltage && <span><strong>Voltage:</strong> {info.voltage}V</span>}
+        {info.total_power !== undefined && <span><strong>Power:</strong> {info.total_power}W</span>}
+        {info.uptime && <span><strong>Uptime:</strong> {Math.floor(info.uptime / 3600)}h</span>}
+      </div>
+    );
+  }
+
+  if (deviceType === 'anel') {
+    return (
+      <div className="device-info-extended">
+        {info.name && <span><strong>Name:</strong> {info.name}</span>}
+        {info.mac && <span><strong>MAC:</strong> {info.mac}</span>}
+        {info.ip && <span><strong>IP:</strong> {info.ip}</span>}
+        {info.temperature !== undefined && <span><strong>Temp:</strong> {info.temperature}°C</span>}
+        {info.ports && <span><strong>Ports:</strong> {info.ports.length}</span>}
+      </div>
+    );
+  }
+
+  // Generic fallback - show all info
+  return (
+    <div className="device-info-extended">
+      {Object.entries(info).map(([key, value]) => (
+        <span key={key}><strong>{key}:</strong> {String(value)}</span>
+      ))}
+    </div>
+  );
+}
+
 /** Clickable host link with copy button */
 function HostLink({ device }: { device: Device }) {
   const [copied, setCopied] = useState(false);
@@ -137,6 +217,13 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
   const { progress, isVerifying, secondsRemaining } = useDevicePollProgress(device.id, device.poll_status);
   const isFastPolling = device.poll_status?.is_fast_polling || isVerifying;
 
+  // Fetch extended device info when accordion is open (only for non-shell devices)
+  const { info: deviceInfo, loading: infoLoading, error: infoError } = useDeviceInfo(
+    device.id,
+    device.device_type,
+    isOpen && device.device_type !== 'shell'
+  );
+
   // Show stripes if: client-side pending state OR server-side verifying
   const pendingClass = pendingState
     ? `pending-${pendingState}`
@@ -148,7 +235,7 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
     <div className={`device-accordion ${isOpen ? 'open' : ''} ${pendingClass}`}>
       <PollProgressBar progress={progress} isFastPolling={isFastPolling} isVerifying={isVerifying} />
       <div className="accordion-header">
-        <span>{device.name}</span>
+        <span>{formatDeviceDisplayName(device)}</span>
         {editMode && (
           <div className="accordion-header-actions">
             {onEdit && (
@@ -167,12 +254,25 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
         )}
       </div>
       <div className="device-info-compact">
-        <span><strong>Host:</strong> <HostLink device={device} /></span>
+        <span><strong>Host:</strong> <HostLink device={device} />
+          {device.resolved && device.resolved !== device.host && (
+            <span className="resolved-hostname" title="Resolved hostname"> → {device.resolved}</span>
+          )}
+        </span>
         <span><strong>Type:</strong> {device.device_type}</span>
         {device.device_type !== 'shell' && <span><strong>Port:</strong> {device.port || '-'}</span>}
         <span><strong>State:</strong> {getDeviceStateLabel(device.state as DeviceState)}</span>
         <span><strong>Next poll:</strong> {secondsRemaining}s</span>
       </div>
+      {/* Extended device info (MAC, lamp hours, etc.) - shown when open */}
+      {isOpen && device.device_type !== 'shell' && (
+        <DeviceInfoPanel
+          info={deviceInfo}
+          loading={infoLoading}
+          error={infoError}
+          deviceType={device.device_type}
+        />
+      )}
       {/* Shell command details */}
       {device.device_type === 'shell' && device.config?.commands && (
         <div className="shell-commands-info">
@@ -200,14 +300,15 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
               <code className="shell-cmd-value">{device.config.commands.off.cmd}</code>
             </div>
           )}
-          {device.config.commands.reachable?.cmd && (
-            <div className="shell-cmd-row">
-              <span className="shell-cmd-label">Reachable:</span>
-              <code className="shell-cmd-value">{device.config.commands.reachable.cmd}</code>
+          {/* Show custom actions from config.actions (new format) */}
+          {device.config?.actions && Array.isArray(device.config.actions) && device.config.actions.map((action: any) => (
+            <div key={action.name} className="shell-cmd-row">
+              <span className="shell-cmd-label">{action.name}:</span>
+              <code className="shell-cmd-value">{action.cmd}</code>
             </div>
-          )}
-          {/* Show custom actions */}
-          {device.config?.commands && typeof device.config.commands === 'object' && Object.entries(device.config.commands || {})
+          ))}
+          {/* Fallback: show custom actions from commands dict (old format) */}
+          {!device.config?.actions && device.config?.commands && typeof device.config.commands === 'object' && Object.entries(device.config.commands || {})
             .filter(([key]) => !['on', 'off', 'status', 'reachable'].includes(key))
             .map(([name, cfg]: [string, any]) => (
               <div key={name} className="shell-cmd-row">
@@ -218,98 +319,49 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
           }
         </div>
       )}
-      {/* For shell devices with BOTH on/off AND actions, split into two visual blocks */}
-      {device.device_type === 'shell' &&
-       device.config?.commands?.on?.cmd && device.config?.commands?.off?.cmd &&
-       device.actions && device.actions.length > 0 ? (
-        <>
-          {/* Block 1: ON/OFF controls */}
-          <div className="device-actions device-actions-onoff">
-            <span className="actions-label">Power</span>
-            <div className="btn-group">
-              <ConfirmButton
-                className="btn btn-on btn-sm"
-                onConfirm={() => onControl(device.id, 'on', device.name)}
-                confirmText="ON?"
-              >
-                ON
-              </ConfirmButton>
-              <ConfirmButton
-                className="btn btn-off btn-sm"
-                onConfirm={() => onControl(device.id, 'off', device.name)}
-                confirmText="OFF?"
-              >
-                OFF
-              </ConfirmButton>
-            </div>
-            {!device.automation_enabled && (
-              <span className="manual-indicator" title="Manual control only - not in bulk ON/OFF">
-                <i className="bi bi-hand-index"></i> Manual
-              </span>
-            )}
+      {/* Device controls - unified template */}
+      <div className="device-actions">
+        {/* ON/OFF buttons - shown for non-shell devices, or shell devices with on/off commands */}
+        {(device.device_type !== 'shell' || (device.config?.commands?.on?.cmd && device.config?.commands?.off?.cmd)) && (
+          <div className="btn-group">
+            <ConfirmButton
+              className="btn btn-on btn-sm"
+              onConfirm={() => onControl(device.id, 'on', device.name)}
+              confirmText="ON?"
+            >
+              ON
+            </ConfirmButton>
+            <ConfirmButton
+              className="btn btn-off btn-sm"
+              onConfirm={() => onControl(device.id, 'off', device.name)}
+              confirmText="OFF?"
+            >
+              OFF
+            </ConfirmButton>
           </div>
-          {/* Block 2: Custom actions */}
-          <div className="device-actions device-actions-custom">
-            <span className="actions-label">Actions</span>
-            <div className="device-custom-commands">
-              {device.actions.map(action => (
-                <ConfirmButton
-                  key={action.name}
-                  className="btn btn-action btn-sm"
-                  onConfirm={() => onAction(device.id, action.name, device.name)}
-                  confirmText="Run?"
-                >
-                  {action.name}
-                </ConfirmButton>
-              ))}
-            </div>
+        )}
+        {/* Custom action buttons */}
+        {device.actions && device.actions.length > 0 && (
+          <div className="device-custom-commands">
+            {device.actions.map(action => (
+              <ConfirmButton
+                key={action.name}
+                className="btn btn-action btn-sm"
+                onConfirm={() => onAction(device.id, action.name, device.name)}
+                confirmText="Run?"
+              >
+                {action.name}
+              </ConfirmButton>
+            ))}
           </div>
-        </>
-      ) : (
-        /* Standard layout for devices with only one type of control */
-        <div className="device-actions">
-          {/* Custom action buttons (always shown if device has actions) */}
-          {device.actions && device.actions.length > 0 && (
-            <div className="device-custom-commands">
-              {device.actions.map(action => (
-                <ConfirmButton
-                  key={action.name}
-                  className="btn btn-action btn-sm"
-                  onConfirm={() => onAction(device.id, action.name, device.name)}
-                  confirmText="Run?"
-                >
-                  {action.name}
-                </ConfirmButton>
-              ))}
-            </div>
-          )}
-          {/* ON/OFF buttons - shown for devices that support ON/OFF */}
-          {(device.device_type !== 'shell' || (device.config?.commands?.on?.cmd && device.config?.commands?.off?.cmd)) && (
-            <div className="btn-group">
-              <ConfirmButton
-                className="btn btn-on btn-sm"
-                onConfirm={() => onControl(device.id, 'on', device.name)}
-                confirmText="ON?"
-              >
-                ON
-              </ConfirmButton>
-              <ConfirmButton
-                className="btn btn-off btn-sm"
-                onConfirm={() => onControl(device.id, 'off', device.name)}
-                confirmText="OFF?"
-              >
-                OFF
-              </ConfirmButton>
-            </div>
-          )}
-          {/* Show indicator if manual control only */}
-          {!device.automation_enabled && (
-            <span className="manual-indicator" title="Manual control only - not in bulk ON/OFF">
-              <i className="bi bi-hand-index"></i> Manual
-            </span>
-          )}
-        </div>
-      )}
+        )}
+        {/* Manual control indicator */}
+        {!device.automation_enabled && (
+          <span className="manual-indicator" title="Manual control only - not in bulk ON/OFF">
+            <i className="bi bi-hand-index"></i> Manual
+          </span>
+        )}
+      </div>
     </div>
   );
 }

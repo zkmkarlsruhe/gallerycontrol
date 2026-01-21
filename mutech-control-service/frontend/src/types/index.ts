@@ -29,6 +29,8 @@ export interface Device {
   poll_status: PollStatus | null;
   actions: DeviceAction[];
   config?: Record<string, any>; // Device-specific configuration
+  resolved?: string | null; // Resolved hostname/IP from DNS
+  asset_id?: string | null; // Linked asset ID (PJLink only)
 }
 
 export interface Artwork {
@@ -82,6 +84,8 @@ export interface Credential {
   description: string | null;
   created_at: string;
   updated_at: string;
+  used_by: string[]; // Device names using this credential (max 3, then "and X more")
+  used_by_count: number; // Total count of devices using this credential
 }
 
 export interface CredentialCreate {
@@ -144,4 +148,43 @@ export interface ShellTemplateUpdate {
   off_command?: string;
   actions?: ShellTemplateAction[];
   onoff_mode?: boolean;
+}
+
+// Asset Types
+
+export interface Asset {
+  id: string;
+  asset_number: string;
+  hostname: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  current_device_id: string | null;
+  current_device_name: string | null;
+  last_lamp_hours: number | null;
+  last_event_type: string | null;
+  last_event_at: string | null;
+}
+
+export interface LampHoursLog {
+  id: string;
+  asset_id: string;
+  device_id: string | null;
+  lamp_hours: number;
+  event_type: 'onboard' | 'power_on' | 'power_off' | 'offboard' | 'manual';
+  exhibition_name: string | null;
+  artwork_name: string | null;
+  device_name: string | null;
+  timestamp: string;
+}
+
+export interface AssetUpdate {
+  hostname?: string;
+  notes?: string;
+}
+
+export interface ManualLampHoursRequest {
+  lamp_hours: number;
+  device_id?: string;
+  notes?: string;
 }

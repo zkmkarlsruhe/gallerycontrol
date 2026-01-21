@@ -6,6 +6,8 @@ interface ConfirmButtonProps {
   children: React.ReactNode;
   confirmText?: string;
   timeout?: number;
+  disabled?: boolean;
+  title?: string;
 }
 
 export function ConfirmButton({
@@ -14,6 +16,8 @@ export function ConfirmButton({
   children,
   confirmText = 'Confirm?',
   timeout = 2000,
+  disabled = false,
+  title,
 }: ConfirmButtonProps) {
   const [confirming, setConfirming] = useState(false);
   const timeoutRef = useRef<number | null>(null);
@@ -47,6 +51,8 @@ export function ConfirmButton({
     <button
       className={`${className} ${confirming ? 'confirming' : ''}`}
       onClick={handleClick}
+      disabled={disabled}
+      title={title}
     >
       {confirming ? confirmText : children}
     </button>

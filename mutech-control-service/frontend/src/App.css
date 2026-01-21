@@ -748,6 +748,34 @@ body {
   color: #212529;
 }
 
+.resolved-hostname {
+  color: #6c757d;
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+/* Extended device info (MAC, lamp hours, etc.) */
+.device-info-extended {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #0d6efd;
+}
+
+.device-info-extended > span {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.device-info-extended strong {
+  color: #495057;
+}
+
 /* Host link with copy button */
 .host-link-container {
   display: inline-flex;
@@ -1838,6 +1866,25 @@ body {
   font-size: 0.8em;
   opacity: 0.8;
   margin-left: 0.15rem;
+}
+
+/* Lamp warning indicator - glowing orange */
+.lamp-warning {
+  font-size: 0.9em;
+  margin-left: 0.25rem;
+  color: #ff9800;
+  animation: lamp-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes lamp-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px #ff9800);
+    opacity: 0.8;
+  }
+  50% {
+    filter: drop-shadow(0 0 6px #ff9800) drop-shadow(0 0 10px #ffc107);
+    opacity: 1;
+  }
 }
 
 .manual-indicator {
@@ -3414,4 +3461,330 @@ body {
   .timeline-page-content {
     padding: 0.5rem;
   }
+}
+
+/* ========== Asset Browser Page ========== */
+
+.btn-assets {
+  background: #ff9800;
+  color: white;
+  border: none;
+}
+
+.btn-assets:hover {
+  background: #f57c00;
+  color: white;
+}
+
+.btn-assets-active {
+  background: #e65100;
+  color: white;
+  border: none;
+}
+
+.asset-browser-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.asset-browser-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #ff9800;
+  color: white;
+}
+
+.asset-browser-page .page-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.asset-browser-page .page-title h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.asset-browser-page .page-title .badge {
+  background: rgba(255,255,255,0.2);
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.asset-browser-page .page-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.asset-browser-page .btn-close-page {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.5);
+  color: white;
+  width: 44px;
+}
+
+.asset-browser-page .btn-close-page:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.backfill-result {
+  margin: 1rem;
+}
+
+.asset-search {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.asset-search form {
+  display: flex;
+  gap: 0.5rem;
+  max-width: 500px;
+}
+
+.asset-search input {
+  flex: 1;
+}
+
+.asset-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.asset-table th,
+.asset-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.asset-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #6c757d;
+  position: sticky;
+  top: 0;
+}
+
+.asset-table tbody tr {
+  cursor: pointer;
+}
+
+.asset-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.asset-table tbody tr.expanded {
+  background: #e3f2fd;
+}
+
+.asset-table .asset-number {
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.asset-table .hostname {
+  color: #6c757d;
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+.asset-table .current-device .text-muted {
+  color: #adb5bd !important;
+  font-style: italic;
+}
+
+.asset-table .lamp-hours {
+  font-weight: 500;
+}
+
+.asset-table .lamp-hours .last-event {
+  color: #6c757d;
+  font-size: 0.75rem;
+  margin-left: 0.25rem;
+}
+
+.asset-table .notes {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #6c757d;
+}
+
+.asset-table .actions {
+  white-space: nowrap;
+}
+
+.asset-table .actions button {
+  margin-right: 0.25rem;
+}
+
+.timeline-row td {
+  padding: 0 !important;
+  background: #fafafa;
+}
+
+.loading,
+.empty-state {
+  padding: 3rem;
+  text-align: center;
+  color: #6c757d;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-top: 1px solid #dee2e6;
+}
+
+/* ========== Lamp Hours Timeline ========== */
+
+.lamp-hours-timeline {
+  padding: 1rem;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  margin: 1rem;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.timeline-header h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.timeline-loading,
+.timeline-empty {
+  padding: 2rem;
+  text-align: center;
+  color: #6c757d;
+}
+
+.timeline-entries {
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-entry {
+  display: flex;
+  position: relative;
+  padding-bottom: 1rem;
+}
+
+.timeline-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.timeline-icon {
+  font-size: 1.25rem;
+  z-index: 1;
+  background: white;
+  padding: 0.25rem;
+}
+
+.timeline-line {
+  flex: 1;
+  width: 2px;
+  background: #dee2e6;
+  margin-top: 0.25rem;
+}
+
+.timeline-entry:last-child .timeline-line {
+  display: none;
+}
+
+.timeline-content {
+  flex: 1;
+  padding-left: 0.5rem;
+}
+
+.timeline-event-type {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  color: #6c757d;
+}
+
+.timeline-lamp-hours {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #212529;
+}
+
+.timeline-delta {
+  font-size: 0.8rem;
+  color: #27ae60;
+  margin-left: 0.5rem;
+  font-weight: 500;
+}
+
+.timeline-context {
+  font-size: 0.75rem;
+  color: #6c757d;
+}
+
+.timeline-timestamp {
+  font-size: 0.7rem;
+  color: #adb5bd;
+  margin-top: 0.25rem;
+}
+
+.timeline-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #dee2e6;
+  margin-top: 1rem;
+}
+
+/* Event type colors */
+.timeline-entry.event-onboard .timeline-event-type {
+  color: #2196f3;
+}
+
+.timeline-entry.event-power_on .timeline-event-type {
+  color: #4caf50;
+}
+
+.timeline-entry.event-power_off .timeline-event-type {
+  color: #f44336;
+}
+
+.timeline-entry.event-offboard .timeline-event-type {
+  color: #9c27b0;
+}
+
+.timeline-entry.event-manual .timeline-event-type {
+  color: #ff9800;
 }

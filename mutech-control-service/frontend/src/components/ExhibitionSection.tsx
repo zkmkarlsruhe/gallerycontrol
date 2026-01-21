@@ -45,7 +45,9 @@ export function ExhibitionSection({
   onViewDeviceLogs,
 }: ExhibitionSectionProps) {
   const isDisabled = !exhibition.enabled;
-  const visibleArtworks = editMode ? exhibition.artworks : exhibition.artworks.filter(a => a.enabled);
+  const visibleArtworks = (editMode ? exhibition.artworks : exhibition.artworks.filter(a => a.enabled))
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className={`exhibition-section ${isDisabled ? 'disabled' : ''}`} id={`exhibition-${exhibition.id}`}>
