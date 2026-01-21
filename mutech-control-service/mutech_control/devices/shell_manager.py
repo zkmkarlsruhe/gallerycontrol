@@ -17,11 +17,12 @@ logger = logging.getLogger(__name__)
 
 # Credential cache - populated by load_credentials()
 _credential_cache: Dict[str, dict] = {}
+_credential_cache_by_id: Dict[str, dict] = {}
 
 
 async def load_credentials(db_session) -> None:
     """Load all credentials into cache. Call this at startup and when credentials change."""
-    global _credential_cache
+    global _credential_cache, _credential_cache_by_id
     from sqlalchemy import select
     from mutech_control.database.models import Credential
 
@@ -31,6 +32,10 @@ async def load_credentials(db_session) -> None:
 
     _credential_cache = {
         cred.name: {"username": cred.username, "password": cred.password}
+        for cred in credentials
+    }
+    _credential_cache_by_id = {
+        str(cred.id): {"username": cred.username, "password": cred.password}
         for cred in credentials
     }
     logger.info(f"Loaded {len(_credential_cache)} credentials into cache")
@@ -48,17 +53,50 @@ def get_credential(name: str) -> dict | None:
     return _credential_cache.get(name)
 
 
-def replace_credential_placeholders(cmd: str) -> str:
-    """Replace {{PASSWORD:name}} and {{USER:name}} placeholders with actual values.
+def get_credential_by_id(credential_id: str) -> dict | None:
+    """Get credential by ID from cache.
+
+    Args:
+        credential_id: The credential UUID to look up
+
+    Returns:
+        Dict with 'username' and 'password' keys, or None if not found
+    """
+    return _credential_cache_by_id.get(credential_id)
+
+
+def replace_credential_placeholders(cmd: str, device=None) -> str:
+    """Replace credential placeholders with actual values.
+
+    Supports two formats:
+    1. {{PASSWORD}} / {{USER}} - uses device's credential_id (preferred)
+    2. {{PASSWORD:name}} / {{USER:name}} - uses named credential (legacy)
 
     Example:
-        Input:  "sshpass -p {{PASSWORD:museumstechnik}} ssh {{USER:museumstechnik}}@host"
+        Input:  "sshpass -p {{PASSWORD}} ssh {{USER}}@host"
         Output: "sshpass -p actualpassword ssh actualuser@host"
     """
     if not cmd or "{{" not in cmd:
         return cmd
 
-    def replace_placeholder(match):
+    # Get device credential if available
+    device_cred = None
+    if device:
+        credential_id = device.config.get("credential_id")
+        if credential_id:
+            device_cred = get_credential_by_id(credential_id)
+            if not device_cred:
+                logger.warning(f"[device={device.name}] credential_id={credential_id} not found")
+
+    # First, replace simple {{PASSWORD}} and {{USER}} with device credential
+    if device_cred:
+        cmd = cmd.replace("{{PASSWORD}}", device_cred.get("password", ""))
+        cmd = cmd.replace("{{USER}}", device_cred.get("username", ""))
+        cmd = cmd.replace("{{password}}", device_cred.get("password", ""))
+        cmd = cmd.replace("{{user}}", device_cred.get("username", ""))
+
+    # Then handle legacy {{PASSWORD:name}} and {{USER:name}} format
+    def replace_named_placeholder(match):
         placeholder_type = match.group(1).upper()  # PASSWORD or USER
         cred_name = match.group(2)
 
@@ -76,7 +114,7 @@ def replace_credential_placeholders(cmd: str) -> str:
 
     # Match {{PASSWORD:name}} or {{USER:name}}
     pattern = r"\{\{(PASSWORD|USER):([^}]+)\}\}"
-    return re.sub(pattern, replace_placeholder, cmd, flags=re.IGNORECASE)
+    return re.sub(pattern, replace_named_placeholder, cmd, flags=re.IGNORECASE)
 
 
 class ShellManager(DeviceManager):
@@ -100,12 +138,23 @@ class ShellManager(DeviceManager):
 
         # Get status command from device config
         commands = device.config.get("commands", {})
-        status_cmd = commands.get("status")
+
+        # Handle legacy list format from migration
+        if isinstance(commands, list):
+            # Find status command in list (look for "status" or "Status" in name)
+            status_cmd = next(
+                (c for c in commands if c.get("name", "").lower() == "status"),
+                None
+            )
+            if not status_cmd:
+                return DeviceResult(success=False, state=-1, error="No status command in list format")
+        else:
+            status_cmd = commands.get("status")
 
         if not status_cmd or not status_cmd.get("cmd"):
             return DeviceResult(success=False, state=-1, error="No status command configured")
 
-        cmd = replace_credential_placeholders(status_cmd["cmd"])
+        cmd = replace_credential_placeholders(status_cmd["cmd"], device)
         on_pattern = status_cmd.get("onPattern")
         off_pattern = status_cmd.get("offPattern")
 
@@ -178,14 +227,23 @@ class ShellManager(DeviceManager):
         # Get on/off command from device config
         commands = device.config.get("commands", {})
         command_name = "on" if on else "off"
-        command_cfg = commands.get(command_name)
+
+        # Handle legacy list format from migration
+        if isinstance(commands, list):
+            # Find on/off command in list (look for "on"/"off" in name, case-insensitive)
+            command_cfg = next(
+                (c for c in commands if c.get("name", "").lower() == command_name),
+                None
+            )
+        else:
+            command_cfg = commands.get(command_name)
 
         if not command_cfg or not command_cfg.get("cmd"):
             return DeviceResult(
                 success=False, state=device.state, error=f"No {command_name} command configured"
             )
 
-        cmd = replace_credential_placeholders(command_cfg["cmd"])
+        cmd = replace_credential_placeholders(command_cfg["cmd"], device)
 
         start_time = asyncio.get_event_loop().time()
 
@@ -257,12 +315,21 @@ class ShellManager(DeviceManager):
             logger.info(f"Shell: Testing connection for {device.name}")
 
             commands = device.config.get("commands", {})
-            status_cmd = commands.get("status", {}).get("cmd")
+
+            # Handle legacy list format from migration
+            if isinstance(commands, list):
+                status_entry = next(
+                    (c for c in commands if c.get("name", "").lower() == "status"),
+                    None
+                )
+                status_cmd = status_entry.get("cmd") if status_entry else None
+            else:
+                status_cmd = commands.get("status", {}).get("cmd")
 
             if not status_cmd:
                 return ConnectionResult(success=False, error="No status command configured")
 
-            cmd = replace_credential_placeholders(status_cmd)
+            cmd = replace_credential_placeholders(status_cmd, device)
             proc = await asyncio.create_subprocess_shell(
                 cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
             )

@@ -110,8 +110,10 @@ export function CredentialsModal({
       await deleteCredential(id);
       showToast(`Credential "${name}" deleted`, 'success');
       loadCredentials();
-    } catch {
-      showToast('Failed to delete credential', 'danger');
+    } catch (err: any) {
+      // Show specific error message if credential is in use
+      const detail = err?.response?.data?.detail || err?.message || 'Failed to delete credential';
+      showToast(detail, 'danger');
     }
   };
 
@@ -141,7 +143,7 @@ export function CredentialsModal({
             <th>Name</th>
             <th>Type</th>
             <th>Username</th>
-            <th>Description</th>
+            <th>Used By</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -151,7 +153,15 @@ export function CredentialsModal({
               <td><code>{cred.name}</code></td>
               <td>{cred.credential_type}</td>
               <td>{cred.username || '-'}</td>
-              <td>{cred.description || '-'}</td>
+              <td>
+                {cred.used_by && cred.used_by.length > 0 ? (
+                  <span className="used-by-list" title={cred.used_by.join(', ')}>
+                    {cred.used_by.join(', ')}
+                  </span>
+                ) : (
+                  <span className="text-muted">-</span>
+                )}
+              </td>
               <td>
                 <div className="btn-group">
                   <button
@@ -164,6 +174,8 @@ export function CredentialsModal({
                     className="btn btn-delete btn-sm"
                     onConfirm={() => handleDelete(cred.id, cred.name)}
                     confirmText="Sure?"
+                    disabled={cred.used_by_count > 0}
+                    title={cred.used_by_count > 0 ? `In use by ${cred.used_by_count} device(s)` : undefined}
                   >
                     Delete
                   </ConfirmButton>
@@ -266,7 +278,7 @@ export function CredentialsModal({
       <div className="credentials-hint mt-3">
         <small className="text-muted">
           <i className="bi bi-info-circle me-1"></i>
-          Use in shell commands: <code>{'{{PASSWORD:name}}'}</code> or <code>{'{{USER:name}}'}</code>
+          Shell commands: <code>{'{{PASSWORD}}'}</code> / <code>{'{{USER}}'}</code> (uses device credential)
         </small>
       </div>
     </Modal>
