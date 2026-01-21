@@ -509,3 +509,137 @@ async def cleanup_old_logs(
     except Exception as e:
         logger.error(f"Error cleaning up logs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class DeviceInfoResponse(BaseModel):
+    """Device information response - fields vary by device type."""
+
+    device_id: str
+    device_name: str
+    device_type: str
+    host: str
+    info: dict  # Raw info from device
+    error: str | None = None
+
+
+@router.get("/device/{device_id}/info", response_model=DeviceInfoResponse)
+async def get_device_info(
+    device_id: str,
+    request: Request,
+    session=Depends(get_session),
+):
+    """Get detailed device information.
+
+    Queries the device for hardware info, model, MAC address, etc.
+    Supported device types: pjlink, netio, anel
+    """
+    try:
+        device_uuid = UUID(device_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"Invalid device_id UUID: {device_id}")
+
+    # Get device from database
+    result = await session.execute(
+        select(Device).where(Device.id == device_uuid)
+    )
+    device = result.scalar_one_or_none()
+
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    supported_types = ["pjlink", "netio", "anel"]
+    if device.device_type not in supported_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Device info not available for {device.device_type}. Supported: {supported_types}"
+        )
+
+    # Get the appropriate manager from app state
+    orchestrator = request.app.state.orchestrator
+    manager = orchestrator.device_managers.get(device.device_type)
+
+    if not manager:
+        raise HTTPException(status_code=500, detail=f"{device.device_type} manager not available")
+
+    # Check if manager supports get_device_info
+    if not hasattr(manager, 'get_device_info'):
+        raise HTTPException(status_code=500, detail=f"{device.device_type} manager does not support device info")
+
+    # Query device info
+    info = await manager.get_device_info(device)
+
+    return DeviceInfoResponse(
+        device_id=str(device.id),
+        device_name=device.name,
+        device_type=device.device_type,
+        host=device.host,
+        info=info,
+        error=info.get("error"),
+    )
+
+
+@router.get("/devices/info", response_model=List[DeviceInfoResponse])
+async def get_all_device_info(
+    request: Request,
+    device_type: str | None = Query(default=None, description="Filter by device type (pjlink, netio, anel)"),
+    session=Depends(get_session),
+):
+    """Get device information for all devices that support it.
+
+    Queries all enabled devices of supported types (pjlink, netio, anel).
+    This can take a while if there are many devices.
+
+    Args:
+        device_type: Optional filter by device type
+    """
+    supported_types = ["pjlink", "netio", "anel"]
+
+    if device_type and device_type not in supported_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported device type: {device_type}. Supported: {supported_types}"
+        )
+
+    # Build query
+    query = select(Device).where(Device.enabled == True)
+    if device_type:
+        query = query.where(Device.device_type == device_type)
+    else:
+        query = query.where(Device.device_type.in_(supported_types))
+
+    result = await session.execute(query)
+    devices = result.scalars().all()
+
+    if not devices:
+        return []
+
+    orchestrator = request.app.state.orchestrator
+
+    # Query info for each device
+    responses = []
+    for device in devices:
+        manager = orchestrator.device_managers.get(device.device_type)
+        if not manager or not hasattr(manager, 'get_device_info'):
+            continue
+
+        try:
+            info = await manager.get_device_info(device)
+            responses.append(DeviceInfoResponse(
+                device_id=str(device.id),
+                device_name=device.name,
+                device_type=device.device_type,
+                host=device.host,
+                info=info,
+                error=info.get("error"),
+            ))
+        except Exception as e:
+            responses.append(DeviceInfoResponse(
+                device_id=str(device.id),
+                device_name=device.name,
+                device_type=device.device_type,
+                host=device.host,
+                info={},
+                error=str(e),
+            ))
+
+    return responses

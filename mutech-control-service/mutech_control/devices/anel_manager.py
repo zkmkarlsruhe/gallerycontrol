@@ -254,3 +254,81 @@ class ANELManager(DeviceManager):
         except Exception as e:
             logger.error(f"ANEL: Connection error for {device.host}: {e}")
             return ConnectionResult(success=False, error=str(e))
+
+    async def get_device_info(self, device) -> dict:
+        """
+        Query device information from ANEL power strip.
+
+        Response format:
+        NET-PwrCtrl:<name>:<ip>:<mask>:<gateway>:<mac>:<port_states>:<port_names>:<locked>:<http>:<temp>
+
+        Returns dict with:
+            - name: Device name
+            - ip: IP address
+            - mac: MAC address
+            - temperature: Current temperature (if available)
+            - ports: List of port info
+        """
+        info = {}
+
+        try:
+            timeout = self.config.get("request_timeout", 5)
+            response = await self._send_udp_command(device.host, "wer da?", timeout)
+
+            if not response.startswith("NET-PwrCtrl:"):
+                return {"error": f"Invalid response: {response[:50]}"}
+
+            # Parse the response - MAC address contains colons so we need careful parsing
+            # Find MAC address pattern (6 pairs of hex digits with colons)
+            import re
+            mac_match = re.search(r'([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})', response)
+            
+            if mac_match:
+                info["mac"] = mac_match.group(1)
+                
+                # Split before and after MAC
+                before_mac = response[:mac_match.start()].rstrip(':')
+                after_mac = response[mac_match.end():].lstrip(':')
+                
+                # Parse before MAC: NET-PwrCtrl:<name>:<ip>:<mask>:<gateway>
+                before_parts = before_mac.split(':')
+                if len(before_parts) >= 5:
+                    info["device_type"] = before_parts[0]  # NET-PwrCtrl
+                    info["name"] = before_parts[1]
+                    info["ip"] = before_parts[2]
+                    info["netmask"] = before_parts[3]
+                    info["gateway"] = before_parts[4]
+                
+                # Parse after MAC: <port_states>:<port_names>:<locked>:<http>:<temp>
+                after_parts = after_mac.split(':')
+                if after_parts:
+                    # First part is port states (8 characters of 0/1)
+                    port_states = after_parts[0] if after_parts else ""
+                    info["port_states"] = port_states
+                    
+                    # Port names (comma-separated)
+                    if len(after_parts) > 1:
+                        port_names = after_parts[1].split(',') if after_parts[1] else []
+                        info["ports"] = [
+                            {"port": i, "name": port_names[i] if i < len(port_names) else f"Port {i+1}", 
+                             "state": int(port_states[i]) if i < len(port_states) else -1}
+                            for i in range(len(port_states))
+                        ]
+                    
+                    # Temperature (usually last part)
+                    if len(after_parts) > 4:
+                        temp_str = after_parts[4]
+                        try:
+                            # Temperature might be in format "23.5" or similar
+                            info["temperature"] = float(temp_str.replace(',', '.'))
+                        except ValueError:
+                            info["temperature_raw"] = temp_str
+
+            logger.info(f"ANEL: Retrieved device info for {device.host}",
+                       extra={"info": info})
+
+            return info
+
+        except Exception as e:
+            logger.error(f"ANEL: Failed to get device info for {device.host}: {e}")
+            return {"error": str(e)}

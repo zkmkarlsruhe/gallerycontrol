@@ -267,3 +267,77 @@ class PJLinkManager(DeviceManager):
         # PJLink states: '0' = off, '1' = on, '2' = cooling, '3' = warming
         mapping = {"0": 0, "1": 1, "2": 2, "3": 3}
         return mapping.get(str(pjlink_state), -1)
+
+    async def get_device_info(self, device) -> dict:
+        """
+        Query device information from projector.
+
+        Returns dict with:
+            - name: Projector name
+            - manufacturer: Manufacturer info (INF1)
+            - product: Product name (INF2)
+            - lamp_hours: Lamp usage hours
+            - lamp_on: Whether lamp is currently on
+            - errors: Error status dict
+            - class: PJLink class (1 or 2)
+        """
+        info = {}
+        port = device.config.get("port", 4352)
+        password = _get_device_password(device)
+
+        try:
+            # Query projector name
+            response = await self._send_command(device.host, port, "NAME ?", password)
+            if "NAME=" in response:
+                info["name"] = response.split("=", 1)[1].strip()
+
+            # Query manufacturer (INF1)
+            response = await self._send_command(device.host, port, "INF1 ?", password)
+            if "INF1=" in response:
+                info["manufacturer"] = response.split("=", 1)[1].strip()
+
+            # Query product name (INF2)
+            response = await self._send_command(device.host, port, "INF2 ?", password)
+            if "INF2=" in response:
+                info["product"] = response.split("=", 1)[1].strip()
+
+            # Query lamp hours (LAMP)
+            response = await self._send_command(device.host, port, "LAMP ?", password)
+            if "LAMP=" in response:
+                # Format: "LAMP=<hours> <on/off>" e.g., "LAMP=1234 1"
+                lamp_data = response.split("=", 1)[1].strip().split()
+                if lamp_data:
+                    info["lamp_hours"] = int(lamp_data[0])
+                    if len(lamp_data) > 1:
+                        info["lamp_on"] = lamp_data[1] == "1"
+
+            # Query error status (ERST)
+            response = await self._send_command(device.host, port, "ERST ?", password)
+            if "ERST=" in response:
+                # Format: 6 characters for fan, lamp, temp, cover, filter, other
+                # Each char: 0=OK, 1=warning, 2=error
+                erst = response.split("=", 1)[1].strip()
+                if len(erst) >= 6:
+                    error_names = ["fan", "lamp", "temperature", "cover", "filter", "other"]
+                    error_states = {error_names[i]: int(erst[i]) for i in range(6)}
+                    info["errors"] = error_states
+                    info["has_errors"] = any(v == 2 for v in error_states.values())
+                    info["has_warnings"] = any(v == 1 for v in error_states.values())
+
+            # Query PJLink class
+            response = await self._send_command(device.host, port, "CLSS ?", password)
+            if "CLSS=" in response:
+                info["class"] = response.split("=", 1)[1].strip()
+
+            logger.info("Retrieved device info",
+                       device=device.name if hasattr(device, 'name') else 'unknown',
+                       host=device.host,
+                       info=info)
+
+            return info
+
+        except Exception as e:
+            logger.error("Failed to get device info",
+                        host=device.host,
+                        error=str(e))
+            return {"error": str(e)}

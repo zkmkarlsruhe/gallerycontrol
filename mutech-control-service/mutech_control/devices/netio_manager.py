@@ -223,3 +223,72 @@ class NETIOManager(DeviceManager):
     async def close(self):
         """Close HTTP client."""
         await self.http_client.aclose()
+
+    async def get_device_info(self, device) -> dict:
+        """
+        Query device information from NETIO power strip.
+
+        Returns dict with:
+            - model: Device model name
+            - mac: MAC address
+            - firmware: Firmware version
+            - serial: Serial number
+            - uptime: Device uptime in seconds
+            - outputs: List of output info (name, state)
+        """
+        info = {}
+
+        try:
+            username = device.config.get("username", "netio")
+            password = device.config.get("password", "netio")
+
+            url = f"http://{device.host}/netio.json"
+            auth = httpx.BasicAuth(username, password)
+            response = await self.http_client.get(url, auth=auth)
+
+            if response.status_code != 200:
+                return {"error": f"HTTP {response.status_code}"}
+
+            data = response.json()
+
+            # Agent info (device metadata)
+            agent = data.get("Agent", {})
+            info["model"] = agent.get("Model")
+            info["mac"] = agent.get("MAC")
+            info["firmware"] = agent.get("Version")
+            info["serial"] = agent.get("SerialNumber")
+            info["device_name"] = agent.get("DeviceName")
+            info["uptime"] = agent.get("Uptime")
+            info["num_outputs"] = agent.get("NumOutputs")
+
+            # Global measurements if available
+            global_measure = data.get("GlobalMeasure", {})
+            if global_measure:
+                info["voltage"] = global_measure.get("Voltage")
+                info["frequency"] = global_measure.get("Frequency")
+                info["total_current"] = global_measure.get("TotalCurrent")
+                info["total_power"] = global_measure.get("TotalLoad")
+                info["total_energy"] = global_measure.get("TotalEnergy")
+
+            # Output details
+            outputs = data.get("Outputs", [])
+            info["outputs"] = [
+                {
+                    "id": o.get("ID"),
+                    "name": o.get("Name"),
+                    "state": o.get("State"),
+                    "current": o.get("Current"),
+                    "power": o.get("Load"),
+                    "energy": o.get("Energy"),
+                }
+                for o in outputs
+            ]
+
+            logger.info(f"NETIO: Retrieved device info for {device.host}",
+                       extra={"info": info})
+
+            return info
+
+        except Exception as e:
+            logger.error(f"NETIO: Failed to get device info for {device.host}: {e}")
+            return {"error": str(e)}
