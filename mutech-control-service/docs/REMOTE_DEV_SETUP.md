@@ -17,7 +17,15 @@ cd /workspace/mutech-control-service
 # 1. Start SOCKS proxy (SSH tunnel to ZKM network)
 ssh -D 1080 -f -N -o ServerAliveInterval=60 museumstechnik@docker.mutech.zkm.de
 
-# 2. Start local PostgreSQL (if not running)
+# 2. Create curl wrapper (routes curl through proxy with remote DNS)
+mkdir -p ~/.local/bin
+cat > ~/.local/bin/curl << 'EOF'
+#!/bin/bash
+exec /usr/bin/curl --proxy socks5h://localhost:1080 "$@"
+EOF
+chmod +x ~/.local/bin/curl
+
+# 3. Start local PostgreSQL (if not running)
 docker run -d --name mutech-postgres \
   -e POSTGRES_USER=mutech \
   -e POSTGRES_PASSWORD=mutech_password \
@@ -25,15 +33,15 @@ docker run -d --name mutech-postgres \
   -p 5432:5432 \
   postgres:16-alpine
 
-# 3. Run migrations
+# 4. Run migrations
 export DATABASE_URL="postgresql+asyncpg://mutech:mutech_password@172.17.0.1:5432/mutech"
 poetry run alembic upgrade head
 
-# 4. Seed database (optional - for fresh setup)
+# 5. Seed database (optional - for fresh setup)
 docker exec -i mutech-postgres psql -U mutech -d mutech < /workspace/seed.sql
 
-# 5. Start backend with proxy for shell commands
-export ALL_PROXY="socks5h://localhost:1080"
+# 6. Start backend with curl wrapper in PATH
+export PATH="$HOME/.local/bin:$PATH"
 export DATABASE_URL="postgresql+asyncpg://mutech:mutech_password@172.17.0.1:5432/mutech"
 export ENVIRONMENT="development"
 
@@ -74,7 +82,7 @@ poetry run uvicorn mutech_control.main:app --host 0.0.0.0 --port 8000 --reload
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `ALL_PROXY` | SOCKS5h proxy for curl (shell devices) | `socks5h://localhost:1080` |
+| `PATH` | Must include curl wrapper directory first | `$HOME/.local/bin:$PATH` |
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql+asyncpg://mutech:mutech_password@172.17.0.1:5432/mutech` |
 | `ENVIRONMENT` | Config environment (loads `config/{env}.yaml`) | `development` |
 
@@ -84,21 +92,21 @@ The core application does **not** have built-in SOCKS proxy support. This is int
 
 ### Shell Devices (curl-based)
 
-Shell devices use `curl` commands which respect the `ALL_PROXY` environment variable:
+Shell devices use `curl` commands. A wrapper script intercepts curl calls and routes them through the SOCKS proxy:
 
 ```bash
-# The 'h' suffix is critical - it means "resolve DNS at the proxy"
-export ALL_PROXY="socks5h://localhost:1080"
+~/.local/bin/curl  # Wrapper that adds --proxy socks5h://localhost:1080
 ```
 
+The `socks5h://` protocol is critical:
 - `socks5://` = resolve DNS locally, then connect through proxy (won't work for *.zkm.de)
 - `socks5h://` = resolve DNS at the proxy server (works for ZKM internal hostnames)
 
-With `ALL_PROXY=socks5h://localhost:1080`, curl commands like:
+When the backend spawns subprocess commands like:
 ```bash
 curl http://sammlung-frequencies.zkm.de:5000/state
 ```
-Will resolve `sammlung-frequencies.zkm.de` through the SSH tunnel's DNS.
+The wrapper intercepts it and resolves `sammlung-frequencies.zkm.de` through the SSH tunnel's DNS.
 
 ### Other Device Types
 
@@ -117,15 +125,21 @@ For full device access, run the backend on a machine with direct ZKM network acc
 ps aux | grep "ssh.*-D" | grep -v grep
 ```
 
-### Test curl through proxy
+### Test curl wrapper directly
 ```bash
-ALL_PROXY=socks5h://localhost:1080 curl -s http://sammlung-frequencies.zkm.de:5000/state
+~/.local/bin/curl -s http://sammlung-frequencies.zkm.de:5000/state
+# Should return: {"running":false,"state":"off","status":"success"}
 ```
 
 ### Test DNS resolution through proxy
 ```bash
 # This should return JSON if the proxy and DNS are working
-ALL_PROXY=socks5h://localhost:1080 curl -s --connect-timeout 5 http://sonoff-08.zkm.de/switch/sonoff-08-relay
+~/.local/bin/curl -s --connect-timeout 5 http://sonoff-08.zkm.de/switch/sonoff-08-relay
+```
+
+### Verify wrapper is being used
+```bash
+which curl  # Should show ~/.local/bin/curl when PATH is set correctly
 ```
 
 ### Check backend logs
@@ -148,8 +162,9 @@ pkill -f uvicorn
 # Restart SOCKS proxy
 ssh -D 1080 -f -N -o ServerAliveInterval=60 museumstechnik@docker.mutech.zkm.de
 
-# Restart backend
-ALL_PROXY=socks5h://localhost:1080 poetry run uvicorn mutech_control.main:app --host 0.0.0.0 --port 8000 --reload
+# Restart backend (with curl wrapper in PATH)
+export PATH="$HOME/.local/bin:$PATH"
+poetry run uvicorn mutech_control.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ## Limitations
