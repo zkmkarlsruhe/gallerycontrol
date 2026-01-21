@@ -42,7 +42,7 @@ services:
     labels:
       # traefik
       - traefik.enable=true
-      - traefik.http.routers.mutech-control.rule=Host(`ctrl.mutech.zkm.de`)
+      - traefik.http.routers.mutech-control.rule=Host(`steuerung.mutech.zkm.de`)
       - traefik.http.routers.mutech-control.entrypoints=websecure
       - traefik.http.routers.mutech-control.service=mutech-control
       - traefik.http.routers.mutech-control.tls=true
