@@ -12,8 +12,39 @@ from mutech_control.devices.base import (
     DeviceResult,
 )
 from mutech_control.devices.cooldown_manager import CooldownManager
+from mutech_control.devices.shell_manager import get_credential, get_credential_by_id
 
 logger = logging.getLogger(__name__)
+
+
+def _get_device_credentials(device) -> tuple[str, str]:
+    """Get username/password for device from credential cache or config.
+
+    Returns:
+        Tuple of (username, password) with defaults if not found.
+    """
+    # Try credential_id first (used by frontend)
+    credential_id = device.config.get("credential_id")
+    if credential_id:
+        cred = get_credential_by_id(credential_id)
+        if cred:
+            logger.debug(f"[device={device.name}] Using credential_id={credential_id}")
+            return (cred.get("username") or "admin", cred.get("password") or "anel")
+        else:
+            logger.warning(f"[device={device.name}] credential_id={credential_id} not found in cache")
+
+    # Fall back to credential_name
+    credential_name = device.config.get("credential_name")
+    if credential_name:
+        cred = get_credential(credential_name)
+        if cred:
+            logger.debug(f"[device={device.name}] Using credential_name={credential_name}")
+            return (cred.get("username") or "admin", cred.get("password") or "anel")
+
+    # Fall back to inline config values
+    username = device.config.get("username", "admin")
+    password = device.config.get("password", "anel")
+    return (username, password)
 
 
 class ANELManager(DeviceManager):
@@ -172,8 +203,7 @@ class ANELManager(DeviceManager):
         try:
             timeout = self.config.get("request_timeout", 5)
             port = device.port or device.config.get("port", 0)
-            username = device.config.get("username", "admin")
-            password = device.config.get("password", "anel")
+            username, password = _get_device_credentials(device)
             command_str = "on" if on else "off"
 
             async with asyncio.timeout(timeout):
