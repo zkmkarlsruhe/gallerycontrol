@@ -1,0 +1,82 @@
+version: "2.4"
+
+services:
+
+  mutech-control:
+    image: harbor.zkm.de/mutech/mutech-control:v1.0.0
+    container_name: "mutech-control"
+    restart: always
+    cpus: "1.0"
+    mem_limit: 1gb
+    memswap_limit: 1gb
+
+    environment:
+      # Database
+      - DATABASE_URL=postgresql+asyncpg://mutech:${DB_PASSWORD}@mutech-postgres:5432/mutech
+
+      # Application
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+
+      # ANEL Runner (if deployed separately)
+      # - ANEL_RUNNER_URL=http://anel-runner:8001
+      # - ANEL_API_KEY=${ANEL_API_KEY}
+
+    healthcheck:
+      test: curl --fail http://localhost:8000/health || exit 1
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 10s
+
+    depends_on:
+      mutech-postgres:
+        condition: service_healthy
+
+    labels:
+      # traefik
+      - traefik.enable=true
+      - traefik.http.routers.mutech-control.rule=Host(`ctrl.mutech.zkm.de`)
+      - traefik.http.routers.mutech-control.entrypoints=websecure
+      - traefik.http.routers.mutech-control.service=mutech-control
+      - traefik.http.routers.mutech-control.tls=true
+      - traefik.http.routers.mutech-control.middlewares=whitelist-and-guardian@file
+      - traefik.http.services.mutech-control.loadbalancer.server.port=8000
+
+      # watchtower auto updates
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  mutech-postgres:
+    image: postgres:16-alpine
+    container_name: "mutech-postgres"
+    restart: always
+    cpus: "0.5"
+    mem_limit: 512mb
+    memswap_limit: 512mb
+
+    environment:
+      - POSTGRES_DB=mutech
+      - POSTGRES_USER=mutech
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+
+    volumes:
+      - mutech_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mutech"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    labels:
+      # no traefik exposure
+      - traefik.enable=false
+
+volumes:
+  mutech_postgres_data:
+    driver: local
+
+networks:
+  default:
+    external:
+      name: traefik
