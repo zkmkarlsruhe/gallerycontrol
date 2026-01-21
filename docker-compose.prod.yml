@@ -49,9 +49,6 @@ services:
       - traefik.http.routers.mutech-control.middlewares=whitelist-and-guardian@file
       - traefik.http.services.mutech-control.loadbalancer.server.port=8000
 
-      # watchtower auto updates
-      - "com.centurylinklabs.watchtower.enable=true"
-
   mutech-postgres:
     image: postgres:16-alpine
     container_name: "mutech-postgres"
