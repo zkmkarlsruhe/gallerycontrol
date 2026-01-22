@@ -144,25 +144,20 @@ async def _get_lamp_hours_map(session) -> dict[UUID, int]:
     from sqlalchemy import func
     from sqlalchemy.orm import aliased
 
-    # Subquery to get the latest lamp log timestamp per asset
-    latest_log_subq = (
+    # Subquery to get the latest timestamp per asset
+    latest_subq = (
         select(
             LampHoursLog.asset_id,
-            func.max(LampHoursLog.timestamp).label("max_timestamp")
+            func.max(LampHoursLog.id).label("max_id")
         )
         .group_by(LampHoursLog.asset_id)
         .subquery()
     )
 
-    # Query to get lamp_hours for each asset's latest log
-    LatestLog = aliased(LampHoursLog)
+    # Join to get the actual lamp_hours value
     stmt = (
-        select(LatestLog.asset_id, LatestLog.lamp_hours)
-        .join(
-            latest_log_subq,
-            (LatestLog.asset_id == latest_log_subq.c.asset_id) &
-            (LatestLog.timestamp == latest_log_subq.c.max_timestamp)
-        )
+        select(LampHoursLog.asset_id, LampHoursLog.lamp_hours)
+        .join(latest_subq, LampHoursLog.id == latest_subq.c.max_id)
     )
     result = await session.execute(stmt)
     return {row.asset_id: row.lamp_hours for row in result}
