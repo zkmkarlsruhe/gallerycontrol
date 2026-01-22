@@ -1,6 +1,7 @@
 import type { Device } from '../types';
 import { useDevicePollProgress } from '../context/PollStatusContext';
 import { formatDeviceDisplayName } from '../utils/deviceDisplay';
+import { portUtils } from '../utils/portUtils';
 
 type DeviceState = -1 | 0 | 1 | 2 | 3;
 
@@ -59,11 +60,20 @@ export function DeviceBadge({ device, isExpanded, pendingState, onClick }: Devic
       ? `pending-${state === 1 ? 'on' : 'off'}`
       : '';
 
+  // Format port for tooltip: 1-indexed for outlet devices (NETIO/ANEL), raw for PJLink TCP port
+  const getPortDisplay = () => {
+    if (device.port === null || device.port === undefined) return '';
+    if (device.device_type === 'netio' || device.device_type === 'anel') {
+      return ':' + portUtils.dbToUI(device.port);
+    }
+    return ':' + device.port;
+  };
+
   return (
     <div
       className={`device-badge ${getDeviceStateClass(state)} ${isExpanded ? 'active' : ''} ${hasCooldown ? 'has-cooldown' : ''} ${isDisabled ? 'disabled' : ''} ${pendingClass}`}
       onClick={onClick}
-      title={`${device.device_type} - ${device.host}${device.port ? ':' + device.port : ''}`}
+      title={`${device.device_type} - ${device.host}${getPortDisplay()}`}
     >
       <PollProgress device={device} />
       <span className="badge-content">

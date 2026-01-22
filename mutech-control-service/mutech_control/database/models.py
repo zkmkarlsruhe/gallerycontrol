@@ -95,6 +95,10 @@ class Device(Base):
     resolved = Column(String(255), nullable=True)  # Resolved hostname or IP
     resolved_at = Column(DateTime, nullable=True)  # When DNS was last resolved
 
+    # Cached device info (MAC, model, firmware, etc.)
+    cached_info = Column(JSON, nullable=True)  # Cached device identity info
+    cached_info_at = Column(DateTime, nullable=True)  # When cache was last updated
+
     # Asset linking (PJLink only)
     asset_id = Column(
         UUID(as_uuid=True),

@@ -2,21 +2,35 @@ import { useState, useEffect } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
-export interface DeviceInfo {
+export interface DeviceInfoResponse {
   device_id: string;
   device_type: string;
   info: Record<string, any>;
   error?: string;
+  cached_at?: string;  // ISO timestamp when cache was updated
+  is_stale?: boolean;  // True if data is from stale cache
+}
+
+export interface DeviceInfoResult {
+  info: Record<string, any> | null;
+  loading: boolean;
+  error: string | null;
+  cachedAt: Date | null;
+  isStale: boolean;
 }
 
 /**
  * Fetch extended device info (MAC, lamp hours, temperature, etc.)
  * Only fetches when enabled=true (e.g., when accordion is open)
+ *
+ * Returns cached_at and is_stale for freshness display
  */
-export function useDeviceInfo(deviceId: string, deviceType: string, enabled: boolean) {
+export function useDeviceInfo(deviceId: string, deviceType: string, enabled: boolean): DeviceInfoResult {
   const [info, setInfo] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cachedAt, setCachedAt] = useState<Date | null>(null);
+  const [isStale, setIsStale] = useState(false);
 
   useEffect(() => {
     if (!enabled || !deviceId) {
@@ -39,20 +53,33 @@ export function useDeviceInfo(deviceId: string, deviceType: string, enabled: boo
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
-        const data: DeviceInfo = await response.json();
+        const data: DeviceInfoResponse = await response.json();
 
         if (!cancelled) {
-          if (data.error) {
+          if (data.error && !data.info) {
+            // Only treat as error if no info provided
             setError(data.error);
             setInfo(null);
+            setCachedAt(null);
+            setIsStale(false);
           } else {
             setInfo(data.info);
+            setCachedAt(data.cached_at ? new Date(data.cached_at) : null);
+            setIsStale(data.is_stale || false);
+            // Clear error if we got data (even stale)
+            if (data.info && Object.keys(data.info).length > 0) {
+              setError(null);
+            } else if (data.error) {
+              setError(data.error);
+            }
           }
         }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to fetch');
           setInfo(null);
+          setCachedAt(null);
+          setIsStale(false);
         }
       } finally {
         if (!cancelled) {
@@ -68,5 +95,5 @@ export function useDeviceInfo(deviceId: string, deviceType: string, enabled: boo
     };
   }, [deviceId, deviceType, enabled]);
 
-  return { info, loading, error };
+  return { info, loading, error, cachedAt, isStale };
 }

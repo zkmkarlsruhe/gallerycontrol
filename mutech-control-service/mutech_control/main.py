@@ -87,7 +87,7 @@ async def lifespan(app: FastAPI):
     logger.info("Asset service initialized")
 
     # Initialize task scheduler for periodic maintenance tasks
-    task_scheduler = TaskScheduler(db_manager, orchestrator_config, asset_service)
+    task_scheduler = TaskScheduler(db_manager, orchestrator_config, asset_service, orchestrator)
     logger.info("Task scheduler initialized")
 
     # Connect orchestrator's verifier to state monitor for unified polling

@@ -31,6 +31,7 @@ export interface Device {
   config?: Record<string, any>; // Device-specific configuration
   resolved?: string | null; // Resolved hostname/IP from DNS
   asset_id?: string | null; // Linked asset ID (PJLink only)
+  lamp_hours?: number | null; // Last recorded lamp hours (PJLink only)
 }
 
 export interface Artwork {
@@ -161,6 +162,9 @@ export interface Asset {
   updated_at: string;
   current_device_id: string | null;
   current_device_name: string | null;
+  device_state: number | null;
+  artwork_name: string | null;
+  exhibition_name: string | null;
   last_lamp_hours: number | null;
   last_event_type: string | null;
   last_event_at: string | null;

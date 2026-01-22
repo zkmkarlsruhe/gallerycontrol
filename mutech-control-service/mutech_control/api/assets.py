@@ -5,7 +5,7 @@ from io import StringIO
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select, desc
@@ -17,6 +17,9 @@ from mutech_control.database.models import Asset, Artwork, Device, Exhibition, L
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/assets", tags=["assets"])
+
+# UUID regex pattern for path validation - ensures {asset_id} only matches UUIDs
+UUID_PATTERN = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 
 
 def parse_uuid(value: str, name: str = "id") -> UUID:
@@ -239,7 +242,7 @@ async def list_assets(
 
 
 @router.get("/{asset_id}")
-async def get_asset(asset_id: str, session=Depends(get_session)):
+async def get_asset(asset_id: str = Path(pattern=UUID_PATTERN), session=Depends(get_session)):
     """Get asset with recent lamp history."""
     try:
         stmt = (
@@ -298,7 +301,7 @@ async def get_asset(asset_id: str, session=Depends(get_session)):
 
 @router.get("/{asset_id}/lamp-history")
 async def get_lamp_history(
-    asset_id: str,
+    asset_id: str = Path(pattern=UUID_PATTERN),
     page: int = 1,
     per_page: int = 50,
     event_type: Optional[str] = None,
@@ -369,7 +372,7 @@ async def get_lamp_history(
 
 @router.get("/{asset_id}/lamp-history/csv")
 async def export_lamp_history_csv(
-    asset_id: str,
+    asset_id: str = Path(pattern=UUID_PATTERN),
     limit: int = 10000,
     session=Depends(get_session),
 ):
@@ -497,8 +500,8 @@ async def export_bulk_lamp_history_csv(
 
 @router.put("/{asset_id}")
 async def update_asset(
-    asset_id: str,
-    asset_update: AssetUpdate,
+    asset_id: str = Path(pattern=UUID_PATTERN),
+    asset_update: AssetUpdate = ...,
     session=Depends(get_session),
 ):
     """Update asset (notes, hostname override)."""
@@ -536,7 +539,7 @@ async def update_asset(
 
 
 @router.delete("/{asset_id}", status_code=204)
-async def delete_asset(asset_id: str, session=Depends(get_session)):
+async def delete_asset(asset_id: str = Path(pattern=UUID_PATTERN), session=Depends(get_session)):
     """Delete asset (cascades to lamp history).
 
     WARNING: This will delete all lamp hours history for this asset.
@@ -597,9 +600,9 @@ async def resolve_device_dns(device_id: str, request: Request):
 
 @router.post("/{asset_id}/lamp-hours")
 async def add_manual_lamp_hours(
-    asset_id: str,
-    entry: ManualLampHoursRequest,
     request: Request,
+    asset_id: str = Path(pattern=UUID_PATTERN),
+    entry: ManualLampHoursRequest = ...,
 ):
     """Add manual lamp hours entry."""
     try:

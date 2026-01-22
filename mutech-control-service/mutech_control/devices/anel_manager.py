@@ -12,6 +12,7 @@ from mutech_control.devices.base import (
     DeviceResult,
 )
 from mutech_control.devices.cooldown_manager import CooldownManager
+from mutech_control.devices.port_utils import db_to_device_id
 from mutech_control.devices.shell_manager import get_credential, get_credential_by_id
 
 logger = logging.getLogger(__name__)
@@ -210,8 +211,8 @@ class ANELManager(DeviceManager):
                 logger.info(f"ANEL: Setting {device.host}:{port} to {command_str}")
 
                 # Build command: Sw_on<port+1><username><password> or Sw_off<port+1><username><password>
-                # Port is 1-based in protocol (0-based internally)
-                port_num = port + 1
+                # Port is 1-based in protocol (0-based in database)
+                port_num = db_to_device_id(port)
 
                 if on:
                     command = f"Sw_on{port_num}{username}{password}"

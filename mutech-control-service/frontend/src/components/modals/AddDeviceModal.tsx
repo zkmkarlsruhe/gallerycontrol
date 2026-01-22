@@ -7,6 +7,7 @@ import { NetioForm, defaultNetioData } from '../forms/NetioForm';
 import { AnelForm, defaultAnelData } from '../forms/AnelForm';
 import { ShellForm, defaultShellData } from '../forms/ShellForm';
 import type { ReachabilityStatus } from '../../hooks/useHostReachability';
+import { portUtils } from '../../utils/portUtils';
 
 interface AddDeviceModalProps {
   isOpen: boolean;
@@ -40,25 +41,39 @@ export function AddDeviceModal({
   const [reachabilityStatus, setReachabilityStatus] = useState<ReachabilityStatus>('idle');
 
   // Get used ports for NETIO and ANEL devices by host
-  // Note: Database stores 0-indexed ports (0,1,2) but UI displays 1-indexed (1,2,3)
-  // So we add 1 to convert DB ports to UI ports
+  // Both stored 0-indexed in DB, UI displays 1-indexed
   const netioUsedPorts = useMemo(() => {
     if (!netioData.host) return [];
     return existingDevices
       .filter(d => d.device_type === 'netio' && d.host === netioData.host && d.port !== null)
-      .map(d => (d.port as number) + 1);  // Convert 0-indexed DB to 1-indexed UI
+      .map(d => portUtils.dbToUI(d.port));
   }, [existingDevices, netioData.host]);
 
   const anelUsedPorts = useMemo(() => {
     if (!anelData.host) return [];
     return existingDevices
       .filter(d => d.device_type === 'anel' && d.host === anelData.host && d.port !== null)
-      .map(d => (d.port as number) + 1);  // Convert 0-indexed DB to 1-indexed UI
+      .map(d => portUtils.dbToUI(d.port));
   }, [existingDevices, anelData.host]);
 
   const handleReachabilityChange = useCallback((status: ReachabilityStatus) => {
     setReachabilityStatus(status);
   }, []);
+
+  // Reset all form state when closing (cancel or after save)
+  const resetForms = useCallback(() => {
+    setDeviceType('pjlink');
+    setPjlinkData(defaultPJLinkData);
+    setNetioData(defaultNetioData);
+    setAnelData(defaultAnelData);
+    setShellData(defaultShellData);
+    setReachabilityStatus('idle');
+  }, []);
+
+  const handleClose = useCallback(() => {
+    resetForms();
+    onClose();
+  }, [resetForms, onClose]);
 
   // For network devices, require reachability before saving
   const isNetworkDevice = deviceType === 'pjlink' || deviceType === 'netio' || deviceType === 'anel';
@@ -83,11 +98,12 @@ export function AddDeviceModal({
           };
           break;
         case 'netio':
+          // NETIO ports: convert 1-indexed UI to 0-indexed DB
           data = {
             name: netioData.name,
             device_type: 'netio',
             host: netioData.host,
-            port: netioData.port,
+            port: portUtils.uiToDB(netioData.port),
             enabled: netioData.enabled,
             automation_enabled: netioData.automation_enabled,
             config: netioData.credential_id
@@ -96,13 +112,17 @@ export function AddDeviceModal({
           };
           break;
         case 'anel':
+          // ANEL ports: convert 1-indexed UI to 0-indexed DB
           data = {
             name: anelData.name,
             device_type: 'anel',
             host: anelData.host,
-            port: anelData.port,
+            port: portUtils.uiToDB(anelData.port),
             enabled: anelData.enabled,
             automation_enabled: anelData.automation_enabled,
+            config: anelData.credential_id
+              ? { credential_id: anelData.credential_id }
+              : {},
           };
           break;
         case 'shell':
@@ -151,12 +171,7 @@ export function AddDeviceModal({
           break;
       }
       await onSave(artworkId, data);
-      onClose();
-      // Reset forms
-      setPjlinkData(defaultPJLinkData);
-      setNetioData(defaultNetioData);
-      setAnelData(defaultAnelData);
-      setShellData(defaultShellData);
+      handleClose();
     } finally {
       setSaving(false);
     }
@@ -166,21 +181,21 @@ export function AddDeviceModal({
     <Modal
       isOpen={isOpen}
       title="Add Device"
-      onClose={onClose}
+      onClose={handleClose}
       size="lg"
       footer={
         <>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={handleClose}>
             Cancel
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm"
             onClick={handleSave}
             disabled={saving || !canSave}
             title={!canSave ? 'Host must be reachable before saving' : ''}
           >
-            {saving ? 'Saving...' : !canSave ? 'Host Not Reachable' : 'Save Device'}
+            {saving ? 'Saving...' : !canSave ? 'Host Not Reachable' : 'Save'}
           </button>
         </>
       }
@@ -197,7 +212,7 @@ export function AddDeviceModal({
       {/* Device-specific forms */}
       {deviceType === 'pjlink' && <PJLinkForm data={pjlinkData} onChange={setPjlinkData} credentials={credentials} onReachabilityChange={handleReachabilityChange} />}
       {deviceType === 'netio' && <NetioForm data={netioData} onChange={setNetioData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={netioUsedPorts} />}
-      {deviceType === 'anel' && <AnelForm data={anelData} onChange={setAnelData} onReachabilityChange={handleReachabilityChange} usedPorts={anelUsedPorts} />}
+      {deviceType === 'anel' && <AnelForm data={anelData} onChange={setAnelData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={anelUsedPorts} />}
       {deviceType === 'shell' && <ShellForm data={shellData} onChange={setShellData} credentials={credentials} templates={templates} />}
     </Modal>
   );

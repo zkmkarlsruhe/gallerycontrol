@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { Device, Credential } from '../../types';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { Device, Credential, ShellTemplate } from '../../types';
 import { Modal } from '../ui/Modal';
 import { PJLinkForm, defaultPJLinkData } from '../forms/PJLinkForm';
 import { NetioForm, defaultNetioData } from '../forms/NetioForm';
 import { AnelForm, defaultAnelData } from '../forms/AnelForm';
 import { ShellForm, defaultShellData } from '../forms/ShellForm';
 import type { ReachabilityStatus } from '../../hooks/useHostReachability';
+import { portUtils } from '../../utils/portUtils';
 
 interface EditDeviceModalProps {
   isOpen: boolean;
@@ -14,7 +15,9 @@ interface EditDeviceModalProps {
   onSave: (id: string, data: any) => Promise<void>;
   onDelete?: (id: string, name: string) => Promise<void>;
   credentials?: Credential[];
+  templates?: ShellTemplate[];
   onSaveAsTemplate?: (deviceId: string, name: string) => Promise<void>;
+  existingDevices?: Device[];
 }
 
 export function EditDeviceModal({
@@ -24,7 +27,9 @@ export function EditDeviceModal({
   onSave,
   onDelete,
   credentials = [],
+  templates = [],
   onSaveAsTemplate,
+  existingDevices = [],
 }: EditDeviceModalProps) {
   const [pjlinkData, setPjlinkData] = useState(defaultPJLinkData);
   const [netioData, setNetioData] = useState(defaultNetioData);
@@ -40,6 +45,22 @@ export function EditDeviceModal({
     setReachabilityStatus(status);
   }, []);
 
+  // Get used ports for NETIO/ANEL (excluding current device)
+  // Both stored 0-indexed in DB, UI displays 1-indexed
+  const netioUsedPorts = useMemo(() => {
+    if (!netioData.host || !device) return [];
+    return existingDevices
+      .filter(d => d.device_type === 'netio' && d.host === netioData.host && d.port !== null && d.id !== device.id)
+      .map(d => portUtils.dbToUI(d.port));
+  }, [existingDevices, netioData.host, device]);
+
+  const anelUsedPorts = useMemo(() => {
+    if (!anelData.host || !device) return [];
+    return existingDevices
+      .filter(d => d.device_type === 'anel' && d.host === anelData.host && d.port !== null && d.id !== device.id)
+      .map(d => portUtils.dbToUI(d.port));
+  }, [existingDevices, anelData.host, device]);
+
   // For network devices, require reachability before saving
   const isNetworkDevice = device?.device_type === 'pjlink' || device?.device_type === 'netio' || device?.device_type === 'anel';
   const canSave = !isNetworkDevice || reachabilityStatus === 'reachable';
@@ -54,26 +75,29 @@ export function EditDeviceModal({
           name: device.name,
           host: device.host,
           port: device.port || 4352,
-          credential_id: '', // Will be loaded from config if available
+          credential_id: device.config?.credential_id || '',
           enabled: device.enabled,
           automation_enabled: device.automation_enabled,
         });
         break;
       case 'netio':
+        // NETIO ports: convert 0-indexed DB to 1-indexed UI
         setNetioData({
           name: device.name,
           host: device.host,
-          port: device.port || 1,
-          credential_id: '', // Will be loaded from config if available
+          port: portUtils.dbToUI(device.port),
+          credential_id: device.config?.credential_id || '',
           enabled: device.enabled,
           automation_enabled: device.automation_enabled,
         });
         break;
       case 'anel':
+        // ANEL ports: convert 0-indexed DB to 1-indexed UI
         setAnelData({
           name: device.name,
           host: device.host,
-          port: device.port || 1,
+          port: portUtils.dbToUI(device.port),
+          credential_id: device.config?.credential_id || '',
           enabled: device.enabled,
           automation_enabled: device.automation_enabled,
         });
@@ -138,10 +162,11 @@ export function EditDeviceModal({
           };
           break;
         case 'netio':
+          // NETIO ports: convert 1-indexed UI to 0-indexed DB
           data = {
             name: netioData.name,
             host: netioData.host,
-            port: netioData.port,
+            port: portUtils.uiToDB(netioData.port),
             enabled: netioData.enabled,
             automation_enabled: netioData.automation_enabled,
             config: netioData.credential_id
@@ -150,12 +175,16 @@ export function EditDeviceModal({
           };
           break;
         case 'anel':
+          // ANEL ports: convert 1-indexed UI to 0-indexed DB
           data = {
             name: anelData.name,
             host: anelData.host,
-            port: anelData.port,
+            port: portUtils.uiToDB(anelData.port),
             enabled: anelData.enabled,
             automation_enabled: anelData.automation_enabled,
+            config: anelData.credential_id
+              ? { credential_id: anelData.credential_id }
+              : {},
           };
           break;
         case 'shell':
@@ -287,16 +316,17 @@ export function EditDeviceModal({
       }
     >
       {/* Device Type Info */}
-      <div className="context-info mb-3">
-        <strong>Device Type:</strong> {getDeviceTypeName(device.device_type)}
-        <small className="d-block text-muted">Device type cannot be changed</small>
+      <div className="context-info-compact">
+        <span className="context-label">Device Type:</span>
+        <span className="context-path">{getDeviceTypeName(device.device_type)}</span>
+        <span className="text-muted small ms-2">(cannot be changed)</span>
       </div>
 
       {/* Device-specific forms */}
       {device.device_type === 'pjlink' && <PJLinkForm data={pjlinkData} onChange={setPjlinkData} credentials={credentials} onReachabilityChange={handleReachabilityChange} />}
-      {device.device_type === 'netio' && <NetioForm data={netioData} onChange={setNetioData} credentials={credentials} onReachabilityChange={handleReachabilityChange} />}
-      {device.device_type === 'anel' && <AnelForm data={anelData} onChange={setAnelData} onReachabilityChange={handleReachabilityChange} />}
-      {device.device_type === 'shell' && <ShellForm data={shellData} onChange={setShellData} credentials={credentials} />}
+      {device.device_type === 'netio' && <NetioForm data={netioData} onChange={setNetioData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={netioUsedPorts} />}
+      {device.device_type === 'anel' && <AnelForm data={anelData} onChange={setAnelData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={anelUsedPorts} />}
+      {device.device_type === 'shell' && <ShellForm data={shellData} onChange={setShellData} credentials={credentials} templates={templates} />}
 
       {/* Template Name Prompt */}
       {showTemplatePrompt && (

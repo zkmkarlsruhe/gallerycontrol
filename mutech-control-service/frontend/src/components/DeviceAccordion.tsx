@@ -257,8 +257,7 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
   const isFastPolling = device.poll_status?.is_fast_polling || isVerifying;
 
   // Fetch extended device info when accordion is open (only for non-shell devices)
-  // For pjlink devices, always fetch so lamp hours are available in compact view
-  const shouldFetchInfo = device.device_type !== 'shell' && (isOpen || device.device_type === 'pjlink');
+  const shouldFetchInfo = device.device_type !== 'shell' && isOpen;
   const { info: deviceInfo, loading: infoLoading, error: infoError, cachedAt, isStale } = useDeviceInfo(
     device.id,
     device.device_type,
@@ -309,11 +308,7 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
         )}
         <span><strong>State:</strong> {getDeviceStateLabel(device.state as DeviceState)}</span>
         {device.device_type === 'pjlink' && (
-          <span><strong>Lamp:</strong> {
-            infoLoading ? '...' :
-            deviceInfo?.lamp_hours !== undefined ? `${deviceInfo.lamp_hours}h` :
-            '-'
-          }</span>
+          <span><strong>Lamp:</strong> {device.lamp_hours !== null && device.lamp_hours !== undefined ? `${device.lamp_hours}h` : '-'}</span>
         )}
         <span><strong>Next poll:</strong> {secondsRemaining}s</span>
       </div>

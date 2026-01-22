@@ -91,6 +91,12 @@ scheduler:
       interval_minutes: 60        # Run every hour
       retention_hours: 24         # Keep 24 hours of operation logs
 
+    device_info_cache:
+      enabled: true
+      interval_minutes: 30        # Run every 30 minutes
+      max_concurrent: 5           # Max concurrent device queries
+      timeout_seconds: 10         # Per-device timeout
+
 logging:
   level: "INFO"
   format: "json"

@@ -671,7 +671,9 @@ function App() {
         onSave={handleUpdateDevice}
         onDelete={handleDeleteDevice}
         credentials={credentials}
+        templates={templates}
         onSaveAsTemplate={handleSaveDeviceAsTemplate}
+        existingDevices={existingDevices}
       />
 
       <ShellTemplatesModal

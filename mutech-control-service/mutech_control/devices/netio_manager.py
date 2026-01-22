@@ -12,6 +12,7 @@ from mutech_control.devices.base import (
     DeviceResult,
 )
 from mutech_control.devices.cooldown_manager import CooldownManager
+from mutech_control.devices.port_utils import db_to_device_id
 from mutech_control.devices.shell_manager import get_credential, get_credential_by_id
 
 logger = logging.getLogger(__name__)
@@ -72,11 +73,13 @@ class NETIOManager(DeviceManager):
 
         try:
             timeout = self.config.get("request_timeout", 5)
-            port = device.port if device.port is not None else device.config.get("port", 1)
+            port = device.port if device.port is not None else device.config.get("port", 0)
+            # Convert 0-based port (database) to 1-based ID (NETIO API)
+            netio_id = db_to_device_id(port)
             username, password = _get_device_credentials(device)
 
             async with asyncio.timeout(timeout):
-                logger.info(f"NETIO: Getting state for {device.host}:{port}")
+                logger.info(f"NETIO: Getting state for {device.host} outlet {port} (ID={netio_id})")
 
                 # Send GET request to /netio.json
                 url = f"http://{device.host}/netio.json"
@@ -95,15 +98,15 @@ class NETIOManager(DeviceManager):
                 data = response.json()
                 outputs = data.get("Outputs", [])
 
-                # Find the specific output port (1-based indexing)
+                # Find the specific output by ID (1-based)
                 outlet_state = -1
                 for output in outputs:
-                    if output.get("ID") == port:
+                    if output.get("ID") == netio_id:
                         outlet_state = output.get("State", -1)
                         break
 
                 if outlet_state == -1:
-                    logger.warning(f"NETIO: Port {port} not found in response")
+                    logger.warning(f"NETIO: ID {netio_id} not found in response")
 
                 # Record successful request
                 cooldown = self.config.get("cooldown_seconds", 5)
@@ -120,7 +123,7 @@ class NETIOManager(DeviceManager):
 
         except asyncio.TimeoutError:
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
-            logger.error(f"NETIO: Timeout getting state for {device.host}:{port}")
+            logger.error(f"NETIO: Timeout getting state for {device.host} outlet {port}")
             return DeviceResult(
                 success=False, state=-1, error="Request timeout", duration_ms=duration_ms
             )
@@ -146,12 +149,14 @@ class NETIOManager(DeviceManager):
 
         try:
             timeout = self.config.get("request_timeout", 5)
-            port = device.port if device.port is not None else device.config.get("port", 1)
+            port = device.port if device.port is not None else device.config.get("port", 0)
+            # Convert 0-based port (database) to 1-based ID (NETIO API)
+            netio_id = db_to_device_id(port)
             username, password = _get_device_credentials(device)
             command_str = "on" if on else "off"
 
             async with asyncio.timeout(timeout):
-                logger.info(f"NETIO: Setting {device.host}:{port} to {command_str}")
+                logger.info(f"NETIO: Setting {device.host} outlet {port} (ID={netio_id}) to {command_str}")
 
                 # Send POST request to control output
                 # NETIO API accepts JSON body with Outputs array
@@ -161,7 +166,7 @@ class NETIOManager(DeviceManager):
                 payload = {
                     "Outputs": [
                         {
-                            "ID": port,
+                            "ID": netio_id,
                             "Action": 1 if on else 0  # 1=on, 0=off
                         }
                     ]
@@ -195,7 +200,7 @@ class NETIOManager(DeviceManager):
 
         except asyncio.TimeoutError:
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
-            logger.error(f"NETIO: Timeout setting power for {device.host}:{port}")
+            logger.error(f"NETIO: Timeout setting power for {device.host} outlet {port}")
             return DeviceResult(
                 success=False,
                 state=device.state,
@@ -205,7 +210,7 @@ class NETIOManager(DeviceManager):
 
         except Exception as e:
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
-            logger.error(f"NETIO: Error setting power for {device.host}:{port}: {e}")
+            logger.error(f"NETIO: Error setting power for {device.host} outlet {port}: {e}")
             return DeviceResult(
                 success=False, state=device.state, error=str(e), duration_ms=duration_ms
             )

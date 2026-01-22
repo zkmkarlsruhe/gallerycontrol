@@ -60,17 +60,19 @@ class TaskScheduler:
     - Hot-reload support via refresh_from_config()
     """
 
-    def __init__(self, db_manager, config: dict, asset_service=None):
+    def __init__(self, db_manager, config: dict, asset_service=None, orchestrator=None):
         """Initialize the task scheduler.
 
         Args:
             db_manager: Database manager instance
             config: Full application config dict
             asset_service: AssetService instance for asset linking tasks
+            orchestrator: CommandOrchestrator instance for device info caching
         """
         self.db_manager = db_manager
         self.config = config
         self.asset_service = asset_service
+        self.orchestrator = orchestrator
 
         self._tasks: Dict[str, TaskConfig] = {}
         self._state: Dict[str, TaskState] = {}
@@ -87,7 +89,11 @@ class TaskScheduler:
 
     def _register_tasks_from_config(self, scheduler_config: dict) -> None:
         """Register tasks based on configuration."""
-        from mutech_control.scheduler.tasks import run_asset_linker, run_log_cleanup
+        from mutech_control.scheduler.tasks import (
+            run_asset_linker,
+            run_device_info_cache,
+            run_log_cleanup,
+        )
 
         tasks_config = scheduler_config.get("tasks", {})
 
@@ -114,6 +120,20 @@ class TaskScheduler:
                     self.db_manager, rh
                 ),
                 interval_seconds=log_cleanup_config.get("interval_minutes", 60) * 60,
+                enabled=True,
+            )
+
+        # Device info cache task
+        device_info_config = tasks_config.get("device_info_cache", {})
+        if device_info_config.get("enabled", True) and self.orchestrator:
+            max_concurrent = device_info_config.get("max_concurrent", 5)
+            timeout_seconds = device_info_config.get("timeout_seconds", 10)
+            self._tasks["device_info_cache"] = TaskConfig(
+                name="device_info_cache",
+                func=lambda mc=max_concurrent, ts=timeout_seconds: run_device_info_cache(
+                    self.db_manager, self.orchestrator, mc, ts
+                ),
+                interval_seconds=device_info_config.get("interval_minutes", 30) * 60,
                 enabled=True,
             )
 

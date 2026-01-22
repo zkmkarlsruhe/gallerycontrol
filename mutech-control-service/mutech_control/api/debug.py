@@ -520,6 +520,8 @@ class DeviceInfoResponse(BaseModel):
     host: str
     info: dict  # Raw info from device
     error: str | None = None
+    cached_at: str | None = None  # ISO timestamp when cache was last updated
+    is_stale: bool = False  # True if data is from stale cache (live fetch failed)
 
 
 @router.get("/device/{device_id}/info", response_model=DeviceInfoResponse)
@@ -530,9 +532,14 @@ async def get_device_info(
 ):
     """Get detailed device information.
 
-    Queries the device for hardware info, model, MAC address, etc.
+    Returns cached device info if available and fresh (< 24 hours).
+    Falls back to live query on cache miss or stale cache.
+    If live query fails, returns stale cached data with is_stale=True.
+
     Supported device types: pjlink, netio, anel
     """
+    from mutech_control.services.device_cache import extract_core_info, update_device_cache
+
     try:
         device_uuid = UUID(device_id)
     except ValueError:
@@ -554,6 +561,24 @@ async def get_device_info(
             detail=f"Device info not available for {device.device_type}. Supported: {supported_types}"
         )
 
+    # Check cache freshness
+    now = datetime.utcnow()
+    has_cache = device.cached_info is not None
+    # 24 hour TTL for static metadata
+    is_fresh = has_cache and device.cached_info_at and (now - device.cached_info_at).total_seconds() < 86400
+
+    # Fresh cache: return directly
+    if is_fresh:
+        return DeviceInfoResponse(
+            device_id=str(device.id),
+            device_name=device.name,
+            device_type=device.device_type,
+            host=device.host,
+            info=device.cached_info,
+            cached_at=device.cached_info_at.isoformat() if device.cached_info_at else None,
+            is_stale=False,
+        )
+
     # Get the appropriate manager from app state
     orchestrator = request.app.state.orchestrator
     manager = orchestrator.device_managers.get(device.device_type)
@@ -565,17 +590,74 @@ async def get_device_info(
     if not hasattr(manager, 'get_device_info'):
         raise HTTPException(status_code=500, detail=f"{device.device_type} manager does not support device info")
 
-    # Query device info
-    info = await manager.get_device_info(device)
+    # Cache miss or stale: attempt live fetch
+    try:
+        info = await manager.get_device_info(device)
 
-    return DeviceInfoResponse(
-        device_id=str(device.id),
-        device_name=device.name,
-        device_type=device.device_type,
-        host=device.host,
-        info=info,
-        error=info.get("error"),
-    )
+        # Check for error in response
+        if info.get("error"):
+            # Live fetch returned error - fall back to stale cache if available
+            if has_cache:
+                return DeviceInfoResponse(
+                    device_id=str(device.id),
+                    device_name=device.name,
+                    device_type=device.device_type,
+                    host=device.host,
+                    info=device.cached_info,
+                    cached_at=device.cached_info_at.isoformat() if device.cached_info_at else None,
+                    is_stale=True,
+                    error=info.get("error"),
+                )
+            # No cache - return error
+            return DeviceInfoResponse(
+                device_id=str(device.id),
+                device_name=device.name,
+                device_type=device.device_type,
+                host=device.host,
+                info={},
+                error=info.get("error"),
+            )
+
+        # Extract core info for cache and update database
+        core_info = extract_core_info(info, device.device_type)
+        if core_info:
+            await update_device_cache(session, device.id, core_info, now)
+            await session.commit()
+
+        return DeviceInfoResponse(
+            device_id=str(device.id),
+            device_name=device.name,
+            device_type=device.device_type,
+            host=device.host,
+            info=info,
+            cached_at=now.isoformat(),
+            is_stale=False,
+        )
+
+    except Exception as e:
+        # Live fetch failed - fall back to stale cache or return error
+        logger.warning(f"Live device info fetch failed for {device.name}: {e}")
+
+        if has_cache:
+            return DeviceInfoResponse(
+                device_id=str(device.id),
+                device_name=device.name,
+                device_type=device.device_type,
+                host=device.host,
+                info=device.cached_info,
+                cached_at=device.cached_info_at.isoformat() if device.cached_info_at else None,
+                is_stale=True,
+            )
+
+        # No cache - return 200 with error field (backward compatible)
+        return DeviceInfoResponse(
+            device_id=str(device.id),
+            device_name=device.name,
+            device_type=device.device_type,
+            host=device.host,
+            info={},
+            error=f"Device unreachable: {e}",
+        )
 
 
 @router.get("/devices/info", response_model=List[DeviceInfoResponse])

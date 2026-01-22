@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { Credential } from '../../types';
 import { useHostReachability, type ReachabilityStatus } from '../../hooks/useHostReachability';
 
 // Generate ANEL hostname from number: 21 -> netzwerksteckdose21.zkm.de
@@ -12,6 +13,7 @@ interface AnelFormData {
   name: string;
   host: string;
   port: number;
+  credential_id: string;
   enabled: boolean;
   automation_enabled: boolean;
 }
@@ -19,12 +21,16 @@ interface AnelFormData {
 interface AnelFormProps {
   data: AnelFormData;
   onChange: (data: AnelFormData) => void;
+  credentials?: Credential[];
   onReachabilityChange?: (status: ReachabilityStatus) => void;
   usedPorts?: number[];
 }
 
-export function AnelForm({ data, onChange, onReachabilityChange, usedPorts = [] }: AnelFormProps) {
+export function AnelForm({ data, onChange, credentials = [], onReachabilityChange, usedPorts = [] }: AnelFormProps) {
   const [quickNum, setQuickNum] = useState('');
+
+  // Filter credentials by anel type
+  const anelCredentials = credentials.filter(c => c.credential_type === 'anel');
 
   const update = (field: keyof AnelFormData, value: string | number | boolean) => {
     onChange({ ...data, [field]: value });
@@ -134,6 +140,30 @@ export function AnelForm({ data, onChange, onReachabilityChange, usedPorts = [] 
             </small>
           )}
         </div>
+        <div className="mb-3">
+          <label className="form-label">Credentials</label>
+          <select
+            className="form-select"
+            value={data.credential_id}
+            onChange={(e) => update('credential_id', e.target.value)}
+          >
+            <option value="">Default (admin/anel)</option>
+            {anelCredentials.map(cred => (
+              <option key={cred.id} value={cred.id}>
+                {cred.name} ({cred.username})
+              </option>
+            ))}
+          </select>
+          {anelCredentials.length === 0 ? (
+            <small className="form-text text-muted">
+              Add ANEL credentials in the Credentials Store if needed
+            </small>
+          ) : (
+            <small className="form-text text-muted">
+              For ANEL devices with custom login
+            </small>
+          )}
+        </div>
       </div>
 
       <div className="form-section">
@@ -173,6 +203,7 @@ export const defaultAnelData: AnelFormData = {
   name: '',
   host: '',
   port: 1,
+  credential_id: '',
   enabled: true,
   automation_enabled: true,
 };

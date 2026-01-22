@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from mutech_control.config import get_config
 from mutech_control.database.connection import get_session
-from mutech_control.database.models import Artwork, Device, Exhibition
+from mutech_control.database.models import Artwork, Device, Exhibition, LampHoursLog
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +99,7 @@ class DeviceState(BaseModel):
     config: dict | None = None  # Device-specific configuration
     resolved: str | None = None  # Resolved hostname/IP from DNS
     asset_id: str | None = None  # Linked asset ID (PJLink only)
+    lamp_hours: int | None = None  # Last recorded lamp hours (PJLink only)
 
     class Config:
         from_attributes = True
@@ -138,6 +139,35 @@ def _get_poll_status(request: Request, device_id: str) -> dict | None:
     return None
 
 
+async def _get_lamp_hours_map(session) -> dict[UUID, int]:
+    """Get latest lamp hours for all assets, keyed by asset_id."""
+    from sqlalchemy import func
+    from sqlalchemy.orm import aliased
+
+    # Subquery to get the latest lamp log timestamp per asset
+    latest_log_subq = (
+        select(
+            LampHoursLog.asset_id,
+            func.max(LampHoursLog.timestamp).label("max_timestamp")
+        )
+        .group_by(LampHoursLog.asset_id)
+        .subquery()
+    )
+
+    # Query to get lamp_hours for each asset's latest log
+    LatestLog = aliased(LampHoursLog)
+    stmt = (
+        select(LatestLog.asset_id, LatestLog.lamp_hours)
+        .join(
+            latest_log_subq,
+            (LatestLog.asset_id == latest_log_subq.c.asset_id) &
+            (LatestLog.timestamp == latest_log_subq.c.max_timestamp)
+        )
+    )
+    result = await session.execute(stmt)
+    return {row.asset_id: row.lamp_hours for row in result}
+
+
 @router.get("/exhibitions", response_model=List[ExhibitionState])
 async def list_all_exhibitions(request: Request, session=Depends(get_session)):
     """List all exhibitions with full state tree."""
@@ -151,6 +181,9 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
         )
         result = await session.execute(stmt)
         exhibitions = result.scalars().all()
+
+        # Get lamp hours for all assets in one query
+        lamp_hours_map = await _get_lamp_hours_map(session)
 
         return [
             {
@@ -186,6 +219,7 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
                                 "config": dev.config,
                                 "resolved": dev.resolved,
                                 "asset_id": str(dev.asset_id) if dev.asset_id else None,
+                                "lamp_hours": lamp_hours_map.get(dev.asset_id) if dev.asset_id else None,
                             }
                             for dev in aw.devices
                         ],

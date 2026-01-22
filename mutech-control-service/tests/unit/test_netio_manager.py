@@ -24,7 +24,7 @@ def mock_device():
     device = MagicMock()
     device.id = uuid4()
     device.host = "192.168.1.101"
-    device.port = 1
+    device.port = 0  # 0-indexed (NETIO ID=1)
     device.state = 0
     device.config = {"username": "netio", "password": "netio"}
     return device
@@ -59,7 +59,7 @@ async def test_get_state_success(manager, mock_device):
 @pytest.mark.asyncio
 async def test_get_state_port_2(manager, mock_device):
     """Test state query for different port."""
-    mock_device.port = 2
+    mock_device.port = 1  # 0-indexed (NETIO ID=2)
 
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -74,7 +74,7 @@ async def test_get_state_port_2(manager, mock_device):
         result = await manager.get_state(mock_device)
 
         assert result.success is True
-        assert result.state == 0  # Port 2 is off
+        assert result.state == 0  # Port 2 (ID=2) is off
 
 
 @pytest.mark.asyncio
@@ -202,7 +202,7 @@ async def test_test_connection_auth_failure(manager, mock_device):
 @pytest.mark.asyncio
 async def test_port_not_found(manager, mock_device):
     """Test handling when requested port doesn't exist."""
-    mock_device.port = 10  # Invalid port
+    mock_device.port = 10  # 0-indexed, NETIO ID=11 doesn't exist
 
     mock_response = MagicMock()
     mock_response.status_code = 200

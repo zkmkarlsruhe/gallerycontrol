@@ -489,7 +489,7 @@ async def create_device(device: DeviceCreate, request: Request, session=Depends(
         session.add(new_device)
         await session.flush()
 
-        # For PJLink devices, link to asset and record onboard lamp hours
+        # For PJLink devices, link to asset and schedule onboard lamp hours recording
         asset_number = None
         if device.device_type == 'pjlink':
             asset_service = getattr(request.app.state, 'asset_service', None)
@@ -497,10 +497,11 @@ async def create_device(device: DeviceCreate, request: Request, session=Depends(
                 asset = await asset_service.link_device_to_asset(new_device, session)
                 if asset:
                     asset_number = asset.asset_number
-                    # Record initial lamp hours (background task after commit)
+                    # Schedule delayed onboard lamp hours recording (after commit)
                     await session.commit()
-                    asyncio.create_task(
-                        asset_service.record_lamp_hours_background(new_device.id, 'onboard')
+                    from mutech_control.scheduler.tasks.lamp_hours_delayed import schedule_lamp_hours_recording
+                    schedule_lamp_hours_recording(
+                        asset_service, new_device.id, 'onboard', delay_seconds=30.0
                     )
 
         return {
@@ -565,6 +566,13 @@ async def update_device(
             values['asset_id'] = None  # Clear the old asset link
             values['resolved'] = None  # Clear old DNS resolution
             values['resolved_at'] = None
+
+        # Clear cached device info if device connection config changes
+        cache_invalidating_fields = {'host', 'port', 'config'}
+        if any(field in values for field in cache_invalidating_fields):
+            values['cached_info'] = None
+            values['cached_info_at'] = None
+            logger.info(f"Clearing device cache for {existing.name} due to config change")
 
         # Perform the update
         stmt = (
@@ -1240,7 +1248,7 @@ async def export_inventory(session=Depends(get_session)):
                             lines.append(f"* {device_type_display}: {device.host}")
                         else:
                             lines.append(f"* {device_type_display}: {device.name}")
-                    elif device.port:
+                    elif device.port is not None:
                         lines.append(f"* {device_type_display}: http://{device.host} Port: {device.port}")
                     else:
                         lines.append(f"* {device_type_display}: http://{device.host}")

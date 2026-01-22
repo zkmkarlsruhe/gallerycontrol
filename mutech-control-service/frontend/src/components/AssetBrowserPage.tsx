@@ -239,7 +239,14 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
-      .then(setExhibitions)
+      .then(data => {
+        // Ensure we got an array
+        if (Array.isArray(data)) {
+          setExhibitions(data);
+        } else {
+          console.error('Exhibitions response is not an array:', data);
+        }
+      })
       .catch(err => console.error('Failed to load exhibitions:', err));
   }, []);
 

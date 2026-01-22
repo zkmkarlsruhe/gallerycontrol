@@ -64,15 +64,22 @@ def import_netio_devices():
                 results["skipped"] += 1
                 continue
 
-            # CRITICAL: port is the outlet number, must be in device.port
+            # CRITICAL: port is the outlet number (0-based), must be in device.port
             # SQLite stores outlet as string in args.port
-            outlet = int(args.get("port", 1))
+            if "port" not in args:
+                print(f"  Warning: {row['host']} missing port, defaulting to 0")
+            outlet = int(args.get("port", 0))
+
+            # Normalize hostname - append .zkm.de if missing
+            host = row["host"]
+            if host.startswith("netzwerksteckdose-netio-") and not host.endswith(".zkm.de"):
+                host = f"{host}.zkm.de"
 
             device_data = {
                 "artwork_id": artwork_id,
                 "name": name,
                 "device_type": "netio",
-                "host": row["host"],
+                "host": host,
                 "port": outlet,  # Outlet number in device.port
                 "enabled": bool(row["active"]),
                 "automation_enabled": bool(row["automation"]),

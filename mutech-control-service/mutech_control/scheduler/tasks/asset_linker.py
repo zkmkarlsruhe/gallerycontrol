@@ -30,13 +30,14 @@ async def run_asset_linker(
         batch_size: Maximum devices to process per run
 
     Returns:
-        Dict with processed, linked, failed, and skipped counts
+        Dict with processed, linked, failed, skipped, and lamp_hours_recorded counts
     """
     results = {
         "processed": 0,
         "linked": 0,
         "failed": 0,
         "skipped": 0,
+        "lamp_hours_recorded": 0,
     }
 
     async with db_manager.session() as session:
@@ -74,6 +75,12 @@ async def run_asset_linker(
                         device=device.name,
                         asset_number=asset.asset_number,
                     )
+                    # Schedule delayed onboard lamp hours recording (fire-and-forget after commit)
+                    from mutech_control.scheduler.tasks.lamp_hours_delayed import schedule_lamp_hours_recording
+                    schedule_lamp_hours_recording(
+                        asset_service, device.id, "onboard", delay_seconds=30.0
+                    )
+                    results["lamp_hours_recorded"] += 1
                 else:
                     results["skipped"] += 1
                     logger.debug(

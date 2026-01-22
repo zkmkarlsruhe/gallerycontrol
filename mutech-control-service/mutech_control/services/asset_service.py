@@ -458,6 +458,98 @@ class AssetService:
 
         return results
 
+    async def record_initial_lamp_hours(
+        self,
+        chunk_size: int = 10,
+        delay_between_chunks: float = 2.0,
+    ) -> dict:
+        """Record initial lamp hours for linked devices without lamp history.
+
+        This is useful for devices that were linked before lamp hour tracking
+        was implemented, or were linked by the scheduler before it recorded
+        onboard hours.
+
+        Args:
+            chunk_size: Devices per chunk
+            delay_between_chunks: Seconds between chunks
+
+        Returns:
+            Progress report dict
+        """
+        from sqlalchemy import exists, and_
+        from mutech_control.database.models import LampHoursLog
+
+        results = {
+            "processed": 0,
+            "recorded": 0,
+            "failed": [],
+            "skipped": [],
+        }
+
+        async with self.db_manager.session() as session:
+            # Find PJLink devices WITH asset_id but WITHOUT any lamp history
+            subquery = (
+                select(LampHoursLog.asset_id)
+                .where(LampHoursLog.asset_id == Device.asset_id)
+                .correlate(Device)
+                .exists()
+            )
+            stmt = select(Device).where(
+                Device.device_type == 'pjlink',
+                Device.asset_id.isnot(None),
+                ~subquery
+            )
+            result = await session.execute(stmt)
+            devices = list(result.scalars().all())
+
+            logger.info(
+                "Recording initial lamp hours for linked devices",
+                device_count=len(devices)
+            )
+
+            if not devices:
+                return results
+
+            # Process in chunks
+            for i in range(0, len(devices), chunk_size):
+                chunk = devices[i:i + chunk_size]
+
+                for device in chunk:
+                    try:
+                        log = await self._record_lamp_hours_impl(
+                            device.id, 'onboard', session
+                        )
+                        if log:
+                            results["recorded"] += 1
+                        else:
+                            results["skipped"].append({
+                                "device": device.name,
+                                "reason": "Could not query lamp hours",
+                            })
+                    except Exception as e:
+                        results["failed"].append({
+                            "device": device.name,
+                            "error": str(e),
+                        })
+
+                    results["processed"] += 1
+
+                await session.commit()
+
+                # Throttle between chunks
+                if i + chunk_size < len(devices):
+                    await asyncio.sleep(delay_between_chunks)
+
+        logger.info(
+            "Initial lamp hours recording completed",
+            processed=results["processed"],
+            recorded=results["recorded"],
+            failed=len(results["failed"]),
+            skipped=len(results["skipped"]),
+        )
+
+        return results
+
     async def should_resolve_dns(self, device: Device) -> bool:
         """Check if device DNS should be re-resolved.
 
