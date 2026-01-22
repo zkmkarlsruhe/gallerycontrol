@@ -19,7 +19,13 @@ from mutech_control.devices.pjlink_manager import PJLinkManager
 from mutech_control.devices.shell_manager import ShellManager, load_credentials
 from mutech_control.monitoring.state_monitor import StateMonitor
 from mutech_control.orchestrator.command_orchestrator import CommandOrchestrator
-from mutech_control.scheduler import TaskScheduler
+from mutech_control.scheduler import CronScheduler, TaskScheduler
+from mutech_control.scheduler.tasks import (
+    run_asset_linker,
+    run_device_info_cache,
+    run_lamp_hours_check,
+    run_log_cleanup,
+)
 from mutech_control.services.asset_service import AssetService
 from mutech_control.services.sse_broadcaster import SSEBroadcaster
 
@@ -86,9 +92,42 @@ async def lifespan(app: FastAPI):
     asset_service = AssetService(db_manager, device_managers, orchestrator_config)
     logger.info("Asset service initialized")
 
-    # Initialize task scheduler for periodic maintenance tasks
+    # Initialize task scheduler for periodic maintenance tasks (legacy)
     task_scheduler = TaskScheduler(db_manager, orchestrator_config, asset_service, orchestrator)
-    logger.info("Task scheduler initialized")
+    logger.info("Task scheduler initialized (legacy)")
+
+    # Initialize unified cron scheduler
+    cron_scheduler = CronScheduler(
+        db_manager=db_manager,
+        orchestrator=orchestrator,
+        device_managers=device_managers,
+        asset_service=asset_service,
+        config=orchestrator_config,
+    )
+
+    # Register system tasks with the cron scheduler
+    # These wrap the existing task implementations with proper dependencies
+    cron_scheduler.register_system_task(
+        "asset_linker",
+        lambda **kwargs: run_asset_linker(db_manager, asset_service, **kwargs),
+        {"batch_size": 20},
+    )
+    cron_scheduler.register_system_task(
+        "log_cleanup",
+        lambda **kwargs: run_log_cleanup(db_manager, **kwargs),
+        {"retention_hours": 24},
+    )
+    cron_scheduler.register_system_task(
+        "device_info_cache",
+        lambda **kwargs: run_device_info_cache(db_manager, device_managers, **kwargs),
+        {"max_concurrent": 5, "timeout_seconds": 10},
+    )
+    cron_scheduler.register_system_task(
+        "lamp_hours_check",
+        lambda **kwargs: run_lamp_hours_check(db_manager, asset_service, **kwargs),
+        {"chunk_size": 10, "delay_between_chunks": 2.0},
+    )
+    logger.info("Cron scheduler initialized with system tasks")
 
     # Connect orchestrator's verifier to state monitor for unified polling
     orchestrator.set_state_monitor(state_monitor)
@@ -106,6 +145,7 @@ async def lifespan(app: FastAPI):
     app.state.sse_broadcaster = sse_broadcaster
     app.state.asset_service = asset_service
     app.state.task_scheduler = task_scheduler
+    app.state.cron_scheduler = cron_scheduler
 
     # Start config watching (hot-reload) with SSE broadcast
     def on_config_change(loader):
@@ -138,8 +178,11 @@ async def lifespan(app: FastAPI):
     # Start state monitoring
     await state_monitor.start()
 
-    # Start task scheduler for periodic maintenance
+    # Start task scheduler for periodic maintenance (legacy)
     await task_scheduler.start()
+
+    # Start cron scheduler for unified scheduling
+    await cron_scheduler.start()
 
     logger.info("MuTech Control Service started successfully")
     logger.info("API documentation available at /docs")
@@ -149,7 +192,10 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down MuTech Control Service...")
 
-    # Stop task scheduler
+    # Stop cron scheduler
+    await cron_scheduler.stop()
+
+    # Stop task scheduler (legacy)
     await task_scheduler.stop()
 
     # Stop state monitoring
