@@ -70,7 +70,7 @@ export function AnelForm({ data, onChange, onReachabilityChange, usedPorts = [] 
         <div className="section-title">Connection</div>
         <div className="mb-3">
           <label className="form-label">Host / IP Address</label>
-          <div className="hostname-quick-entry">
+          <div className="hostname-inline-entry">
             <input
               type="text"
               className="form-control form-control-sm quick-num-input"
@@ -79,31 +79,31 @@ export function AnelForm({ data, onChange, onReachabilityChange, usedPorts = [] 
               onChange={(e) => setQuickNum(e.target.value.replace(/\D/g, ''))}
               onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleQuickHostname())}
               maxLength={2}
+              title="Enter device number"
             />
             <button
               type="button"
-              className="btn btn-sm btn-outline-secondary"
+              className="btn btn-sm btn-outline-secondary quick-apply-btn"
               onClick={handleQuickHostname}
               disabled={!quickNum}
-              title="Generate hostname from number"
+              title={quickNum ? `Generate netzwerksteckdose${quickNum}.zkm.de` : 'Enter a number first'}
             >
               <i className="bi bi-arrow-right"></i>
             </button>
-            <span className="quick-hint">anel-{quickNum || '__'}</span>
-          </div>
-          <div className="host-input-wrapper">
-            <input
-              type="text"
-              className={`form-control ${reachabilityStatus === 'unreachable' ? 'is-invalid' : reachabilityStatus === 'reachable' ? 'is-valid' : ''}`}
-              placeholder="netzwerksteckdose21.zkm.de"
-              value={data.host}
-              onChange={(e) => update('host', e.target.value)}
-            />
-            <span className={`reachability-indicator status-${reachabilityStatus}`} title={reachabilityError || ''}>
-              {reachabilityStatus === 'checking' && <i className="bi bi-arrow-repeat spin"></i>}
-              {reachabilityStatus === 'reachable' && <i className="bi bi-check-circle-fill"></i>}
-              {reachabilityStatus === 'unreachable' && <i className="bi bi-x-circle-fill"></i>}
-            </span>
+            <div className="host-input-wrapper flex-grow-1">
+              <input
+                type="text"
+                className={`form-control ${reachabilityStatus === 'unreachable' ? 'is-invalid' : reachabilityStatus === 'reachable' ? 'is-valid' : ''}`}
+                placeholder="netzwerksteckdose21.zkm.de"
+                value={data.host}
+                onChange={(e) => update('host', e.target.value)}
+              />
+              <span className={`reachability-indicator status-${reachabilityStatus}`} title={reachabilityError || ''}>
+                {reachabilityStatus === 'checking' && <i className="bi bi-arrow-repeat spin"></i>}
+                {reachabilityStatus === 'reachable' && <i className="bi bi-check-circle-fill"></i>}
+                {reachabilityStatus === 'unreachable' && <i className="bi bi-x-circle-fill"></i>}
+              </span>
+            </div>
           </div>
           {reachabilityStatus === 'unreachable' && reachabilityError ? (
             <small className="text-danger">{reachabilityError}</small>
