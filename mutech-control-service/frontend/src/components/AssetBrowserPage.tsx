@@ -235,7 +235,10 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
   // Load exhibitions for filter dropdown
   useEffect(() => {
     fetch('/api/assets/exhibitions')
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then(setExhibitions)
       .catch(err => console.error('Failed to load exhibitions:', err));
   }, []);
