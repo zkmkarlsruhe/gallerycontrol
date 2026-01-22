@@ -196,17 +196,16 @@ export function ShellForm({ data, onChange, credentials = [], templates = [] }: 
         </div>
       </div>
 
-      {/* Credentials Section */}
+      {/* Credentials - shown inline in Basic Info style */}
       <div className="form-section">
-        <div className="section-title">Credentials (Optional)</div>
+        <div className="section-title">Credentials</div>
         <div className="mb-3">
-          <label className="form-label">Select Credentials</label>
           <select
             className="form-select"
             value={data.credential_id}
             onChange={(e) => update('credential_id', e.target.value)}
           >
-            <option value="">No credentials</option>
+            <option value="">None (optional)</option>
             {shellCredentials.map(cred => (
               <option key={cred.id} value={cred.id}>
                 {cred.name} ({cred.username})
@@ -215,17 +214,17 @@ export function ShellForm({ data, onChange, credentials = [], templates = [] }: 
           </select>
           {shellCredentials.length === 0 ? (
             <small className="form-text text-muted">
-              Add Shell credentials in the Credentials Store to use here
+              Add Shell credentials in the Credentials Store
             </small>
           ) : data.credential_id && selectedCredential ? (
-            <div className="info-box mt-2">
-              <strong>Placeholders available:</strong>
-              <ul className="mb-0 mt-1">
-                <li><code>{'{{user}}'}</code> - will be replaced with <strong>{selectedCredential.username}</strong></li>
-                <li><code>{'{{password}}'}</code> - will be replaced with the password</li>
-              </ul>
-            </div>
-          ) : null}
+            <small className="form-text text-muted">
+              Use <code>{'{'}{'{'}'user{'}'}{'}'}</code> and <code>{'{'}{'{'}'password{'}'}{'}'}</code> in commands
+            </small>
+          ) : (
+            <small className="form-text text-muted">
+              For SSH or sudo commands
+            </small>
+          )}
         </div>
       </div>
 

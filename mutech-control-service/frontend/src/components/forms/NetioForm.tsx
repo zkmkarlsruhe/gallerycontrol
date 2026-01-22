@@ -146,7 +146,7 @@ export function NetioForm({ data, onChange, credentials = [], onReachabilityChan
             value={data.credential_id}
             onChange={(e) => update('credential_id', e.target.value)}
           >
-            <option value="">Select credentials...</option>
+            <option value="">Select...</option>
             {netioCredentials.map(cred => (
               <option key={cred.id} value={cred.id}>
                 {cred.name} ({cred.username})
@@ -155,11 +155,11 @@ export function NetioForm({ data, onChange, credentials = [], onReachabilityChan
           </select>
           {netioCredentials.length === 0 ? (
             <small className="form-text text-danger">
-              No NETIO credentials available. Add credentials in the Credentials Store first.
+              No NETIO credentials. Add in Credentials Store first.
             </small>
           ) : (
             <small className="form-text text-muted">
-              Select user:password combination from credential store
+              Required for NETIO authentication
             </small>
           )}
         </div>

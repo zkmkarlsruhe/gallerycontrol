@@ -94,13 +94,13 @@ export function PJLinkForm({ data, onChange, credentials = [], onReachabilityCha
           </div>
         </div>
         <div className="mb-3">
-          <label className="form-label">Password</label>
+          <label className="form-label">Credentials</label>
           <select
             className="form-select"
             value={data.credential_id}
             onChange={(e) => update('credential_id', e.target.value)}
           >
-            <option value="">No password</option>
+            <option value="">None (no password)</option>
             {pjlinkCredentials.map(cred => (
               <option key={cred.id} value={cred.id}>
                 {cred.name}
@@ -109,7 +109,7 @@ export function PJLinkForm({ data, onChange, credentials = [], onReachabilityCha
           </select>
           {pjlinkCredentials.length === 0 && (
             <small className="form-text text-muted">
-              Add PJLink credentials in the Credentials Store to use here
+              Add PJLink credentials in the Credentials Store
             </small>
           )}
         </div>
