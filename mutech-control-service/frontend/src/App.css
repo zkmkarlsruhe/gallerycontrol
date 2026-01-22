@@ -1168,37 +1168,56 @@ body {
   background: #f0f0f0 !important;
 }
 
-/* Context Info */
-.context-info {
+/* Context Info - Compact inline version */
+.context-info-compact {
   background: #e8eaf6;
-  border-left: 4px solid var(--primary);
-  padding: 1rem;
-  margin-bottom: 1.5rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
   border-radius: 0.25rem;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-/* Device Type Selector */
+.context-info-compact .context-label {
+  color: #5c6bc0;
+  font-weight: 500;
+}
+
+.context-info-compact .context-path {
+  color: #37474f;
+  font-weight: 600;
+}
+
+.context-info-compact .context-path i {
+  font-size: 0.7em;
+  margin: 0 0.25rem;
+  opacity: 0.6;
+}
+
+/* Device Type Selector - Compact */
 .device-type-selector {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .device-type-btn {
-  padding: 1.5rem 1rem;
+  padding: 0.75rem 0.5rem;
   border: 2px solid #dee2e6;
   background: white;
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   text-align: center;
+  font-size: 0.8rem;
 }
 
 .device-type-btn:hover {
   background: #e9ecef;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  border-color: #adb5bd;
 }
 
 .device-type-btn.active {
@@ -1208,22 +1227,23 @@ body {
 }
 
 .device-type-btn i {
-  font-size: 2em;
+  font-size: 1.25em;
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
-/* Form Sections */
+/* Form Sections - Tighter spacing */
 .form-section {
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .section-title {
-  font-size: 1.1em;
+  font-size: 0.9em;
   font-weight: 600;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid #e9ecef;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid #e9ecef;
+  color: #495057;
 }
 
 /* Host Input with Reachability Indicator */

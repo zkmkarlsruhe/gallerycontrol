@@ -185,13 +185,10 @@ export function AddDeviceModal({
         </>
       }
     >
-      {/* Context Info */}
-      <div className="context-info">
-        <strong>Adding device to:</strong>
-        <div className="mt-2">
-          Exhibition: <strong>{exhibitionName}</strong><br />
-          Artwork: <strong>{artworkName}</strong>
-        </div>
+      {/* Context Info - compact single line */}
+      <div className="context-info-compact">
+        <span className="context-label">Adding to:</span>
+        <span className="context-path">{exhibitionName} <i className="bi bi-chevron-right"></i> {artworkName}</span>
       </div>
 
       {/* Device Type Selector */}
