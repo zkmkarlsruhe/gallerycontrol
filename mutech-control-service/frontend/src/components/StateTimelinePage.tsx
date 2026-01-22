@@ -290,8 +290,8 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
       return;
     }
 
-    const containerWidth = containerRef.current.clientWidth;
-    const margin = { top: 40, right: 30, bottom: 40, left: 200 };
+    const containerWidth = containerRef.current.clientWidth - 20; // Account for scrollbar
+    const margin = { top: 40, right: 20, bottom: 10, left: 180 };
     const rowHeight = 26;
     const exhibitionRowHeight = 32;
     const artworkRowHeight = 28;
@@ -305,7 +305,7 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
     }
 
     const height = Math.max(300, totalHeight + margin.top + margin.bottom);
-    const width = Math.max(containerWidth, 800);
+    const width = containerWidth; // Fit to container width, no minimum
     const innerWidth = width - margin.left - margin.right;
 
     const svg = d3.select(svgRef.current);
@@ -573,9 +573,9 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
     updateAxes(xScale);
 
     // Setup zoom behavior - require Ctrl/Cmd for scroll zoom to allow normal page scrolling
+    // scaleExtent: 0.05 = can zoom out to 20x time range, 50 = zoom in 50x
     const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.1, 50])
-      .translateExtent([[0, 0], [innerWidth, height]])
+      .scaleExtent([0.05, 50])
       .extent([[0, 0], [innerWidth, height]])
       .filter((event) => {
         // Allow programmatic zoom and touch events

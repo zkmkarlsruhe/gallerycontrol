@@ -42,6 +42,9 @@ interface AddArtworkContext {
   exhibitionName: string;
 }
 
+// View state type - which page/view is currently active
+type ViewType = 'main' | 'timeline' | 'assets' | 'logs';
+
 function App() {
   const {
     fetchExhibitions,
@@ -89,15 +92,9 @@ function App() {
   const [showEmailInventoryModal, setShowEmailInventoryModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
 
-  // Log viewer state
-  const [showLogViewer, setShowLogViewer] = useState(false);
+  // View state - which page/view is currently active
+  const [currentView, setCurrentView] = useState<ViewType>('main');
   const [logFilterDeviceId, setLogFilterDeviceId] = useState<string | null>(null);
-
-  // Timeline page state
-  const [showTimeline, setShowTimeline] = useState(false);
-
-  // Asset browser state
-  const [showAssets, setShowAssets] = useState(false);
 
   // Pending state changes (deviceId -> target state)
   const [pendingStates, setPendingStates] = useState<Map<string, 'on' | 'off'>>(new Map());
@@ -146,11 +143,11 @@ function App() {
 
   const openLogViewer = useCallback((deviceId?: string | null) => {
     setLogFilterDeviceId(deviceId || null);
-    setShowLogViewer(true);
+    setCurrentView('logs');
   }, []);
 
   const closeLogViewer = useCallback(() => {
-    setShowLogViewer(false);
+    setCurrentView('main');
     setLogFilterDeviceId(null);
   }, []);
 
@@ -525,80 +522,85 @@ function App() {
         onOpenEmailInventory={() => setShowEmailInventoryModal(true)}
         onOpenAdmin={() => setShowAdminModal(true)}
         onOpenLogs={() => openLogViewer()}
-        onOpenTimeline={() => setShowTimeline(true)}
-        onOpenAssets={() => setShowAssets(true)}
-        showingLogs={showLogViewer}
-        showingTimeline={showTimeline}
-        showingAssets={showAssets}
+        onOpenTimeline={() => setCurrentView('timeline')}
+        onOpenAssets={() => setCurrentView('assets')}
+        showingLogs={currentView === 'logs'}
+        showingTimeline={currentView === 'timeline'}
+        showingAssets={currentView === 'assets'}
       />
 
-      {/* Error Banner */}
-      {error && (
-        <div className="alert alert-danger m-3 mb-0">{error}</div>
+      {/* Main Content View */}
+      {currentView === 'main' && (
+        <div className="main-content">
+          {/* Error Banner */}
+          {error && (
+            <div className="alert alert-danger m-3 mb-0">{error}</div>
+          )}
+
+          {/* Empty State */}
+          {exhibitions.length === 0 && !loading && (
+            <EmptyState
+              editMode={editMode}
+              newExhibitionName={newExhibitionName}
+              onNameChange={setNewExhibitionName}
+              onSubmit={handleCreateExhibition}
+            />
+          )}
+
+          {/* Exhibition Overview Cards */}
+          <ExhibitionOverview
+            exhibitions={exhibitions}
+            editMode={editMode}
+            onScrollTo={scrollToExhibition}
+            onControl={handleExhibitionControl}
+            onControlAll={handleAllControl}
+            onAddExhibition={() => setShowAddExhibitionModal(true)}
+          />
+
+          {/* Exhibition Sections */}
+          {(editMode ? exhibitions : exhibitions.filter(e => e.enabled)).map(exhibition => (
+            <ExhibitionSection
+              key={exhibition.id}
+              exhibition={exhibition}
+              editMode={editMode}
+              expandedDevice={expandedDevice}
+              pendingStates={pendingStates}
+              onToggleDevice={toggleDeviceAccordion}
+              onExhibitionControl={handleExhibitionControl}
+              onArtworkControl={handleArtworkControl}
+              onDeviceControl={handleDeviceControl}
+              onDeviceAction={handleAction}
+              onAddArtwork={() => openAddArtworkModal(exhibition.id)}
+              onEditExhibition={setEditExhibitionData}
+              onDeleteExhibition={handleDeleteExhibition}
+              onDeleteArtwork={handleDeleteArtwork}
+              onEditArtwork={setEditArtworkData}
+              onAddDevice={(artworkId) => openAddDeviceModal(exhibition.id, artworkId)}
+              onEditDevice={setEditDeviceData}
+              onDeleteDevice={handleDeleteDevice}
+              onViewDeviceLogs={openLogViewer}
+            />
+          ))}
+        </div>
       )}
 
-      {/* Empty State */}
-      {exhibitions.length === 0 && !loading && (
-        <EmptyState
-          editMode={editMode}
-          newExhibitionName={newExhibitionName}
-          onNameChange={setNewExhibitionName}
-          onSubmit={handleCreateExhibition}
-        />
-      )}
-
-      {/* Exhibition Overview Cards */}
-      <ExhibitionOverview
-        exhibitions={exhibitions}
-        editMode={editMode}
-        onScrollTo={scrollToExhibition}
-        onControl={handleExhibitionControl}
-        onControlAll={handleAllControl}
-        onAddExhibition={() => setShowAddExhibitionModal(true)}
-      />
-
-      {/* Exhibition Sections */}
-      {(editMode ? exhibitions : exhibitions.filter(e => e.enabled)).map(exhibition => (
-        <ExhibitionSection
-          key={exhibition.id}
-          exhibition={exhibition}
-          editMode={editMode}
-          expandedDevice={expandedDevice}
-          pendingStates={pendingStates}
-          onToggleDevice={toggleDeviceAccordion}
-          onExhibitionControl={handleExhibitionControl}
-          onArtworkControl={handleArtworkControl}
-          onDeviceControl={handleDeviceControl}
-          onDeviceAction={handleAction}
-          onAddArtwork={() => openAddArtworkModal(exhibition.id)}
-          onEditExhibition={setEditExhibitionData}
-          onDeleteExhibition={handleDeleteExhibition}
-          onDeleteArtwork={handleDeleteArtwork}
-          onEditArtwork={setEditArtworkData}
-          onAddDevice={(artworkId) => openAddDeviceModal(exhibition.id, artworkId)}
-          onEditDevice={setEditDeviceData}
-          onDeleteDevice={handleDeleteDevice}
-          onViewDeviceLogs={openLogViewer}
-        />
-      ))}
-
-      {/* State Timeline Page (Full Page) */}
-      {showTimeline && (
+      {/* State Timeline View */}
+      {currentView === 'timeline' && (
         <StateTimelinePage
-          onClose={() => setShowTimeline(false)}
+          onClose={() => setCurrentView('main')}
           devices={allDevices}
         />
       )}
 
-      {/* Asset Browser Page (Full Page) */}
-      {showAssets && (
+      {/* Asset Browser View */}
+      {currentView === 'assets' && (
         <AssetBrowserPage
-          onClose={() => setShowAssets(false)}
+          onClose={() => setCurrentView('main')}
         />
       )}
 
-      {/* Log Viewer (Full Page) */}
-      {showLogViewer && (
+      {/* Log Viewer View */}
+      {currentView === 'logs' && (
         <LogViewer
           onClose={closeLogViewer}
           initialFilterDeviceId={logFilterDeviceId}
