@@ -393,16 +393,19 @@ class CommandOrchestrator:
                 duration_ms=result.duration_ms,
             )
 
-            # Record lamp hours for PJLink devices with asset link (background task)
+            # Record lamp hours for PJLink devices with asset link on power_off
+            # Recording on power-off captures total lamp usage for that session
+            # 30s delay staggers network requests when multiple devices turn off at once
             if (
                 result.success
+                and command == "off"
                 and device.device_type == "pjlink"
                 and device.asset_id
                 and self._asset_service
             ):
-                event_type = "power_on" if command == "on" else "power_off"
-                asyncio.create_task(
-                    self._asset_service.record_lamp_hours_background(device.id, event_type)
+                from mutech_control.scheduler.tasks.lamp_hours_delayed import schedule_lamp_hours_recording
+                schedule_lamp_hours_recording(
+                    self._asset_service, device.id, "power_off", delay_seconds=30.0
                 )
 
             return {
