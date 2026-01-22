@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from datetime import datetime
 from typing import Any, Dict, List
 from uuid import UUID
 
@@ -505,12 +506,12 @@ async def create_device(device: DeviceCreate, request: Request, session=Depends(
                 asset = await asset_service.link_device_to_asset(new_device, session)
                 if asset:
                     asset_number = asset.asset_number
-                    # Schedule delayed onboard lamp hours recording (after commit)
+                    # Record initial lamp hours on asset link (onboard event)
                     await session.commit()
-                    from mutech_control.scheduler.tasks.lamp_hours_delayed import schedule_lamp_hours_recording
-                    schedule_lamp_hours_recording(
-                        asset_service, new_device.id, 'onboard', delay_seconds=30.0
-                    )
+                    try:
+                        await asset_service.record_lamp_hours_background(new_device.id, 'onboard')
+                    except Exception as lh_err:
+                        logger.warning(f"Failed to record onboard lamp hours for {new_device.name}: {lh_err}")
 
         return {
             "id": str(new_device.id),
@@ -1763,12 +1764,18 @@ async def check_host_reachability(request: HostCheckRequest) -> HostCheckRespons
 
 
 class ScheduledJobCreate(BaseModel):
-    """Create a new scheduled job."""
+    """Create a new scheduled job (recurring or one-shot)."""
 
     name: str
-    cron_expression: str
+    cron_expression: str | None = None  # Required for recurring, None for one-shot
     job_type: str = "device"  # 'system' or 'device'
-    # Device job fields
+    # One-shot support
+    run_once: bool = False  # True for one-shot jobs
+    run_at: datetime | None = None  # When to run (for one-shot jobs)
+    # Target flexibility
+    target_type: str = "device"  # 'device', 'artwork', or 'exhibition'
+    target_id: str | None = None  # Generic UUID for artwork/exhibition
+    # Device job fields (backward compat)
     target_device_id: str | None = None
     action_type: str | None = None  # 'on', 'off', 'action'
     action_name: str | None = None  # For shell actions
@@ -1778,12 +1785,24 @@ class ScheduledJobCreate(BaseModel):
     enabled: bool = True
 
 
+class ScheduledJobOnceCreate(BaseModel):
+    """Create a one-shot scheduled job (simplified)."""
+
+    name: str
+    run_at: datetime  # When to execute
+    target_type: str = "device"  # 'device', 'artwork', or 'exhibition'
+    target_id: str  # Target UUID
+    action_type: str  # 'on' or 'off'
+
+
 class ScheduledJobUpdate(BaseModel):
     """Update a scheduled job."""
 
     name: str | None = None
     cron_expression: str | None = None
     target_device_id: str | None = None
+    target_type: str | None = None
+    target_id: str | None = None
     action_type: str | None = None
     action_name: str | None = None
     task_config: dict | None = None
@@ -1794,13 +1813,19 @@ class ScheduledJobUpdate(BaseModel):
 async def list_scheduled_jobs(
     job_type: str | None = None,
     device_id: str | None = None,
+    target_type: str | None = None,
+    target_id: str | None = None,
+    target_device_id: str | None = None,
     session=Depends(get_session),
 ):
     """List all scheduled jobs.
 
     Args:
         job_type: Filter by 'system' or 'device'
-        device_id: Filter by target device ID
+        device_id: Filter by target device ID (deprecated, use target_device_id)
+        target_type: Filter by target type ('device', 'artwork', 'exhibition', 'all')
+        target_id: Filter by target ID (for artwork/exhibition)
+        target_device_id: Filter by target device ID
     """
     try:
         stmt = select(ScheduledJob).options(selectinload(ScheduledJob.target_device))
@@ -1808,8 +1833,18 @@ async def list_scheduled_jobs(
         if job_type:
             stmt = stmt.where(ScheduledJob.job_type == job_type)
 
-        if device_id:
-            stmt = stmt.where(ScheduledJob.target_device_id == UUID(device_id))
+        # Support both old 'device_id' and new 'target_device_id' params
+        effective_device_id = target_device_id or device_id
+        if effective_device_id:
+            stmt = stmt.where(ScheduledJob.target_device_id == UUID(effective_device_id))
+
+        # Filter by target_type
+        if target_type:
+            stmt = stmt.where(ScheduledJob.target_type == target_type)
+
+        # Filter by target_id (for artwork/exhibition targets)
+        if target_id:
+            stmt = stmt.where(ScheduledJob.target_id == UUID(target_id))
 
         stmt = stmt.order_by(ScheduledJob.job_type, ScheduledJob.name)
         result = await session.execute(stmt)
@@ -1821,6 +1856,9 @@ async def list_scheduled_jobs(
                 "name": job.name,
                 "job_type": job.job_type,
                 "cron_expression": job.cron_expression,
+                "run_once": job.run_once,
+                "target_type": job.target_type,
+                "target_id": str(job.target_id) if job.target_id else None,
                 "target_device_id": str(job.target_device_id) if job.target_device_id else None,
                 "target_device_name": job.target_device.name if job.target_device else None,
                 "action_type": job.action_type,
@@ -1833,6 +1871,7 @@ async def list_scheduled_jobs(
                 "last_error": job.last_error,
                 "last_duration_ms": job.last_duration_ms,
                 "next_run_at": job.next_run_at.isoformat() if job.next_run_at else None,
+                "executed_at": job.executed_at.isoformat() if job.executed_at else None,
                 "fail_count": job.fail_count,
                 "circuit_open": job.circuit_open,
                 "created_at": job.created_at.isoformat(),
@@ -1843,6 +1882,128 @@ async def list_scheduled_jobs(
 
     except Exception as e:
         logger.error(f"Error listing scheduled jobs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# NOTE: Routes with static paths (/once, /cron/preview) must be defined
+# BEFORE routes with path parameters ({job_id}) to avoid FastAPI matching issues.
+
+
+@router.post("/scheduled-jobs/once", status_code=201)
+async def create_one_shot_job(
+    job: ScheduledJobOnceCreate, request: Request, session=Depends(get_session)
+):
+    """Create a one-shot scheduled job (simplified API).
+
+    This is a convenience endpoint for scheduling one-time power on/off tasks
+    for devices, artworks, exhibitions, or all devices.
+
+    Example:
+        POST /api/admin/scheduled-jobs/once
+        {
+            "name": "Turn off Grimonprez at 6pm",
+            "target_type": "exhibition",
+            "target_id": "uuid-here",
+            "action_type": "off",
+            "run_at": "2026-01-22T18:00:00"
+        }
+    """
+    try:
+        # Validate target_type
+        if job.target_type not in ("device", "artwork", "exhibition", "all"):
+            raise HTTPException(status_code=400, detail="target_type must be 'device', 'artwork', 'exhibition', or 'all'")
+
+        # Validate action_type
+        if job.action_type not in ("on", "off"):
+            raise HTTPException(status_code=400, detail="action_type must be 'on' or 'off'")
+
+        # Verify target exists (skip for "all" target type)
+        if job.target_type != "all":
+            if job.target_type == "device":
+                target_stmt = select(Device).where(Device.id == UUID(job.target_id))
+            elif job.target_type == "artwork":
+                target_stmt = select(Artwork).where(Artwork.id == UUID(job.target_id))
+            else:
+                target_stmt = select(Exhibition).where(Exhibition.id == UUID(job.target_id))
+
+            target_result = await session.execute(target_stmt)
+            target = target_result.scalar_one_or_none()
+            if not target:
+                raise HTTPException(status_code=404, detail=f"Target {job.target_type} not found")
+
+        # Strip timezone for DB compatibility
+        next_run_at = job.run_at
+        if next_run_at.tzinfo is not None:
+            next_run_at = next_run_at.replace(tzinfo=None)
+
+        # Create the one-shot job
+        # For "all" target, target_id is empty string so we don't try to parse it as UUID
+        new_job = ScheduledJob(
+            name=job.name,
+            job_type="device",
+            run_once=True,
+            target_type=job.target_type,
+            target_id=UUID(job.target_id) if job.target_type in ("artwork", "exhibition") else None,
+            target_device_id=UUID(job.target_id) if job.target_type == "device" else None,
+            action_type=job.action_type,
+            enabled=True,
+            next_run_at=next_run_at,
+        )
+        session.add(new_job)
+        await session.flush()
+
+        # Build target_id for response
+        response_target_id = None
+        if new_job.target_id:
+            response_target_id = str(new_job.target_id)
+        elif new_job.target_device_id:
+            response_target_id = str(new_job.target_device_id)
+
+        return {
+            "id": str(new_job.id),
+            "name": new_job.name,
+            "target_type": new_job.target_type,
+            "target_id": response_target_id,
+            "action_type": new_job.action_type,
+            "run_at": new_job.next_run_at.isoformat() if new_job.next_run_at else None,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating one-shot job: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/scheduled-jobs/cron/preview")
+async def preview_cron_schedule(cron_expression: str, count: int = 10):
+    """Preview the next run times for a cron expression.
+
+    Args:
+        cron_expression: Standard cron expression (minute hour day month weekday)
+        count: Number of future runs to return (max 20)
+    """
+    from mutech_control.scheduler.cron_scheduler import CronScheduler
+
+    try:
+        # Validate cron expression
+        is_valid, error = CronScheduler.validate_cron_expression(cron_expression)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=f"Invalid cron expression: {error}")
+
+        # Get next runs
+        count = min(count, 20)  # Cap at 20
+        next_runs = CronScheduler.get_next_runs(cron_expression, count=count)
+
+        return {
+            "cron_expression": cron_expression,
+            "next_runs": [run.isoformat() for run in next_runs],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error previewing cron schedule: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1866,6 +2027,9 @@ async def get_scheduled_job(job_id: str, session=Depends(get_session)):
             "name": job.name,
             "job_type": job.job_type,
             "cron_expression": job.cron_expression,
+            "run_once": job.run_once,
+            "target_type": job.target_type,
+            "target_id": str(job.target_id) if job.target_id else None,
             "target_device_id": str(job.target_device_id) if job.target_device_id else None,
             "target_device_name": job.target_device.name if job.target_device else None,
             "action_type": job.action_type,
@@ -1878,6 +2042,7 @@ async def get_scheduled_job(job_id: str, session=Depends(get_session)):
             "last_error": job.last_error,
             "last_duration_ms": job.last_duration_ms,
             "next_run_at": job.next_run_at.isoformat() if job.next_run_at else None,
+            "executed_at": job.executed_at.isoformat() if job.executed_at else None,
             "fail_count": job.fail_count,
             "circuit_open": job.circuit_open,
             "backoff_until": job.backoff_until.isoformat() if job.backoff_until else None,
@@ -1896,23 +2061,44 @@ async def get_scheduled_job(job_id: str, session=Depends(get_session)):
 async def create_scheduled_job(
     job: ScheduledJobCreate, request: Request, session=Depends(get_session)
 ):
-    """Create a new scheduled job.
+    """Create a new scheduled job (recurring or one-shot).
 
-    For device jobs, provide target_device_id and action_type.
+    For recurring jobs, provide cron_expression.
+    For one-shot jobs, set run_once=True and provide run_at.
+    For device jobs, provide target_device_id (or target_id for artwork/exhibition) and action_type.
     For system jobs, provide task_name.
     """
     from mutech_control.scheduler.cron_scheduler import CronScheduler
 
     try:
-        # Validate cron expression
-        is_valid, error = CronScheduler.validate_cron_expression(job.cron_expression)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=f"Invalid cron expression: {error}")
+        # Determine if this is a one-shot or recurring job
+        is_one_shot = job.run_once
+
+        if is_one_shot:
+            # One-shot validation
+            if not job.run_at:
+                raise HTTPException(status_code=400, detail="run_at required for one-shot jobs")
+            next_run_at = job.run_at
+            # Strip timezone for DB compatibility
+            if next_run_at.tzinfo is not None:
+                next_run_at = next_run_at.replace(tzinfo=None)
+        else:
+            # Recurring validation
+            if not job.cron_expression:
+                raise HTTPException(status_code=400, detail="cron_expression required for recurring jobs")
+            is_valid, error = CronScheduler.validate_cron_expression(job.cron_expression)
+            if not is_valid:
+                raise HTTPException(status_code=400, detail=f"Invalid cron expression: {error}")
+            # Calculate next run time (strip timezone for DB compatibility)
+            next_runs = CronScheduler.get_next_runs(job.cron_expression, count=1)
+            next_run_at = next_runs[0].replace(tzinfo=None) if next_runs else None
+
+        # Validate target_type
+        if job.target_type not in ("device", "artwork", "exhibition", "all"):
+            raise HTTPException(status_code=400, detail="target_type must be 'device', 'artwork', 'exhibition', or 'all'")
 
         # Validate job type specific fields
         if job.job_type == "device":
-            if not job.target_device_id:
-                raise HTTPException(status_code=400, detail="target_device_id required for device jobs")
             if not job.action_type:
                 raise HTTPException(status_code=400, detail="action_type required for device jobs")
             if job.action_type not in ("on", "off", "action"):
@@ -1920,12 +2106,32 @@ async def create_scheduled_job(
             if job.action_type == "action" and not job.action_name:
                 raise HTTPException(status_code=400, detail="action_name required for action type")
 
-            # Verify device exists
-            device_stmt = select(Device).where(Device.id == UUID(job.target_device_id))
-            device_result = await session.execute(device_stmt)
-            device = device_result.scalar_one_or_none()
-            if not device:
-                raise HTTPException(status_code=404, detail="Target device not found")
+            # Validate target based on target_type (skip for "all")
+            if job.target_type == "all":
+                # "all" target doesn't need target_id or target_device_id
+                pass
+            elif job.target_type == "device":
+                if not job.target_device_id:
+                    raise HTTPException(status_code=400, detail="target_device_id required for device target")
+                # Verify device exists
+                device_stmt = select(Device).where(Device.id == UUID(job.target_device_id))
+                device_result = await session.execute(device_stmt)
+                device = device_result.scalar_one_or_none()
+                if not device:
+                    raise HTTPException(status_code=404, detail="Target device not found")
+            else:
+                # artwork or exhibition
+                if not job.target_id:
+                    raise HTTPException(status_code=400, detail=f"target_id required for {job.target_type} target")
+                # Verify artwork/exhibition exists
+                if job.target_type == "artwork":
+                    target_stmt = select(Artwork).where(Artwork.id == UUID(job.target_id))
+                else:
+                    target_stmt = select(Exhibition).where(Exhibition.id == UUID(job.target_id))
+                target_result = await session.execute(target_stmt)
+                target = target_result.scalar_one_or_none()
+                if not target:
+                    raise HTTPException(status_code=404, detail=f"Target {job.target_type} not found")
 
         elif job.job_type == "system":
             if not job.task_name:
@@ -1933,14 +2139,13 @@ async def create_scheduled_job(
         else:
             raise HTTPException(status_code=400, detail="job_type must be 'system' or 'device'")
 
-        # Calculate next run time (strip timezone for DB compatibility)
-        next_runs = CronScheduler.get_next_runs(job.cron_expression, count=1)
-        next_run_at = next_runs[0].replace(tzinfo=None) if next_runs else None
-
         new_job = ScheduledJob(
             name=job.name,
             job_type=job.job_type,
-            cron_expression=job.cron_expression,
+            cron_expression=job.cron_expression if not is_one_shot else None,
+            run_once=is_one_shot,
+            target_type=job.target_type,
+            target_id=UUID(job.target_id) if job.target_id else None,
             target_device_id=UUID(job.target_device_id) if job.target_device_id else None,
             action_type=job.action_type,
             action_name=job.action_name,
@@ -1957,6 +2162,8 @@ async def create_scheduled_job(
             "name": new_job.name,
             "job_type": new_job.job_type,
             "cron_expression": new_job.cron_expression,
+            "run_once": new_job.run_once,
+            "target_type": new_job.target_type,
             "next_run_at": new_job.next_run_at.isoformat() if new_job.next_run_at else None,
         }
 
@@ -1986,7 +2193,7 @@ async def update_scheduled_job(
         values = {}
         for key, value in job.dict().items():
             if value is not None:
-                if key == "target_device_id":
+                if key in ("target_device_id", "target_id"):
                     values[key] = UUID(value)
                 else:
                     values[key] = value
@@ -2124,38 +2331,6 @@ async def get_scheduled_job_logs(
 
     except Exception as e:
         logger.error(f"Error getting scheduled job logs: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/scheduled-jobs/cron/preview")
-async def preview_cron_schedule(cron_expression: str, count: int = 10):
-    """Preview the next run times for a cron expression.
-
-    Args:
-        cron_expression: Standard cron expression (minute hour day month weekday)
-        count: Number of future runs to return (max 20)
-    """
-    from mutech_control.scheduler.cron_scheduler import CronScheduler
-
-    try:
-        # Validate cron expression
-        is_valid, error = CronScheduler.validate_cron_expression(cron_expression)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=f"Invalid cron expression: {error}")
-
-        # Get next runs
-        count = min(count, 20)  # Cap at 20
-        next_runs = CronScheduler.get_next_runs(cron_expression, count=count)
-
-        return {
-            "cron_expression": cron_expression,
-            "next_runs": [run.isoformat() for run in next_runs],
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error previewing cron schedule: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

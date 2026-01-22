@@ -1,6 +1,7 @@
 """Command orchestrator - coordinates device control operations."""
 
 import asyncio
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional
 from uuid import UUID
 
@@ -15,6 +16,7 @@ from mutech_control.utils.logging import get_logger, set_request_id
 
 if TYPE_CHECKING:
     from mutech_control.monitoring.state_monitor import StateMonitor
+    from mutech_control.scheduler.cron_scheduler import CronScheduler
     from mutech_control.services.asset_service import AssetService
 
 logger = get_logger(__name__)
@@ -29,6 +31,7 @@ class CommandOrchestrator:
         self.config = config
         self.command_verifier = CommandVerifier(db_manager, device_managers, config)
         self._asset_service: Optional["AssetService"] = None
+        self._scheduler: Optional["CronScheduler"] = None
 
         orchestrator_config = config.get("orchestrator", {})
 
@@ -52,6 +55,10 @@ class CommandOrchestrator:
     def set_asset_service(self, asset_service: "AssetService") -> None:
         """Set asset service reference for lamp hours recording."""
         self._asset_service = asset_service
+
+    def set_scheduler(self, scheduler: "CronScheduler") -> None:
+        """Set scheduler reference for one-shot task scheduling."""
+        self._scheduler = scheduler
 
     async def execute_control_command(
         self,
@@ -151,7 +158,8 @@ class CommandOrchestrator:
     ) -> List[Device]:
         """Resolve target to list of devices."""
         try:
-            target_uuid = UUID(target_id)
+            # "all" target doesn't need a valid UUID
+            target_uuid = None if target_type == "all" else UUID(target_id)
 
             async with self.db_manager.session() as session:
                 if target_type == "exhibition":
@@ -182,6 +190,14 @@ class CommandOrchestrator:
                     result = await session.execute(stmt)
                     device = result.scalar_one_or_none()
                     devices = [device] if device else []
+
+                elif target_type == "all":
+                    # Get all devices (for system-wide scheduling)
+                    stmt = select(Device).options(
+                        selectinload(Device.artwork).selectinload(Artwork.exhibition)
+                    )
+                    result = await session.execute(stmt)
+                    devices = result.scalars().all()
 
                 else:
                     logger.error(f"Unknown target type: {target_type}")
@@ -395,18 +411,16 @@ class CommandOrchestrator:
 
             # Record lamp hours for PJLink devices with asset link on power_off
             # Recording on power-off captures total lamp usage for that session
-            # 30s delay staggers network requests when multiple devices turn off at once
+            # 7 min delay ensures projector cooldown is complete before querying
+            # Uses persistent scheduler instead of fire-and-forget for reliability
             if (
                 result.success
                 and command == "off"
                 and device.device_type == "pjlink"
                 and device.asset_id
-                and self._asset_service
+                and self._scheduler
             ):
-                from mutech_control.scheduler.tasks.lamp_hours_delayed import schedule_lamp_hours_recording
-                schedule_lamp_hours_recording(
-                    self._asset_service, device.id, "power_off", delay_seconds=30.0
-                )
+                await self._schedule_lamp_hours_recording(device.id, "power_off")
 
             return {
                 "device_id": str(device.id),
@@ -452,3 +466,59 @@ class CommandOrchestrator:
 
         except Exception as e:
             logger.error(f"Error logging command: {e}")
+
+    async def _schedule_lamp_hours_recording(
+        self, device_id: UUID, event_type: str
+    ) -> None:
+        """Schedule lamp hours recording via persistent one-shot task.
+
+        Uses the scheduler's schedule_once() for persistence and deduplication.
+        This replaces the fire-and-forget approach with a reliable scheduled task.
+
+        Args:
+            device_id: Device UUID
+            event_type: Event type (power_off, power_on, etc.)
+        """
+        if not self._scheduler:
+            logger.warning(
+                "Cannot schedule lamp hours - scheduler not set",
+                device_id=str(device_id)[:8],
+            )
+            return
+
+        # Schedule 7 minutes from now (wait for projector cooldown)
+        run_at = datetime.utcnow() + timedelta(minutes=7)
+        dedupe_name = f"lamp_hours:{device_id}"
+
+        try:
+            job_id = await self._scheduler.schedule_once(
+                name=dedupe_name,
+                job_type="system",
+                task_name="lamp_hours_record",
+                task_config={
+                    "device_id": str(device_id),
+                    "event_type": event_type,
+                },
+                run_at=run_at,
+                dedupe_key=dedupe_name,
+            )
+
+            if job_id:
+                logger.debug(
+                    "Scheduled lamp hours recording",
+                    device_id=str(device_id)[:8],
+                    event_type=event_type,
+                    run_at=run_at.isoformat(),
+                )
+            else:
+                logger.debug(
+                    "Lamp hours recording already scheduled (dedupe)",
+                    device_id=str(device_id)[:8],
+                )
+
+        except Exception as e:
+            logger.error(
+                "Failed to schedule lamp hours recording",
+                device_id=str(device_id)[:8],
+                error=str(e),
+            )

@@ -22,6 +22,7 @@ interface ExhibitionSectionProps {
   onEditDevice?: (device: Device) => void;
   onDeleteDevice?: (deviceId: string, deviceName: string) => void;
   onViewDeviceLogs?: (deviceId: string) => void;
+  onOpenSchedules?: (id: string, type: 'exhibition' | 'artwork' | 'device', name: string) => void;
 }
 
 export function ExhibitionSection({
@@ -43,6 +44,7 @@ export function ExhibitionSection({
   onEditDevice,
   onDeleteDevice,
   onViewDeviceLogs,
+  onOpenSchedules,
 }: ExhibitionSectionProps) {
   const isDisabled = !exhibition.enabled;
   const visibleArtworks = (editMode ? exhibition.artworks : exhibition.artworks.filter(a => a.enabled))
@@ -64,6 +66,13 @@ export function ExhibitionSection({
           {editMode && (
             <>
               <button className="btn btn-add btn-sm me-2" onClick={onAddArtwork}>+ Artwork</button>
+              <button
+                className="btn btn-schedule btn-sm me-2"
+                onClick={() => onOpenSchedules?.(exhibition.id, 'exhibition', exhibition.name)}
+                title="Manage schedules"
+              >
+                <i className="bi bi-calendar-event"></i>
+              </button>
               <div className="btn-group me-2">
                 <button className="btn btn-edit btn-sm" onClick={() => onEditExhibition?.(exhibition)}>Edit</button>
                 <ConfirmButton className="btn btn-delete btn-sm" onConfirm={() => onDeleteExhibition?.(exhibition.id, exhibition.name)} confirmText="Sure?">Delete</ConfirmButton>
@@ -106,6 +115,7 @@ export function ExhibitionSection({
             onEditDevice={onEditDevice}
             onDeleteDevice={onDeleteDevice}
             onViewDeviceLogs={onViewDeviceLogs}
+            onOpenSchedules={onOpenSchedules}
           />
         ))}
       </div>

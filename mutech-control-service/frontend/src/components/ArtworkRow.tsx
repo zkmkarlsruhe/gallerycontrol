@@ -21,6 +21,7 @@ interface ArtworkRowProps {
   onEditDevice?: (device: Device) => void;
   onDeleteDevice?: (deviceId: string, deviceName: string) => void;
   onViewDeviceLogs?: (deviceId: string) => void;
+  onOpenSchedules?: (id: string, type: 'exhibition' | 'artwork' | 'device', name: string) => void;
 }
 
 function getDeviceStateLabel(state: number): string {
@@ -58,6 +59,7 @@ export function ArtworkRow({
   onEditDevice,
   onDeleteDevice,
   onViewDeviceLogs,
+  onOpenSchedules,
 }: ArtworkRowProps) {
   const isDisabled = !artwork.enabled;
 
@@ -84,6 +86,13 @@ export function ArtworkRow({
               </div>
               <div className="artwork-controls">
                 <button className="btn btn-add btn-sm me-2" onClick={onAddDevice}>+ Device</button>
+                <button
+                  className="btn btn-schedule btn-sm me-2"
+                  onClick={() => onOpenSchedules?.(artwork.id, 'artwork', artwork.name)}
+                  title="Manage schedules"
+                >
+                  <i className="bi bi-calendar-event"></i>
+                </button>
                 <div className="btn-group me-2">
                   <button className="btn btn-edit btn-sm" onClick={onEditArtwork}>Edit</button>
                   <ConfirmButton className="btn btn-delete btn-sm" onConfirm={() => onDeleteArtwork?.(artwork.id, artwork.name)} confirmText="Sure?">Delete</ConfirmButton>
@@ -119,6 +128,13 @@ export function ArtworkRow({
                       title="View logs for this device"
                     >
                       <i className="bi bi-terminal"></i>
+                    </button>
+                    <button
+                      className="btn btn-schedule btn-sm"
+                      onClick={() => onOpenSchedules?.(device.id, 'device', device.name)}
+                      title="Manage schedules"
+                    >
+                      <i className="bi bi-calendar-event"></i>
                     </button>
                     <div className="btn-group">
                       <button className="btn btn-edit btn-sm" onClick={() => onEditDevice?.(device)}>Edit</button>

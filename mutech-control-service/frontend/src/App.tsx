@@ -21,6 +21,7 @@ import {
 } from './components';
 import { EmailInventoryModal } from './components/modals/EmailInventoryModal';
 import { AdminModal } from './components/modals/AdminModal';
+import { ScheduleManagerModal } from './components/modals/ScheduleManagerModal';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './App.css';
@@ -40,6 +41,13 @@ interface AddDeviceContext {
 interface AddArtworkContext {
   exhibitionId: string;
   exhibitionName: string;
+}
+
+interface ScheduleModalContext {
+  type: 'device' | 'artwork' | 'exhibition' | 'all';
+  id: string;
+  name: string;
+  actions?: { name: string }[];
 }
 
 // View state type - which page/view is currently active
@@ -104,6 +112,7 @@ function App() {
   const [editDeviceData, setEditDeviceData] = useState<Device | null>(null);
   const [addArtworkContext, setAddArtworkContext] = useState<AddArtworkContext | null>(null);
   const [addDeviceContext, setAddDeviceContext] = useState<AddDeviceContext | null>(null);
+  const [scheduleModalContext, setScheduleModalContext] = useState<ScheduleModalContext | null>(null);
 
   // Extract all devices for debug filter dropdown and timeline
   const allDevices = useMemo(() => {
@@ -498,6 +507,31 @@ function App() {
     }
   };
 
+  // Open schedule manager modal
+  const handleOpenSchedules = useCallback((id: string, type: 'exhibition' | 'artwork' | 'device', name: string) => {
+    // For devices, get available actions
+    let actions: { name: string }[] | undefined;
+    if (type === 'device') {
+      for (const exhibition of exhibitions) {
+        for (const artwork of exhibition.artworks) {
+          const device = artwork.devices.find(d => d.id === id);
+          if (device?.actions) {
+            actions = device.actions;
+            break;
+          }
+        }
+        if (actions) break;
+      }
+    }
+
+    setScheduleModalContext({
+      type,
+      id,
+      name,
+      actions,
+    });
+  }, [exhibitions]);
+
   if (loading && exhibitions.length === 0) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
@@ -579,6 +613,7 @@ function App() {
               onEditDevice={setEditDeviceData}
               onDeleteDevice={handleDeleteDevice}
               onViewDeviceLogs={openLogViewer}
+              onOpenSchedules={handleOpenSchedules}
             />
           ))}
         </div>
@@ -703,6 +738,18 @@ function App() {
         onClose={() => setShowAdminModal(false)}
         showToast={showToast}
       />
+
+      {scheduleModalContext && (
+        <ScheduleManagerModal
+          isOpen={true}
+          onClose={() => setScheduleModalContext(null)}
+          targetType={scheduleModalContext.type}
+          targetId={scheduleModalContext.id}
+          targetName={scheduleModalContext.name}
+          availableActions={scheduleModalContext.actions}
+          showToast={showToast}
+        />
+      )}
     </div>
   );
 }

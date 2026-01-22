@@ -1569,6 +1569,17 @@ body {
   background: #00897b;
 }
 
+/* Schedule button - Orange/Amber */
+.btn-schedule {
+  background: #f57c00 !important;
+  color: white !important;
+  border: none !important;
+}
+
+.btn-schedule:hover {
+  background: #e65100 !important;
+}
+
 /* Consistent button sizes - touch-friendly */
 .btn.btn-sm {
   min-width: 60px;
@@ -4155,4 +4166,131 @@ body {
 
 .timeline-entry.event-manual .timeline-event-type {
   color: #ff9800;
+}
+
+/* Schedule Manager Modal */
+.schedule-manager-modal {
+  min-height: 300px;
+}
+
+.schedule-section {
+  margin-bottom: 1rem;
+}
+
+.schedule-section-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.schedule-card {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  transition: all 0.2s;
+}
+
+.schedule-card:hover {
+  border-color: #adb5bd;
+}
+
+.schedule-card.disabled {
+  opacity: 0.6;
+  background: #f1f3f4;
+}
+
+.schedule-card.one-shot.executed {
+  opacity: 0.5;
+  background: #e9ecef;
+}
+
+.schedule-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.schedule-card-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.schedule-icon {
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+  color: #6c757d;
+}
+
+.schedule-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.schedule-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #212529;
+}
+
+.schedule-meta {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.schedule-meta code {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.3rem;
+  background: #e9ecef;
+  border-radius: 0.2rem;
+  color: #495057;
+}
+
+.schedule-card-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.schedule-card-actions .btn {
+  padding: 0.25rem 0.5rem !important;
+  min-width: auto !important;
+  min-height: auto !important;
+  height: auto !important;
+}
+
+.schedule-next-run {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #6c757d;
+  padding-left: 32px;
+}
+
+.cron-preview {
+  background: #e9f5e9;
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.cron-preview ul {
+  margin-top: 0.25rem;
+}
+
+.cron-preview li {
+  color: #495057;
 }
