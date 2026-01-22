@@ -115,12 +115,12 @@ export function EmailInventoryModal({
       size="lg"
       footer={
         <>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Cancel
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
+            Close
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm"
             onClick={handleSend}
             disabled={sending || !smtpConfigured || recipients.length === 0}
           >

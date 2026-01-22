@@ -75,12 +75,17 @@ async def run_asset_linker(
                         device=device.name,
                         asset_number=asset.asset_number,
                     )
-                    # Schedule delayed onboard lamp hours recording (fire-and-forget after commit)
-                    from mutech_control.scheduler.tasks.lamp_hours_delayed import schedule_lamp_hours_recording
-                    schedule_lamp_hours_recording(
-                        asset_service, device.id, "onboard", delay_seconds=30.0
-                    )
-                    results["lamp_hours_recorded"] += 1
+                    # Record initial lamp hours on asset link (onboard event)
+                    # No delay needed - asset_linker already runs at controlled schedule
+                    try:
+                        await asset_service.record_lamp_hours_background(device.id, "onboard")
+                        results["lamp_hours_recorded"] += 1
+                    except Exception as lh_err:
+                        logger.warning(
+                            "Failed to record onboard lamp hours",
+                            device=device.name,
+                            error=str(lh_err),
+                        )
                 else:
                     results["skipped"] += 1
                     logger.debug(

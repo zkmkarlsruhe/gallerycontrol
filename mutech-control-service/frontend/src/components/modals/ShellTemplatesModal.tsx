@@ -215,7 +215,28 @@ export function ShellTemplatesModal({
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Shell Templates Library" size="xl">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Shell Templates Library"
+      size="xl"
+      footer={
+        <>
+          <button className="btn btn-secondary btn-sm" onClick={isAdding || editingId ? resetForm : onClose}>
+            Close
+          </button>
+          {isAdding || editingId ? (
+            <button className="btn btn-primary btn-sm" onClick={handleSave}>
+              {editingId ? 'Update Template' : 'Create Template'}
+            </button>
+          ) : (
+            <button className="btn btn-primary btn-sm" onClick={startAdd}>
+              <i className="bi bi-plus"></i> Add Template
+            </button>
+          )}
+        </>
+      }
+    >
       {/* Templates List */}
       <table className="credentials-table">
         <thead>
@@ -238,15 +259,16 @@ export function ShellTemplatesModal({
               <td>{tmpl.description || '-'}</td>
               <td>
                 <div className="btn-group">
-                  <button className="btn btn-edit btn-sm" onClick={() => startEdit(tmpl)}>
-                    Edit
+                  <button className="btn btn-edit btn-sm" onClick={() => startEdit(tmpl)} title="Edit">
+                    <i className="bi bi-pencil"></i>
                   </button>
                   <ConfirmButton
                     className="btn btn-delete btn-sm"
                     onConfirm={() => handleDelete(tmpl.id, tmpl.name)}
                     confirmText="Sure?"
+                    title="Delete"
                   >
-                    Delete
+                    <i className="bi bi-trash"></i>
                   </ConfirmButton>
                 </div>
               </td>
@@ -425,23 +447,7 @@ export function ShellTemplatesModal({
             </div>
           )}
 
-          {/* Form Actions */}
-          <div className="form-actions">
-            <button className="btn btn-secondary btn-sm" onClick={resetForm}>
-              Cancel
-            </button>
-            <button className="btn btn-add btn-sm" onClick={handleSave}>
-              {editingId ? 'Update Template' : 'Create Template'}
-            </button>
-          </div>
         </div>
-      )}
-
-      {/* Add Button */}
-      {!isAdding && !editingId && (
-        <button className="btn btn-add btn-sm mt-2" onClick={startAdd}>
-          <i className="bi bi-plus"></i> Add Template
-        </button>
       )}
 
       {/* Usage Hint */}

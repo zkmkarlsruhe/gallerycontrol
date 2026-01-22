@@ -2,23 +2,25 @@
 
 Replaces the old interval-based TaskScheduler with cron expressions.
 Handles both maintenance tasks (asset_linker, log_cleanup) and device
-automation (turn projector on at 9am).
+automation (turn projector on at 9am, or one-shot scheduled tasks).
 
 Features:
-- Cron expression parsing via croniter
+- Cron expression parsing via croniter for recurring jobs
+- One-shot scheduled tasks (run once at specified time)
 - Exponential backoff on failure (capped at 1 hour)
 - Circuit breaker (5 consecutive failures = pause until manual reset)
 - Execution logging with result tracking
 - Admin UI management via database
+- Target flexibility: device, artwork, or exhibition
 """
 
 import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from croniter import croniter
-from sqlalchemy import select, update
+from sqlalchemy import and_, select, update
 from sqlalchemy.orm import selectinload
 
 from mutech_control.database.models import Device, ScheduledJob, ScheduledJobLog
@@ -146,6 +148,7 @@ class CronScheduler:
 
         async with self.db_manager.session() as session:
             # Find enabled jobs that are due
+            # For one-shot jobs: only if not yet executed (executed_at IS NULL)
             stmt = (
                 select(ScheduledJob)
                 .where(ScheduledJob.enabled == True)
@@ -155,6 +158,11 @@ class CronScheduler:
                     # Skip jobs in backoff
                     (ScheduledJob.backoff_until == None)
                     | (ScheduledJob.backoff_until <= now)
+                )
+                .where(
+                    # For one-shot jobs, only run if not yet executed
+                    (ScheduledJob.run_once == False)
+                    | (ScheduledJob.executed_at == None)
                 )
                 .options(selectinload(ScheduledJob.target_device))
             )
@@ -262,21 +270,36 @@ class CronScheduler:
     ) -> tuple[bool, Optional[str]]:
         """Execute a device automation job.
 
+        Supports targeting:
+        - device: single device via target_device_id (backward compat)
+        - artwork: all devices in an artwork via target_id
+        - exhibition: all devices in an exhibition via target_id
+
         Returns:
             Tuple of (success, error_message)
         """
-        if not job.target_device_id:
-            return False, "No target_device_id specified for device job"
-
         if not self.orchestrator:
             return False, "Orchestrator not available"
 
+        target_type = job.target_type or "device"
         action_type = job.action_type
+
+        # Determine target ID based on target_type
+        if target_type == "device":
+            if not job.target_device_id:
+                return False, "No target_device_id specified for device job"
+            target_id = str(job.target_device_id)
+        else:
+            # artwork or exhibition
+            if not job.target_id:
+                return False, f"No target_id specified for {target_type} job"
+            target_id = str(job.target_id)
+
         if action_type in ("on", "off"):
             # Use orchestrator for ON/OFF commands
             result = await self.orchestrator.execute_control_command(
-                target_type="device",
-                target_id=str(job.target_device_id),
+                target_type=target_type,
+                target_id=target_id,
                 command=action_type,
                 source="scheduler",
             )
@@ -290,7 +313,9 @@ class CronScheduler:
             return True, None
 
         elif action_type == "action":
-            # Execute shell action
+            # Execute shell action (only for device target)
+            if target_type != "device":
+                return False, "Shell actions only available for device targets"
             if not job.action_name:
                 return False, "No action_name specified for action job"
             return await self._execute_shell_action(
@@ -401,8 +426,21 @@ class CronScheduler:
                     )
                     job.backoff_until = now + timedelta(seconds=backoff_seconds)
 
-                # Calculate next run time
-                job.next_run_at = self._calculate_next_run(job.cron_expression)
+                # Handle one-shot vs recurring jobs differently
+                if job.run_once:
+                    # One-shot job: mark as executed and disable
+                    job.executed_at = now
+                    job.enabled = False
+                    # Don't need to update next_run_at for one-shot
+                    logger.debug(
+                        "One-shot job completed",
+                        job=job.name,
+                        success=success,
+                    )
+                else:
+                    # Recurring job: calculate next run time
+                    if job.cron_expression:
+                        job.next_run_at = self._calculate_next_run(job.cron_expression)
 
                 # Create execution log
                 log = ScheduledJobLog(
@@ -449,17 +487,26 @@ class CronScheduler:
         return next_run
 
     async def _update_all_next_runs(self) -> None:
-        """Update next_run_at for all enabled jobs on startup."""
+        """Update next_run_at for all enabled recurring jobs on startup.
+
+        One-shot jobs keep their original next_run_at (set at creation time).
+        """
         try:
             async with self.db_manager.session() as session:
-                stmt = select(ScheduledJob).where(ScheduledJob.enabled == True)
+                # Only update recurring jobs (not one-shots)
+                stmt = (
+                    select(ScheduledJob)
+                    .where(ScheduledJob.enabled == True)
+                    .where(ScheduledJob.run_once == False)
+                    .where(ScheduledJob.cron_expression != None)
+                )
                 result = await session.execute(stmt)
                 jobs = result.scalars().all()
 
                 for job in jobs:
                     job.next_run_at = self._calculate_next_run(job.cron_expression)
 
-                logger.info("Updated next_run_at for jobs", count=len(jobs))
+                logger.info("Updated next_run_at for recurring jobs", count=len(jobs))
 
         except Exception as e:
             logger.error("Error updating next runs", error=str(e))
@@ -537,6 +584,9 @@ class CronScheduler:
                     "name": job.name,
                     "job_type": job.job_type,
                     "cron_expression": job.cron_expression,
+                    "run_once": job.run_once,
+                    "target_type": job.target_type,
+                    "target_id": str(job.target_id) if job.target_id else None,
                     "task_name": job.task_name,
                     "action_type": job.action_type,
                     "enabled": job.enabled,
@@ -544,6 +594,7 @@ class CronScheduler:
                     "last_success": job.last_success,
                     "last_error": job.last_error,
                     "next_run_at": job.next_run_at.isoformat() if job.next_run_at else None,
+                    "executed_at": job.executed_at.isoformat() if job.executed_at else None,
                     "fail_count": job.fail_count,
                     "circuit_open": job.circuit_open,
                 })
@@ -634,3 +685,128 @@ class CronScheduler:
             runs.append(next_run)
 
         return runs
+
+    # === One-Shot Task Scheduling ===
+
+    async def schedule_once(
+        self,
+        name: str,
+        job_type: str,
+        run_at: datetime,
+        target_type: str = "device",
+        target_id: Optional[str] = None,
+        target_device_id: Optional[str] = None,
+        action_type: Optional[str] = None,
+        task_name: Optional[str] = None,
+        task_config: Optional[dict] = None,
+        dedupe_key: Optional[str] = None,
+    ) -> Optional[UUID]:
+        """Schedule a one-shot task to run at a specific time.
+
+        Args:
+            name: Job name (also used as dedupe_key if dedupe_key not provided)
+            job_type: 'system' or 'device'
+            run_at: When to execute (UTC datetime)
+            target_type: 'device', 'artwork', or 'exhibition'
+            target_id: Generic target UUID for artwork/exhibition
+            target_device_id: Specific device UUID (for device target)
+            action_type: 'on', 'off' for device jobs
+            task_name: Task name for system jobs
+            task_config: Task configuration for system jobs
+            dedupe_key: Optional key for deduplication (defaults to name)
+
+        Returns:
+            Job UUID if created, None if dedupe_key already has a pending job
+        """
+        # Use name as dedupe_key if not provided
+        check_name = dedupe_key or name
+
+        try:
+            async with self.db_manager.session() as session:
+                # Check for existing pending one-shot job with same name (deduplication)
+                stmt = select(ScheduledJob).where(
+                    and_(
+                        ScheduledJob.name == check_name,
+                        ScheduledJob.run_once == True,
+                        ScheduledJob.executed_at == None,
+                    )
+                )
+                result = await session.execute(stmt)
+                existing = result.scalar_one_or_none()
+
+                if existing:
+                    logger.debug(
+                        "One-shot job already pending, skipping",
+                        name=check_name,
+                        existing_id=str(existing.id),
+                    )
+                    return None
+
+                # Ensure naive datetime for DB compatibility
+                if run_at.tzinfo is not None:
+                    run_at = run_at.replace(tzinfo=None)
+
+                # Create the one-shot job
+                job_id = uuid4()
+                job = ScheduledJob(
+                    id=job_id,
+                    name=name,
+                    job_type=job_type,
+                    cron_expression=None,  # One-shots don't need cron
+                    run_once=True,
+                    target_type=target_type,
+                    target_id=UUID(target_id) if target_id else None,
+                    target_device_id=UUID(target_device_id) if target_device_id else None,
+                    action_type=action_type,
+                    task_name=task_name,
+                    task_config=task_config,
+                    enabled=True,
+                    next_run_at=run_at,
+                )
+                session.add(job)
+
+                logger.info(
+                    "Scheduled one-shot job",
+                    name=name,
+                    job_type=job_type,
+                    run_at=run_at.isoformat(),
+                    target_type=target_type,
+                )
+
+                return job_id
+
+        except Exception as e:
+            logger.error("Error scheduling one-shot job", name=name, error=str(e))
+            return None
+
+    async def cancel_one_shot(self, name: str) -> bool:
+        """Cancel a pending one-shot job by name.
+
+        Args:
+            name: Job name to cancel
+
+        Returns:
+            True if cancelled, False if not found
+        """
+        try:
+            async with self.db_manager.session() as session:
+                stmt = select(ScheduledJob).where(
+                    and_(
+                        ScheduledJob.name == name,
+                        ScheduledJob.run_once == True,
+                        ScheduledJob.executed_at == None,
+                    )
+                )
+                result = await session.execute(stmt)
+                job = result.scalar_one_or_none()
+
+                if not job:
+                    return False
+
+                await session.delete(job)
+                logger.info("Cancelled one-shot job", name=name)
+                return True
+
+        except Exception as e:
+            logger.error("Error cancelling one-shot job", name=name, error=str(e))
+            return False

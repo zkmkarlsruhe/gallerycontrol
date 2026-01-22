@@ -74,8 +74,8 @@ export function ExhibitionSection({
                 <i className="bi bi-calendar-event"></i>
               </button>
               <div className="btn-group me-2">
-                <button className="btn btn-edit btn-sm" onClick={() => onEditExhibition?.(exhibition)}>Edit</button>
-                <ConfirmButton className="btn btn-delete btn-sm" onConfirm={() => onDeleteExhibition?.(exhibition.id, exhibition.name)} confirmText="Sure?">Delete</ConfirmButton>
+                <button className="btn btn-edit btn-sm" onClick={() => onEditExhibition?.(exhibition)} title="Edit"><i className="bi bi-pencil"></i></button>
+                <ConfirmButton className="btn btn-delete btn-sm" onConfirm={() => onDeleteExhibition?.(exhibition.id, exhibition.name)} confirmText="Sure?" title="Delete"><i className="bi bi-trash"></i></ConfirmButton>
               </div>
             </>
           )}

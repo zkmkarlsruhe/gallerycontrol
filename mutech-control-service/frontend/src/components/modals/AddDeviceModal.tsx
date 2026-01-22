@@ -186,7 +186,7 @@ export function AddDeviceModal({
       footer={
         <>
           <button type="button" className="btn btn-secondary btn-sm" onClick={handleClose}>
-            Cancel
+            Close
           </button>
           <button
             type="button"

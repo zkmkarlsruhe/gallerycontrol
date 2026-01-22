@@ -314,10 +314,19 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
   };
 
   const handleRecordLampHours = async () => {
+    const ids = Array.from(selectedAssets);
+    if (ids.length === 0) {
+      alert('Please select assets first');
+      return;
+    }
     setLampHoursRunning(true);
     setLampHoursResult(null);
     try {
-      const res = await fetch('/api/assets/record-initial-lamp-hours', { method: 'POST' });
+      const res = await fetch('/api/assets/record-lamp-hours', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ids),
+      });
       if (res.ok) {
         const result = await res.json();
         setLampHoursResult(result);
@@ -356,40 +365,85 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
 
   return (
     <div className="asset-browser-page">
-      <div className="page-header">
-        <div className="page-title">
-          <h2>Asset Browser</h2>
-          <span className="badge">{total} assets</span>
+      <div className="sub-page-header">
+        <div className="sub-page-header-left">
+          <button className="btn btn-sm btn-outline-secondary" onClick={onClose}>
+            <i className="bi bi-arrow-left me-1"></i>
+            Back
+          </button>
+          <h2>
+            <i className="bi bi-projector me-2"></i>
+            Projectors
+          </h2>
+          <span className="text-muted">{total} assets</span>
         </div>
-        <div className="page-actions">
-          <button
-            className="btn btn-sm btn-outline"
-            onClick={handleRelink}
-            disabled={relinkRunning}
-            title="Link unlinked assets to devices via DNS lookup"
+        <div className="sub-page-header-right">
+          <form onSubmit={handleSearch} className="d-flex gap-2 align-items-center">
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: '150px' }}
+            />
+            <button type="submit" className="btn btn-sm btn-outline-secondary">
+              <i className="bi bi-search"></i>
+            </button>
+          </form>
+          <select
+            className="form-select form-select-sm"
+            value={selectedExhibition}
+            onChange={(e) => setSelectedExhibition(e.target.value)}
+            style={{ width: 'auto', maxWidth: '180px' }}
           >
-            {relinkRunning ? 'Linking...' : 'Run Relink'}
-          </button>
-          <button
-            className="btn btn-sm btn-outline"
-            onClick={handleBackfill}
-            disabled={backfillRunning}
-            title="Create missing assets from existing PJLink devices"
-          >
-            {backfillRunning ? 'Running...' : 'Backfill Assets'}
-          </button>
-          <button
-            className="btn btn-sm btn-outline"
-            onClick={handleRecordLampHours}
-            disabled={lampHoursRunning}
-            title="Record current lamp hours for linked devices without history"
-          >
-            {lampHoursRunning ? 'Recording...' : 'Record Lamp Hours'}
-          </button>
-          <button className="btn btn-sm btn-close-page" onClick={onClose}>
-            <i className="bi bi-x-lg"></i>
-          </button>
+            <option value="">All Exhibitions</option>
+            {exhibitions.map(ex => (
+              <option key={ex.id} value={ex.id}>{ex.name}</option>
+            ))}
+          </select>
         </div>
+      </div>
+
+      {/* Action row */}
+      <div className="sub-page-actions">
+        {selectedAssets.size > 0 && (
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary"
+            onClick={exportSelectedCSV}
+          >
+            <i className="bi bi-download me-1"></i>
+            Export ({selectedAssets.size})
+          </button>
+        )}
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={handleRelink}
+          disabled={relinkRunning}
+          title="Link unlinked assets to devices via DNS lookup"
+        >
+          <i className="bi bi-link-45deg me-1"></i>
+          {relinkRunning ? 'Linking...' : 'Relink'}
+        </button>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={handleBackfill}
+          disabled={backfillRunning}
+          title="Create missing assets from existing PJLink devices"
+        >
+          <i className="bi bi-plus-circle me-1"></i>
+          {backfillRunning ? 'Running...' : 'Backfill'}
+        </button>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={handleRecordLampHours}
+          disabled={lampHoursRunning || selectedAssets.size === 0}
+          title="Record current lamp hours for selected assets"
+        >
+          <i className="bi bi-lightbulb me-1"></i>
+          {lampHoursRunning ? 'Recording...' : `Lamp Hours${selectedAssets.size > 0 ? ` (${selectedAssets.size})` : ''}`}
+        </button>
       </div>
 
       {backfillResult && (
@@ -408,38 +462,6 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
           {lampHoursResult.failed?.length || 0} failed
         </div>
       )}
-
-      <div className="asset-search">
-        <form onSubmit={handleSearch}>
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Search by asset number or hostname..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <select
-            className="form-control exhibition-filter"
-            value={selectedExhibition}
-            onChange={(e) => setSelectedExhibition(e.target.value)}
-          >
-            <option value="">All Exhibitions</option>
-            {exhibitions.map(ex => (
-              <option key={ex.id} value={ex.id}>{ex.name}</option>
-            ))}
-          </select>
-          <button type="submit" className="btn btn-primary">Search</button>
-          {selectedAssets.size > 0 && (
-            <button
-              type="button"
-              className="btn btn-outline export-selected"
-              onClick={exportSelectedCSV}
-            >
-              Export {selectedAssets.size} Selected
-            </button>
-          )}
-        </form>
-      </div>
 
       <div className="asset-content">
         {loading ? (
@@ -528,15 +550,17 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
                       <button
                         className="btn btn-sm btn-edit"
                         onClick={() => setEditAsset(asset)}
+                        title="Edit"
                       >
-                        Edit
+                        <i className="bi bi-pencil"></i>
                       </button>
                       <ConfirmButton
                         className="btn btn-sm btn-delete"
                         onConfirm={() => handleDeleteAsset(asset.id)}
                         confirmText="Delete?"
+                        title="Delete"
                       >
-                        Delete
+                        <i className="bi bi-trash"></i>
                       </ConfirmButton>
                     </td>
                   </tr>

@@ -329,10 +329,13 @@ class LampHoursLog(Base):
 
 
 class ScheduledJob(Base):
-    """Unified scheduled job for cron-based execution.
+    """Unified scheduled job for cron-based and one-shot execution.
 
     Handles both system maintenance tasks (asset_linker, log_cleanup, etc.)
-    and device automation (turn projector on at 9am).
+    and device automation (turn projector on at 9am, or one-shot delayed tasks).
+
+    For recurring jobs: cron_expression is required, run_once=False
+    For one-shot jobs: cron_expression is None, run_once=True, use next_run_at
     """
 
     __tablename__ = "scheduled_jobs"
@@ -340,9 +343,17 @@ class ScheduledJob(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name = Column(String(100), nullable=False)
     job_type = Column(String(20), nullable=False)  # 'system' or 'device'
-    cron_expression = Column(String(100), nullable=False)
+    cron_expression = Column(String(100), nullable=True)  # Nullable for one-shot jobs
 
-    # Device job fields
+    # One-shot support
+    run_once = Column(Boolean, default=False, nullable=False)  # True for one-shot tasks
+    executed_at = Column(DateTime, nullable=True)  # When one-shot was executed (for cleanup)
+
+    # Target flexibility for device/artwork/exhibition
+    target_type = Column(String(20), default="device", nullable=False)  # device, artwork, exhibition
+    target_id = Column(UUID(as_uuid=True), nullable=True)  # Generic target UUID (no FK)
+
+    # Device job fields (kept for backward compat with device targets)
     target_device_id = Column(
         UUID(as_uuid=True),
         ForeignKey("devices.id", ondelete="CASCADE"),
@@ -399,12 +410,29 @@ class ScheduledJob(Base):
             "task_name",
             postgresql_where=text("task_name IS NOT NULL"),
         ),
+        Index(
+            "idx_scheduled_jobs_one_shot_pending",
+            "run_once",
+            "executed_at",
+            postgresql_where=text("run_once = true AND executed_at IS NULL"),
+        ),
+        Index(
+            "idx_scheduled_jobs_one_shot_executed",
+            "run_once",
+            "executed_at",
+            postgresql_where=text("run_once = true AND executed_at IS NOT NULL"),
+        ),
     )
 
     @property
     def circuit_open(self) -> bool:
         """Circuit is open after 5 consecutive failures."""
         return self.fail_count >= 5
+
+    @property
+    def is_pending_one_shot(self) -> bool:
+        """True if this is a pending one-shot job."""
+        return self.run_once and self.executed_at is None
 
     def __repr__(self) -> str:
         return f"<ScheduledJob(id={self.id}, name='{self.name}', type='{self.job_type}', enabled={self.enabled})>"

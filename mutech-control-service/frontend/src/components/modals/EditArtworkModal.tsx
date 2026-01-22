@@ -50,7 +50,7 @@ export function EditArtworkModal({
       footer={
         <>
           <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
-            Cancel
+            Close
           </button>
           <button
             type="button"

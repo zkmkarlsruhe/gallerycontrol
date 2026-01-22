@@ -248,11 +248,11 @@ export const StateTimeline = memo(function StateTimeline({
       .attr('class', 'x-axis')
       .call(xAxis)
       .selectAll('text')
-      .attr('fill', '#aaa')
+      .attr('fill', '#495057')
       .style('font-size', '11px');
 
     g.selectAll('.x-axis path, .x-axis line')
-      .attr('stroke', '#444');
+      .attr('stroke', '#dee2e6');
 
     // Y axis (device names)
     const yAxis = d3.axisLeft(yScale);
@@ -261,7 +261,7 @@ export const StateTimeline = memo(function StateTimeline({
       .attr('class', 'y-axis')
       .call(yAxis)
       .selectAll('text')
-      .attr('fill', '#ccc')
+      .attr('fill', '#212529')
       .style('font-size', '11px')
       .each(function() {
         const text = d3.select(this);
@@ -272,7 +272,7 @@ export const StateTimeline = memo(function StateTimeline({
       });
 
     g.selectAll('.y-axis path, .y-axis line')
-      .attr('stroke', '#444');
+      .attr('stroke', '#dee2e6');
 
     // Grid lines
     g.append('g')
@@ -284,7 +284,7 @@ export const StateTimeline = memo(function StateTimeline({
       .attr('x2', innerWidth)
       .attr('y1', d => (yScale(d) || 0) + yScale.bandwidth() / 2)
       .attr('y2', d => (yScale(d) || 0) + yScale.bandwidth() / 2)
-      .attr('stroke', '#333')
+      .attr('stroke', '#e9ecef')
       .attr('stroke-dasharray', '2,2');
 
     // Draw segments
@@ -377,7 +377,7 @@ export const StateTimeline = memo(function StateTimeline({
             className="form-select form-select-sm me-2"
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value as TimeRange)}
-            style={{ width: 'auto', background: '#2a2a2a', color: '#ccc', border: '1px solid #444' }}
+            style={{ width: 'auto' }}
           >
             <option value="1h">Last 1 hour</option>
             <option value="4h">Last 4 hours</option>
@@ -386,7 +386,7 @@ export const StateTimeline = memo(function StateTimeline({
             <option value="today">Today</option>
           </select>
           <button
-            className="btn btn-sm btn-outline-light"
+            className="btn btn-sm btn-outline-secondary"
             onClick={fetchStateChanges}
             title="Refresh"
           >

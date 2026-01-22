@@ -135,7 +135,31 @@ export function CredentialsModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Credentials Store" size="xl">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Credentials Store"
+      size="xl"
+      footer={
+        <>
+          <button className="btn btn-secondary btn-sm" onClick={isAdding || editingId ? resetForm : onClose}>
+            Close
+          </button>
+          {isAdding || editingId ? (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={editingId ? handleUpdate : handleAdd}
+            >
+              {editingId ? 'Update' : 'Create'}
+            </button>
+          ) : (
+            <button className="btn btn-primary btn-sm" onClick={startAdd}>
+              <i className="bi bi-plus"></i> Add Credential
+            </button>
+          )}
+        </>
+      }
+    >
       {/* Credentials List */}
       <table className="credentials-table">
         <thead>
@@ -167,17 +191,18 @@ export function CredentialsModal({
                   <button
                     className="btn btn-edit btn-sm"
                     onClick={() => startEdit(cred)}
+                    title="Edit"
                   >
-                    Edit
+                    <i className="bi bi-pencil"></i>
                   </button>
                   <ConfirmButton
                     className="btn btn-delete btn-sm"
                     onConfirm={() => handleDelete(cred.id, cred.name)}
                     confirmText="Sure?"
                     disabled={cred.used_by_count > 0}
-                    title={cred.used_by_count > 0 ? `In use by ${cred.used_by_count} device(s)` : undefined}
+                    title={cred.used_by_count > 0 ? `In use by ${cred.used_by_count} device(s)` : 'Delete'}
                   >
-                    Delete
+                    <i className="bi bi-trash"></i>
                   </ConfirmButton>
                 </div>
               </td>
@@ -253,25 +278,7 @@ export function CredentialsModal({
               />
             </div>
           </div>
-          <div className="form-actions">
-            <button className="btn btn-secondary btn-sm" onClick={resetForm}>
-              Cancel
-            </button>
-            <button
-              className="btn btn-add btn-sm"
-              onClick={editingId ? handleUpdate : handleAdd}
-            >
-              {editingId ? 'Update' : 'Create'}
-            </button>
-          </div>
         </div>
-      )}
-
-      {/* Add Button */}
-      {!isAdding && !editingId && (
-        <button className="btn btn-add btn-sm mt-2" onClick={startAdd}>
-          <i className="bi bi-plus"></i> Add Credential
-        </button>
       )}
 
       {/* Usage Hint */}

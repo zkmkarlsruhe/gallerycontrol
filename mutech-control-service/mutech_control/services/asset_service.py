@@ -550,6 +550,81 @@ class AssetService:
 
         return results
 
+    async def record_lamp_hours_for_assets(
+        self,
+        asset_ids: list[UUID],
+        session,
+    ) -> dict:
+        """Record lamp hours for specific assets.
+
+        Finds devices linked to the given assets and queries their lamp hours.
+
+        Args:
+            asset_ids: List of asset UUIDs to record lamp hours for
+            session: Database session
+
+        Returns:
+            Progress report dict
+        """
+        results = {
+            "processed": 0,
+            "recorded": 0,
+            "failed": [],
+            "skipped": [],
+        }
+
+        if not asset_ids:
+            return results
+
+        # Find PJLink devices linked to these assets
+        stmt = select(Device).where(
+            Device.device_type == 'pjlink',
+            Device.asset_id.in_(asset_ids)
+        )
+        result = await session.execute(stmt)
+        devices = list(result.scalars().all())
+
+        logger.info(
+            "Recording lamp hours for selected assets",
+            asset_count=len(asset_ids),
+            device_count=len(devices)
+        )
+
+        if not devices:
+            return results
+
+        for device in devices:
+            try:
+                log = await self._record_lamp_hours_impl(
+                    device.id, 'manual', session
+                )
+                if log:
+                    results["recorded"] += 1
+                else:
+                    results["skipped"].append({
+                        "device": device.name,
+                        "reason": "Could not query lamp hours",
+                    })
+            except Exception as e:
+                results["failed"].append({
+                    "device": device.name,
+                    "error": str(e),
+                })
+
+            results["processed"] += 1
+
+        await session.commit()
+
+        logger.info(
+            "Lamp hours recording for selected assets completed",
+            processed=results["processed"],
+            recorded=results["recorded"],
+            failed=len(results["failed"]),
+            skipped=len(results["skipped"]),
+        )
+
+        return results
+
     async def should_resolve_dns(self, device: Device) -> bool:
         """Check if device DNS should be re-resolved.
 

@@ -362,7 +362,7 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
         .attr('x2', d => xScaleZoomed(d))
         .attr('y1', 0)
         .attr('y2', currentY)
-        .attr('stroke', '#1a2027')
+        .attr('stroke', '#dee2e6')
         .attr('stroke-dasharray', '2,4');
 
       // Draw row backgrounds for chart area
@@ -375,14 +375,14 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
             .attr('y', pos.y)
             .attr('width', innerWidth)
             .attr('height', pos.height)
-            .attr('fill', '#1e3a5f');
+            .attr('fill', '#e3f2fd');
         } else if (row.type === 'artwork') {
           chartGroup.append('rect')
             .attr('x', 0)
             .attr('y', pos.y)
             .attr('width', innerWidth)
             .attr('height', pos.height)
-            .attr('fill', '#263238');
+            .attr('fill', '#f5f5f5');
         } else {
           // Horizontal grid line for device rows
           chartGroup.append('line')
@@ -390,7 +390,7 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
             .attr('x2', innerWidth)
             .attr('y1', pos.y + pos.height / 2)
             .attr('y2', pos.y + pos.height / 2)
-            .attr('stroke', '#1a2027')
+            .attr('stroke', '#e9ecef')
             .attr('stroke-dasharray', '2,2');
         }
       }
@@ -473,14 +473,14 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
           .attr('y', pos.y)
           .attr('width', margin.left)
           .attr('height', pos.height)
-          .attr('fill', '#1e3a5f');
+          .attr('fill', '#e3f2fd');
 
         // Exhibition label
         labelsGroup.append('text')
           .attr('x', -margin.left + 10)
           .attr('y', pos.y + pos.height / 2)
           .attr('dy', '0.35em')
-          .attr('fill', '#90caf9')
+          .attr('fill', '#1565c0')
           .style('font-size', '13px')
           .style('font-weight', '600')
           .text(row.label.length > 28 ? row.label.substring(0, 26) + '...' : row.label);
@@ -492,14 +492,14 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
           .attr('y', pos.y)
           .attr('width', margin.left)
           .attr('height', pos.height)
-          .attr('fill', '#263238');
+          .attr('fill', '#f5f5f5');
 
         // Artwork label (indented)
         labelsGroup.append('text')
           .attr('x', -margin.left + 20)
           .attr('y', pos.y + pos.height / 2)
           .attr('dy', '0.35em')
-          .attr('fill', '#80cbc4')
+          .attr('fill', '#00796b')
           .style('font-size', '12px')
           .style('font-weight', '500')
           .text(row.label.length > 26 ? row.label.substring(0, 24) + '...' : row.label);
@@ -511,14 +511,14 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
           .attr('y', pos.y)
           .attr('width', margin.left)
           .attr('height', pos.height)
-          .attr('fill', '#0d1117');
+          .attr('fill', '#ffffff');
 
         // Device label (more indented)
         labelsGroup.append('text')
           .attr('x', -margin.left + 30)
           .attr('y', pos.y + pos.height / 2)
           .attr('dy', '0.35em')
-          .attr('fill', '#b0bec5')
+          .attr('fill', '#495057')
           .style('font-size', '11px')
           .text(row.label.length > 24 ? row.label.substring(0, 22) + '...' : row.label);
       }
@@ -551,10 +551,10 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
 
       xAxisGroup.call(xAxis)
         .selectAll('text')
-        .attr('fill', '#b0bec5')
+        .attr('fill', '#495057')
         .style('font-size', '11px');
 
-      xAxisGroup.selectAll('path, line').attr('stroke', '#455a64');
+      xAxisGroup.selectAll('path, line').attr('stroke', '#dee2e6');
 
       const xAxisBottom = d3.axisBottom(xScaleZoomed)
         .ticks(10)
@@ -562,10 +562,10 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
 
       xAxisBottomGroup.call(xAxisBottom)
         .selectAll('text')
-        .attr('fill', '#b0bec5')
+        .attr('fill', '#495057')
         .style('font-size', '11px');
 
-      xAxisBottomGroup.selectAll('path, line').attr('stroke', '#455a64');
+      xAxisBottomGroup.selectAll('path, line').attr('stroke', '#dee2e6');
     };
 
     // Initial render
@@ -655,28 +655,27 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
   return (
     <div className="timeline-page">
       {/* Header */}
-      <div className="timeline-page-header">
-        <div className="timeline-page-header-left">
-          <button className="btn btn-sm btn-outline-light" onClick={onClose}>
+      <div className="sub-page-header">
+        <div className="sub-page-header-left">
+          <button className="btn btn-sm btn-outline-secondary" onClick={onClose}>
             <i className="bi bi-arrow-left me-1"></i>
             Back
           </button>
           <h2>
             <i className="bi bi-bar-chart-steps me-2"></i>
-            State Timeline
+            Timeline
           </h2>
-        </div>
-        <div className="timeline-page-header-right">
-          <span className="text-muted me-3">
-            {deviceCount} devices, {stateChanges.length} changes
+          <span className="text-muted">
+            {deviceCount} devices
           </span>
-
+        </div>
+        <div className="sub-page-header-right">
           {/* Exhibition filter */}
           <select
-            className="form-select form-select-sm me-2"
+            className="form-select form-select-sm"
             value={filterExhibition || ''}
             onChange={(e) => setFilterExhibition(e.target.value || null)}
-            style={{ width: 'auto', maxWidth: '200px' }}
+            style={{ width: 'auto', maxWidth: '180px' }}
           >
             <option value="">All exhibitions</option>
             {exhibitions.map(ex => (
@@ -686,7 +685,7 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
 
           {/* Time range selector */}
           <select
-            className="form-select form-select-sm me-2"
+            className="form-select form-select-sm"
             value={timeRange}
             onChange={(e) => {
               setTimeRange(e.target.value as TimeRange);
@@ -694,98 +693,78 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
             }}
             style={{ width: 'auto' }}
           >
-            <option value="1h">Last 1 hour</option>
-            <option value="4h">Last 4 hours</option>
-            <option value="12h">Last 12 hours</option>
-            <option value="24h">Last 24 hours</option>
+            <option value="1h">1 hour</option>
+            <option value="4h">4 hours</option>
+            <option value="12h">12 hours</option>
+            <option value="24h">24 hours</option>
             <option value="today">Today</option>
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-            <option value="custom">Custom range</option>
+            <option value="7d">7 days</option>
+            <option value="30d">30 days</option>
+            <option value="custom">Custom</option>
           </select>
 
-          <button
-            className="btn btn-sm btn-outline-light"
-            onClick={fetchStateChanges}
-            title="Refresh"
-          >
-            <i className="bi bi-arrow-clockwise"></i>
-          </button>
-        </div>
-      </div>
+          {/* Custom date inputs inline */}
+          {timeRange === 'custom' && (
+            <>
+              <input
+                type="datetime-local"
+                className="form-control form-control-sm"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                style={{ width: 'auto' }}
+              />
+              <span className="text-muted">to</span>
+              <input
+                type="datetime-local"
+                className="form-control form-control-sm"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                style={{ width: 'auto' }}
+              />
+            </>
+          )}
 
-      {/* Custom date range inputs */}
-      {timeRange === 'custom' && (
-        <div className="timeline-custom-range">
-          <label className="me-2">
-            From:
-            <input
-              type="datetime-local"
-              className="form-control form-control-sm ms-1"
-              value={customFrom}
-              onChange={(e) => setCustomFrom(e.target.value)}
-              style={{ display: 'inline-block', width: 'auto' }}
-            />
-          </label>
-          <label className="me-2">
-            To:
-            <input
-              type="datetime-local"
-              className="form-control form-control-sm ms-1"
-              value={customTo}
-              onChange={(e) => setCustomTo(e.target.value)}
-              style={{ display: 'inline-block', width: 'auto' }}
-            />
-          </label>
           <button
-            className="btn btn-sm btn-primary"
+            className="btn btn-sm btn-outline-secondary"
             onClick={() => {
               currentTransformRef.current = d3.zoomIdentity;
               fetchStateChanges();
             }}
+            title="Refresh data"
           >
-            Apply
+            <i className="bi bi-arrow-clockwise me-1"></i>
+            Refresh
           </button>
         </div>
-      )}
+      </div>
 
-      {/* Legend and zoom controls */}
-      <div className="timeline-page-legend">
-        <div className="legend-items">
-          {Object.entries(STATE_NAMES).map(([state, name]) => (
-            <div key={state} className="legend-item">
-              <span
-                className="legend-color"
-                style={{ backgroundColor: STATE_COLORS[parseInt(state)] }}
-              ></span>
-              <span className="legend-label">{name}</span>
-            </div>
-          ))}
-        </div>
-        <div className="zoom-controls">
-          <span className="zoom-level me-2">{zoomLevel}</span>
-          <button
-            className="btn btn-sm btn-outline-secondary me-1"
-            onClick={handleZoomOut}
-            title="Zoom out"
-          >
-            <i className="bi bi-zoom-out"></i>
-          </button>
-          <button
-            className="btn btn-sm btn-outline-secondary me-1"
-            onClick={handleZoomReset}
-            title="Reset zoom"
-          >
-            <i className="bi bi-arrows-angle-contract"></i>
-          </button>
-          <button
-            className="btn btn-sm btn-outline-secondary"
-            onClick={handleZoomIn}
-            title="Zoom in"
-          >
-            <i className="bi bi-zoom-in"></i>
-          </button>
-        </div>
+      {/* Action row */}
+      <div className="sub-page-actions">
+        <span className="zoom-level">{zoomLevel}</span>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={handleZoomOut}
+          title="Zoom out"
+        >
+          <i className="bi bi-zoom-out me-1"></i>
+          Out
+        </button>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={handleZoomReset}
+          title="Reset zoom"
+        >
+          <i className="bi bi-arrows-angle-contract me-1"></i>
+          Reset
+        </button>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={handleZoomIn}
+          title="Zoom in"
+        >
+          <i className="bi bi-zoom-in me-1"></i>
+          In
+        </button>
       </div>
 
       {/* Chart Container */}
@@ -819,10 +798,23 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
         )}
       </div>
 
-      {/* Zoom hint */}
-      <div className="timeline-zoom-hint">
-        <i className="bi bi-mouse me-1"></i>
-        Ctrl+Scroll to zoom, drag to pan
+      {/* Legend and zoom hint */}
+      <div className="timeline-legend-hint">
+        <div className="legend-inline">
+          {Object.entries(STATE_NAMES).map(([state, name]) => (
+            <span key={state} className="legend-item-inline">
+              <span
+                className="legend-dot"
+                style={{ backgroundColor: STATE_COLORS[parseInt(state)] }}
+              ></span>
+              {name}
+            </span>
+          ))}
+        </div>
+        <span className="zoom-hint-text">
+          <i className="bi bi-mouse me-1"></i>
+          Ctrl+Scroll to zoom, drag to pan
+        </span>
       </div>
 
       {/* Tooltip */}

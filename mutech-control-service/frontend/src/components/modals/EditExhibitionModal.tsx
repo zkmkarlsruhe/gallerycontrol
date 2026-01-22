@@ -49,12 +49,12 @@ export function EditExhibitionModal({
       onClose={onClose}
       footer={
         <>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Cancel
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
+            Close
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm"
             onClick={handleSave}
             disabled={saving || !name.trim()}
           >

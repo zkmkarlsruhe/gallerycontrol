@@ -280,8 +280,8 @@ export function EditDeviceModal({
         <div className="d-flex justify-content-between w-100">
           <div className="d-flex gap-2">
             {onDelete && (
-              <button type="button" className="btn btn-delete btn-sm" onClick={handleDelete}>
-                Delete Device
+              <button type="button" className="btn btn-delete btn-sm" onClick={handleDelete} title="Delete Device">
+                <i className="bi bi-trash"></i>
               </button>
             )}
             {device.device_type === 'shell' && onSaveAsTemplate && (
@@ -300,7 +300,7 @@ export function EditDeviceModal({
           </div>
           <div className="d-flex gap-2">
             <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
-              Cancel
+              Close
             </button>
             <button
               type="button"

@@ -24,6 +24,7 @@ from mutech_control.scheduler.tasks import (
     run_asset_linker,
     run_device_info_cache,
     run_lamp_hours_check,
+    run_lamp_hours_record,
     run_log_cleanup,
 )
 from mutech_control.services.asset_service import AssetService
@@ -123,6 +124,12 @@ async def lifespan(app: FastAPI):
         lambda **kwargs: run_lamp_hours_check(db_manager, asset_service, **kwargs),
         {"chunk_size": 10, "delay_between_chunks": 2.0},
     )
+    # One-shot task for single-device lamp hours recording (used by orchestrator)
+    cron_scheduler.register_system_task(
+        "lamp_hours_record",
+        lambda **kwargs: run_lamp_hours_record(db_manager, asset_service, **kwargs),
+        {},  # No default config - all params come from task_config
+    )
     logger.info("Cron scheduler initialized with system tasks")
 
     # Connect orchestrator's verifier to state monitor for unified polling
@@ -132,6 +139,10 @@ async def lifespan(app: FastAPI):
     # Connect orchestrator to asset service for lamp hours recording
     orchestrator.set_asset_service(asset_service)
     logger.info("Asset service connected to orchestrator")
+
+    # Connect scheduler to orchestrator for one-shot task scheduling (lamp hours)
+    orchestrator.set_scheduler(cron_scheduler)
+    logger.info("Cron scheduler connected to orchestrator")
 
     # Store in app state
     app.state.db_manager = db_manager

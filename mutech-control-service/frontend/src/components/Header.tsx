@@ -31,30 +31,32 @@ export function Header({
     <div className="app-header">
       <h1>MuTech Control</h1>
       <div className="header-controls">
-        {/* View Tools - Always visible */}
+        {/* View Tools */}
         <button
           className={`btn btn-sm ${showingTimeline ? 'btn-timeline-active' : 'btn-timeline'}`}
           onClick={onOpenTimeline}
           title="View device state history over time"
         >
           <i className="bi bi-bar-chart-steps me-1"></i>
-          State Timeline
+          Timeline
         </button>
-        <button
-          className={`btn btn-sm ${showingAssets ? 'btn-assets-active' : 'btn-assets'}`}
-          onClick={onOpenAssets}
-          title="Browse and manage physical assets (projectors, lamps)"
-        >
-          <i className="bi bi-lamp me-1"></i>
-          Asset Browser
-        </button>
+        {editMode && (
+          <button
+            className={`btn btn-sm ${showingAssets ? 'btn-assets-active' : 'btn-assets'}`}
+            onClick={onOpenAssets}
+            title="Browse and manage projectors and lamps"
+          >
+            <i className="bi bi-projector me-1"></i>
+            Projectors
+          </button>
+        )}
         <button
           className={`btn btn-sm ${showingLogs ? 'btn-logs-active' : 'btn-logs'}`}
           onClick={onOpenLogs}
           title="View real-time operation logs and errors"
         >
-          <i className="bi bi-terminal me-1"></i>
-          Operation Logs
+          <i className="bi bi-journal-text me-1"></i>
+          Logs
         </button>
 
         {/* Separator */}
@@ -67,8 +69,8 @@ export function Header({
             onClick={onOpenShellLibrary}
             title="Manage reusable shell command templates"
           >
-            <i className="bi bi-bookmark me-1"></i>
-            Shell Library
+            <i className="bi bi-terminal me-1"></i>
+            Library
           </button>
         )}
         {editMode && onOpenCredentials && (
@@ -77,7 +79,7 @@ export function Header({
             onClick={onOpenCredentials}
             title="Manage device login credentials"
           >
-            <i className="bi bi-key me-1"></i>
+            <i className="bi bi-lock me-1"></i>
             Credentials
           </button>
         )}
@@ -88,7 +90,7 @@ export function Header({
             title="Send device inventory report via email"
           >
             <i className="bi bi-envelope me-1"></i>
-            Email Report
+            Mail
           </button>
         )}
         {editMode && onOpenAdmin && (

@@ -403,10 +403,11 @@ async def export_lamp_history_csv(
 
         # Build CSV
         output = StringIO()
-        output.write("timestamp,lamp_hours,event_type,device_name,artwork_name,exhibition_name\n")
+        output.write("asset_number,timestamp,lamp_hours,event_type,device_name,artwork_name,exhibition_name\n")
 
         for log in logs:
             output.write(
+                f"\"{asset.asset_number}\","
                 f"{log.timestamp.isoformat()},"
                 f"{log.lamp_hours},"
                 f"{log.event_type},"
@@ -680,4 +681,43 @@ async def record_initial_lamp_hours(request: Request):
         raise
     except Exception as e:
         logger.error(f"Error recording initial lamp hours: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/record-lamp-hours")
+async def record_lamp_hours_for_assets(
+    asset_ids: List[str],
+    request: Request,
+    session=Depends(get_session),
+):
+    """Record current lamp hours for selected assets.
+
+    Queries current lamp hours from projectors linked to the specified assets.
+    Unlike record-initial-lamp-hours, this records for ALL specified assets
+    regardless of whether they already have lamp history.
+
+    Args:
+        asset_ids: List of asset UUIDs to record lamp hours for
+
+    Returns:
+        Progress report with recorded, skipped, and failed counts
+    """
+    try:
+        if not asset_ids:
+            raise HTTPException(status_code=400, detail="No asset IDs provided")
+
+        asset_service = getattr(request.app.state, 'asset_service', None)
+        if not asset_service:
+            raise HTTPException(status_code=503, detail="Asset service not available")
+
+        # Parse UUIDs
+        asset_uuids = [parse_uuid(aid, "asset_id") for aid in asset_ids]
+
+        results = await asset_service.record_lamp_hours_for_assets(asset_uuids, session)
+        return results
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error recording lamp hours: {e}")
         raise HTTPException(status_code=500, detail=str(e))

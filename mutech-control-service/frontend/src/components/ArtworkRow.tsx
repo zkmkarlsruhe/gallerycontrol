@@ -94,8 +94,8 @@ export function ArtworkRow({
                   <i className="bi bi-calendar-event"></i>
                 </button>
                 <div className="btn-group me-2">
-                  <button className="btn btn-edit btn-sm" onClick={onEditArtwork}>Edit</button>
-                  <ConfirmButton className="btn btn-delete btn-sm" onConfirm={() => onDeleteArtwork?.(artwork.id, artwork.name)} confirmText="Sure?">Delete</ConfirmButton>
+                  <button className="btn btn-edit btn-sm" onClick={onEditArtwork} title="Edit"><i className="bi bi-pencil"></i></button>
+                  <ConfirmButton className="btn btn-delete btn-sm" onConfirm={() => onDeleteArtwork?.(artwork.id, artwork.name)} confirmText="Sure?" title="Delete"><i className="bi bi-trash"></i></ConfirmButton>
                 </div>
                 <div className="btn-group">
                   <button className="btn btn-on btn-sm" onClick={() => onArtworkControl(artwork.id, 'on', artwork.name)}>ON</button>
@@ -127,7 +127,7 @@ export function ArtworkRow({
                       onClick={() => onViewDeviceLogs?.(device.id)}
                       title="View logs for this device"
                     >
-                      <i className="bi bi-terminal"></i>
+                      <i className="bi bi-journal-text"></i>
                     </button>
                     <button
                       className="btn btn-schedule btn-sm"
@@ -137,8 +137,8 @@ export function ArtworkRow({
                       <i className="bi bi-calendar-event"></i>
                     </button>
                     <div className="btn-group">
-                      <button className="btn btn-edit btn-sm" onClick={() => onEditDevice?.(device)}>Edit</button>
-                      <ConfirmButton className="btn btn-delete btn-sm" onConfirm={() => onDeleteDevice?.(device.id, device.name)} confirmText="Delete?">Delete</ConfirmButton>
+                      <button className="btn btn-edit btn-sm" onClick={() => onEditDevice?.(device)} title="Edit"><i className="bi bi-pencil"></i></button>
+                      <ConfirmButton className="btn btn-delete btn-sm" onConfirm={() => onDeleteDevice?.(device.id, device.name)} confirmText="Delete?" title="Delete"><i className="bi bi-trash"></i></ConfirmButton>
                     </div>
                     {device.actions && device.actions.length > 0 && (
                       <div className="btn-group">

@@ -334,7 +334,41 @@ export function ScheduleManagerModal({
   const onceJobs = deviceJobs.filter(j => j.run_once);
 
   return (
-    <Modal isOpen={isOpen} title={`Schedules for "${targetName}"`} onClose={onClose} size="lg">
+    <Modal
+      isOpen={isOpen}
+      title={`Schedules for "${targetName}"`}
+      onClose={onClose}
+      size="lg"
+      footer={
+        <>
+          <button className="btn btn-secondary btn-sm" onClick={editingJob ? cancelEditing : onClose}>
+            Close
+          </button>
+          {editingJob ? (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleUpdateJob}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          ) : (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleSaveSchedule}
+              disabled={saving}
+            >
+              {saving ? 'Creating...' : (
+                <>
+                  <i className="bi bi-plus-lg me-1"></i>
+                  Add Schedule
+                </>
+              )}
+            </button>
+          )}
+        </>
+      }
+    >
       <div className="schedule-manager-modal">
         {/* Existing Schedules */}
         <div className="schedule-section">
@@ -564,48 +598,6 @@ export function ScheduleManagerModal({
             </div>
           )}
 
-          {/* Action buttons */}
-          <div className="d-flex gap-2 justify-content-end">
-            {editingJob ? (
-              <>
-                <button className="btn btn-secondary" onClick={cancelEditing}>
-                  Cancel
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleUpdateJob}
-                  disabled={saving}
-                >
-                  {saving ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-1"></span>
-                      Saving...
-                    </>
-                  ) : (
-                    'Save Changes'
-                  )}
-                </button>
-              </>
-            ) : (
-              <button
-                className="btn btn-primary"
-                onClick={handleSaveSchedule}
-                disabled={saving}
-              >
-                {saving ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm me-1"></span>
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <i className="bi bi-plus-lg me-1"></i>
-                    Add Schedule
-                  </>
-                )}
-              </button>
-            )}
-          </div>
         </div>
       </div>
     </Modal>

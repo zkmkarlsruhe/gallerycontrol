@@ -245,10 +245,6 @@ export function LogViewer({ onClose, initialFilterDeviceId, devices }: LogViewer
     }
   }, [initialFilterDeviceId]);
 
-  const filteredDeviceName = filterDeviceId
-    ? devices.find(d => d.id === filterDeviceId)?.name || timeline[0]?.device_name || 'device'
-    : null;
-
   // Reverse timeline for journalctl-style (newest at bottom) and apply error filter
   let displayTimeline = [...timeline].reverse();
   if (showOnlyErrors) {
@@ -256,142 +252,125 @@ export function LogViewer({ onClose, initialFilterDeviceId, devices }: LogViewer
   }
 
   const errorCount = timeline.filter(e => e.type === 'operation' && e.success === false).length;
-  const stateChangeCount = timeline.filter(e => e.type === 'state_change').length;
 
   return (
     <div className={`log-viewer-page ${isMobile ? 'log-viewer-mobile' : ''} ${effectiveAdvancedView ? 'log-viewer-advanced' : 'log-viewer-simple'}`}>
       {/* Header */}
-      <div className="log-viewer-header">
-        <div className="log-viewer-header-left">
-          <button className="btn btn-sm btn-outline-light" onClick={onClose}>
-            <i className="bi bi-arrow-left"></i>
-            {!isMobile && <span className="ms-1">Back</span>}
+      <div className="sub-page-header">
+        <div className="sub-page-header-left">
+          <button className="btn btn-sm btn-outline-secondary" onClick={onClose}>
+            <i className="bi bi-arrow-left me-1"></i>Back
           </button>
           <h2>
-            <i className="bi bi-terminal"></i>
-            {!isMobile && (
-              <span className="ms-2">
-                {effectiveAdvancedView ? 'Advanced Logs' : 'Logs'}
-              </span>
-            )}
+            <i className="bi bi-journal-text me-2"></i>
+            {effectiveAdvancedView ? 'Advanced Logs' : 'Logs'}
           </h2>
-          {filteredDeviceName && (
-            <span className={`badge bg-warning text-dark ${isMobile ? 'log-filter-badge-mobile' : ''}`}>
-              {filteredDeviceName}
-            </span>
-          )}
+          <span className="text-muted">
+            {displayTimeline.length} entries
+            {errorCount > 0 && <span className="text-danger ms-1">({errorCount} errors)</span>}
+          </span>
         </div>
-        <div className="log-viewer-header-right">
-          {/* Stats - hidden on mobile */}
-          {!isMobile && (
-            <span className="log-stats text-muted me-2">
-              {displayTimeline.length}
-              {errorCount > 0 && (
-                <span className="text-danger ms-1">/ {errorCount} err</span>
-              )}
-              {effectiveAdvancedView && stateChangeCount > 0 && (
-                <span className="text-warning ms-1">/ {stateChangeCount} chg</span>
-              )}
-            </span>
-          )}
-
-          {/* Advanced toggle - desktop only */}
-          {!isMobile && (
-            <button
-              className={`btn btn-sm ${advancedView ? 'btn-info' : 'btn-outline-info'} me-1`}
-              onClick={() => setAdvancedView(!advancedView)}
-              title={advancedView ? 'Switch to simple view' : 'Switch to advanced view'}
-            >
-              <i className={`bi bi-${advancedView ? 'phone' : 'display'}`}></i>
-              <span className="ms-1">{advancedView ? 'Simple' : 'Advanced'}</span>
-            </button>
-          )}
-
-          {/* Error filter */}
-          <button
-            className={`btn btn-sm ${showOnlyErrors ? 'btn-danger' : 'btn-outline-danger'}`}
-            onClick={() => setShowOnlyErrors(!showOnlyErrors)}
-            title={showOnlyErrors ? 'Show all entries' : 'Show only errors'}
+        <div className="sub-page-header-right">
+          {/* Device filter dropdown */}
+          <select
+            className="form-select form-select-sm"
+            value={filterDeviceId || ''}
+            onChange={(e) => setFilterDeviceId(e.target.value || null)}
+            style={{ width: 'auto', maxWidth: '220px' }}
           >
-            <i className={`bi bi-exclamation-triangle${showOnlyErrors ? '-fill' : ''}`}></i>
-          </button>
-
-          {/* Pause/Resume */}
-          <button
-            className={`btn btn-sm ${paused ? 'btn-warning' : 'btn-outline-secondary'}`}
-            onClick={() => setPaused(!paused)}
-            title={paused ? 'Resume auto-refresh' : 'Pause auto-refresh'}
-          >
-            <i className={`bi bi-${paused ? 'play-fill' : 'pause-fill'}`}></i>
-          </button>
-
-          {/* Auto-scroll */}
-          <button
-            className={`btn btn-sm ${autoScroll ? 'btn-outline-light' : 'btn-outline-secondary'}`}
-            onClick={() => setAutoScroll(!autoScroll)}
-            title={autoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'}
-          >
-            <i className={`bi bi-arrow-down-circle${autoScroll ? '-fill' : ''}`}></i>
-          </button>
-
-          {/* Clear filter */}
+            <option value="">All Devices</option>
+            {(() => {
+              // Group devices by exhibition
+              const byExhibition = new Map<string, DeviceOption[]>();
+              for (const device of devices) {
+                const list = byExhibition.get(device.exhibitionName) || [];
+                list.push(device);
+                byExhibition.set(device.exhibitionName, list);
+              }
+              // Sort exhibitions alphabetically
+              const sortedExhibitions = Array.from(byExhibition.keys()).sort((a, b) => a.localeCompare(b));
+              return sortedExhibitions.map(exhibitionName => {
+                const exhibitionDevices = byExhibition.get(exhibitionName)!;
+                // Sort devices within exhibition by artwork name, then device name
+                exhibitionDevices.sort((a, b) =>
+                  a.artworkName.localeCompare(b.artworkName) || a.name.localeCompare(b.name)
+                );
+                return (
+                  <optgroup key={exhibitionName} label={exhibitionName}>
+                    {exhibitionDevices.map(device => (
+                      <option key={device.id} value={device.id}>
+                        {device.artworkName} / {device.name} [{device.type}]
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              });
+            })()}
+          </select>
           {filterDeviceId && (
             <button
               className="btn btn-sm btn-outline-warning"
               onClick={() => setFilterDeviceId(null)}
-              title="Clear device filter"
+              title="Clear filter"
             >
               <i className="bi bi-x-lg"></i>
             </button>
           )}
-
-          {/* Refresh */}
-          <button
-            className="btn btn-sm btn-outline-light"
-            onClick={() => { fetchTimeline(); fetchSchedulerStatus(); }}
-            title="Refresh logs"
-          >
-            <i className="bi bi-arrow-clockwise"></i>
-          </button>
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="log-viewer-filter-bar">
-        <select
-          className="form-select form-select-sm log-viewer-filter-select"
-          value={filterDeviceId || ''}
-          onChange={(e) => setFilterDeviceId(e.target.value || null)}
+      {/* Action Row */}
+      <div className="sub-page-actions">
+        {/* Advanced toggle - desktop only */}
+        {!isMobile && (
+          <button
+            className={`btn btn-sm ${advancedView ? 'btn-info' : 'btn-outline-secondary'}`}
+            onClick={() => setAdvancedView(!advancedView)}
+            title={advancedView ? 'Switch to simple view' : 'Switch to advanced view'}
+          >
+            <i className={`bi bi-${advancedView ? 'phone' : 'display'} me-1`}></i>
+            {advancedView ? 'Simple' : 'Advanced'}
+          </button>
+        )}
+
+        {/* Error filter */}
+        <button
+          className={`btn btn-sm ${showOnlyErrors ? 'btn-danger' : 'btn-outline-secondary'}`}
+          onClick={() => setShowOnlyErrors(!showOnlyErrors)}
+          title={showOnlyErrors ? 'Show all entries' : 'Show only errors'}
         >
-          <option value="">-- all devices --</option>
-          {(() => {
-            // Group devices by exhibition
-            const byExhibition = new Map<string, DeviceOption[]>();
-            for (const device of devices) {
-              const list = byExhibition.get(device.exhibitionName) || [];
-              list.push(device);
-              byExhibition.set(device.exhibitionName, list);
-            }
-            // Sort exhibitions alphabetically
-            const sortedExhibitions = Array.from(byExhibition.keys()).sort((a, b) => a.localeCompare(b));
-            return sortedExhibitions.map(exhibitionName => {
-              const exhibitionDevices = byExhibition.get(exhibitionName)!;
-              // Sort devices within exhibition by artwork name, then device name
-              exhibitionDevices.sort((a, b) =>
-                a.artworkName.localeCompare(b.artworkName) || a.name.localeCompare(b.name)
-              );
-              return (
-                <optgroup key={exhibitionName} label={exhibitionName}>
-                  {exhibitionDevices.map(device => (
-                    <option key={device.id} value={device.id}>
-                      {device.artworkName} / {device.name} [{device.type}]
-                    </option>
-                  ))}
-                </optgroup>
-              );
-            });
-          })()}
-        </select>
+          <i className={`bi bi-exclamation-triangle${showOnlyErrors ? '-fill' : ''} me-1`}></i>
+          {showOnlyErrors ? 'Errors Only' : 'Errors'}
+        </button>
+
+        {/* Pause/Resume */}
+        <button
+          className={`btn btn-sm ${paused ? 'btn-warning' : 'btn-outline-secondary'}`}
+          onClick={() => setPaused(!paused)}
+          title={paused ? 'Resume auto-refresh' : 'Pause auto-refresh'}
+        >
+          <i className={`bi bi-${paused ? 'play-fill' : 'pause-fill'} me-1`}></i>
+          {paused ? 'Resume' : 'Pause'}
+        </button>
+
+        {/* Auto-scroll */}
+        <button
+          className={`btn btn-sm ${autoScroll ? 'btn-primary' : 'btn-outline-secondary'}`}
+          onClick={() => setAutoScroll(!autoScroll)}
+          title={autoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'}
+        >
+          <i className={`bi bi-arrow-down-circle${autoScroll ? '-fill' : ''} me-1`}></i>
+          Auto-scroll
+        </button>
+
+        {/* Refresh */}
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={() => { fetchTimeline(); fetchSchedulerStatus(); }}
+          title="Refresh logs"
+        >
+          <i className="bi bi-arrow-clockwise me-1"></i>Refresh
+        </button>
       </div>
 
       {/* Advanced: Scheduler Status Panel */}

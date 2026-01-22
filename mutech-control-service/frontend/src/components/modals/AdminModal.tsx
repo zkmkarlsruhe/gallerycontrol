@@ -143,7 +143,17 @@ export function AdminModal({ isOpen, onClose, showToast }: AdminModalProps) {
   };
 
   return (
-    <Modal isOpen={isOpen} title="Admin Panel" onClose={onClose} size="lg">
+    <Modal
+      isOpen={isOpen}
+      title="Admin Panel"
+      onClose={onClose}
+      size="lg"
+      footer={
+        <button className="btn btn-secondary btn-sm" onClick={onClose}>
+          Close
+        </button>
+      }
+    >
       <div className="admin-modal">
         {/* Trigger All Section */}
         <div className="admin-section">

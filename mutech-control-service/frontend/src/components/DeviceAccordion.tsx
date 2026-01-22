@@ -279,15 +279,18 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
         {editMode && (
           <div className="accordion-header-actions">
             {onEdit && (
-              <button className="btn btn-edit btn-sm" onClick={() => onEdit(device)}>Edit</button>
+              <button className="btn btn-edit btn-sm" onClick={() => onEdit(device)} title="Edit">
+                <i className="bi bi-pencil"></i>
+              </button>
             )}
             {onDelete && (
               <ConfirmButton
                 className="btn btn-delete btn-sm"
                 onConfirm={() => onDelete(device.id, device.name)}
                 confirmText="Sure?"
+                title="Delete"
               >
-                Delete
+                <i className="bi bi-trash"></i>
               </ConfirmButton>
             )}
           </div>

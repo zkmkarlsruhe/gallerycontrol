@@ -191,7 +191,7 @@ export const DebugSection = memo(function DebugSection({
             <i className={`bi bi-${paused ? 'play-fill' : 'pause-fill'}`}></i>
           </button>
           <button
-            className={`btn btn-sm ${autoScroll ? 'btn-outline-light' : 'btn-outline-secondary'} me-1`}
+            className={`btn btn-sm ${autoScroll ? 'btn-outline-secondary' : 'btn-outline-secondary'} me-1`}
             onClick={() => setAutoScroll(!autoScroll)}
             title={autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF'}
           >
@@ -207,7 +207,7 @@ export const DebugSection = memo(function DebugSection({
             </button>
           )}
           <button
-            className="btn btn-sm btn-outline-light"
+            className="btn btn-sm btn-outline-secondary"
             onClick={fetchTimeline}
             title="Refresh"
           >

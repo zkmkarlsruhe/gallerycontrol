@@ -1,11 +1,16 @@
 import type { Exhibition } from '../types';
 import { TouchSafeButton } from './ui/TouchSafeButton';
 
+interface StatCount {
+  auto: number;
+  manual: number;
+}
+
 interface DeviceStats {
-  on: number;
-  off: number;
-  error: number;
-  cooling: number;
+  on: StatCount;
+  off: StatCount;
+  error: StatCount;
+  cooling: StatCount;
 }
 
 interface ExhibitionCardProps {
@@ -15,16 +20,30 @@ interface ExhibitionCardProps {
 }
 
 function getExhibitionStats(exhibition: Exhibition): DeviceStats {
-  const stats: DeviceStats = { on: 0, off: 0, error: 0, cooling: 0 };
+  const stats: DeviceStats = {
+    on: { auto: 0, manual: 0 },
+    off: { auto: 0, manual: 0 },
+    error: { auto: 0, manual: 0 },
+    cooling: { auto: 0, manual: 0 },
+  };
   exhibition.artworks.forEach(artwork => {
     artwork.devices.forEach(device => {
-      if (device.state === 1) stats.on++;
-      else if (device.state === 0) stats.off++;
-      else if (device.state === 2 || device.state === 3) stats.cooling++;
-      else stats.error++;
+      const bucket = device.automation_enabled ? 'auto' : 'manual';
+      if (device.state === 1) stats.on[bucket]++;
+      else if (device.state === 0) stats.off[bucket]++;
+      else if (device.state === 2 || device.state === 3) stats.cooling[bucket]++;
+      else stats.error[bucket]++;
     });
   });
   return stats;
+}
+
+function formatStat(stat: StatCount): string {
+  return `${stat.auto}/${stat.manual}`;
+}
+
+function statTotal(stat: StatCount): number {
+  return stat.auto + stat.manual;
 }
 
 export function ExhibitionCard({ exhibition, onScrollTo, onControl }: ExhibitionCardProps) {
@@ -43,17 +62,17 @@ export function ExhibitionCard({ exhibition, onScrollTo, onControl }: Exhibition
         </div>
       </div>
       <div className="exhibition-card-stats">
-        {stats.on > 0 && (
-          <><span className="stat-dot on"></span><span className="stat-count">{stats.on}</span></>
+        {statTotal(stats.on) > 0 && (
+          <><span className="stat-dot on"></span><span className="stat-count">{formatStat(stats.on)}</span></>
         )}
-        {stats.off > 0 && (
-          <><span className="stat-dot off"></span><span className="stat-count">{stats.off}</span></>
+        {statTotal(stats.off) > 0 && (
+          <><span className="stat-dot off"></span><span className="stat-count">{formatStat(stats.off)}</span></>
         )}
-        {stats.error > 0 && (
-          <><span className="stat-dot error"></span><span className="stat-count">{stats.error}</span></>
+        {statTotal(stats.error) > 0 && (
+          <><span className="stat-dot error"></span><span className="stat-count">{formatStat(stats.error)}</span></>
         )}
-        {stats.cooling > 0 && (
-          <><span className="stat-dot cooling"></span><span className="stat-count">{stats.cooling}</span></>
+        {statTotal(stats.cooling) > 0 && (
+          <><span className="stat-dot cooling"></span><span className="stat-count">{formatStat(stats.cooling)}</span></>
         )}
       </div>
       <div className="exhibition-card-controls">
