@@ -142,7 +142,7 @@ class CronScheduler:
 
     async def _check_and_execute_jobs(self) -> None:
         """Check for due jobs and execute them."""
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
 
         async with self.db_manager.session() as session:
             # Find enabled jobs that are due
@@ -370,7 +370,7 @@ class CronScheduler:
         result: Optional[dict] = None,
     ) -> None:
         """Record job execution and update job state."""
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
 
         try:
             async with self.db_manager.session() as session:
@@ -423,7 +423,7 @@ class CronScheduler:
         """Record a job failure without full execution logging."""
         await self._record_execution(
             job_id=job_id,
-            scheduled_at=datetime.now(timezone.utc),
+            scheduled_at=datetime.utcnow(),
             success=False,
             error_message=error,
             duration_ms=0,
@@ -436,15 +436,15 @@ class CronScheduler:
             cron_expression: Standard cron expression
 
         Returns:
-            Next run time in UTC
+            Next run time in UTC (naive datetime for DB compatibility)
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         cron = croniter(cron_expression, now)
         next_run = cron.get_next(datetime)
 
-        # croniter returns timezone-aware datetime if input was aware
-        if next_run.tzinfo is None:
-            next_run = next_run.replace(tzinfo=timezone.utc)
+        # Ensure naive datetime for DB compatibility
+        if next_run.tzinfo is not None:
+            next_run = next_run.replace(tzinfo=None)
 
         return next_run
 
@@ -576,7 +576,7 @@ class CronScheduler:
                 return False
 
             # Set next_run_at to now to trigger on next check
-            job.next_run_at = datetime.now(timezone.utc)
+            job.next_run_at = datetime.utcnow()
             return True
 
     async def reset_circuit(self, job_id: UUID) -> bool:
@@ -598,7 +598,7 @@ class CronScheduler:
 
             job.fail_count = 0
             job.backoff_until = None
-            job.next_run_at = datetime.now(timezone.utc)
+            job.next_run_at = datetime.utcnow()
 
             logger.info("Reset circuit breaker", job=job.name)
             return True
@@ -621,7 +621,7 @@ class CronScheduler:
         """Get the next N run times for a cron expression.
 
         Returns:
-            List of next run times in UTC
+            List of next run times in UTC (timezone-aware for API responses)
         """
         now = datetime.now(timezone.utc)
         cron = croniter(cron_expression, now)

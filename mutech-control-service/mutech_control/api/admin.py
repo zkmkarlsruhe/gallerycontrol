@@ -1933,9 +1933,9 @@ async def create_scheduled_job(
         else:
             raise HTTPException(status_code=400, detail="job_type must be 'system' or 'device'")
 
-        # Calculate next run time
+        # Calculate next run time (strip timezone for DB compatibility)
         next_runs = CronScheduler.get_next_runs(job.cron_expression, count=1)
-        next_run_at = next_runs[0] if next_runs else None
+        next_run_at = next_runs[0].replace(tzinfo=None) if next_runs else None
 
         new_job = ScheduledJob(
             name=job.name,
@@ -1996,9 +1996,9 @@ async def update_scheduled_job(
             is_valid, error = CronScheduler.validate_cron_expression(values["cron_expression"])
             if not is_valid:
                 raise HTTPException(status_code=400, detail=f"Invalid cron expression: {error}")
-            # Recalculate next run time
+            # Recalculate next run time (strip timezone for DB compatibility)
             next_runs = CronScheduler.get_next_runs(values["cron_expression"], count=1)
-            values["next_run_at"] = next_runs[0] if next_runs else None
+            values["next_run_at"] = next_runs[0].replace(tzinfo=None) if next_runs else None
 
         if not values:
             raise HTTPException(status_code=400, detail="No fields to update")
