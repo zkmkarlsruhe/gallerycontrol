@@ -12,34 +12,10 @@ from mutech_control.devices.base import (
     DeviceResult,
 )
 from mutech_control.devices.cooldown_manager import CooldownManager
-from mutech_control.devices.shell_manager import get_credential, get_credential_by_id
+from mutech_control.devices.credential_utils import resolve_password
 from mutech_control.utils.logging import get_logger
 
 logger = get_logger(__name__)
-
-
-def _get_device_password(device) -> str | None:
-    """Get password for device from credential cache."""
-    # Try credential_id first (used by frontend)
-    credential_id = device.config.get("credential_id")
-    if credential_id:
-        cred = get_credential_by_id(credential_id)
-        if cred:
-            logger.debug(f"[device={device.name}] Using credential_id={credential_id}, password={'*' * len(cred.get('password', ''))}")
-            return cred.get("password")
-        else:
-            logger.warning(f"[device={device.name}] credential_id={credential_id} not found in cache")
-
-    # Fall back to credential_name (legacy)
-    credential_name = device.config.get("credential_name")
-    if credential_name:
-        cred = get_credential(credential_name)
-        if cred:
-            logger.debug(f"[device={device.name}] Using credential_name={credential_name}")
-            return cred.get("password")
-
-    logger.debug(f"[device={device.name}] No credential configured")
-    return None
 
 
 class PJLinkManager(DeviceManager):
@@ -118,7 +94,7 @@ class PJLinkManager(DeviceManager):
         try:
             timeout = self.config.get("request_timeout", 10)
             port = device.config.get("port", 4352)
-            password = _get_device_password(device)
+            password = resolve_password(device)
 
             async with asyncio.timeout(timeout):
                 logger.info("Getting device state",
@@ -194,7 +170,7 @@ class PJLinkManager(DeviceManager):
         try:
             timeout = self.config.get("request_timeout", 10)
             port = device.config.get("port", 4352)
-            password = _get_device_password(device)
+            password = resolve_password(device)
             command_str = "on" if on else "off"
 
             async with asyncio.timeout(timeout):
@@ -256,7 +232,7 @@ class PJLinkManager(DeviceManager):
         try:
             timeout = self.config.get("request_timeout", 10)
             port = device.config.get("port", 4352)
-            password = _get_device_password(device)
+            password = resolve_password(device)
 
             async with asyncio.timeout(timeout):
                 logger.info(f"PJLink: Testing connection to {device.host}")
@@ -298,7 +274,7 @@ class PJLinkManager(DeviceManager):
         """
         info = {}
         port = device.config.get("port", 4352)
-        password = _get_device_password(device)
+        password = resolve_password(device)
 
         try:
             # Query projector name
