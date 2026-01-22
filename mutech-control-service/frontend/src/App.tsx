@@ -20,6 +20,7 @@ import {
   AssetBrowserPage,
 } from './components';
 import { EmailInventoryModal } from './components/modals/EmailInventoryModal';
+import { AdminModal } from './components/modals/AdminModal';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './App.css';
@@ -86,6 +87,7 @@ function App() {
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   const [showShellTemplatesModal, setShowShellTemplatesModal] = useState(false);
   const [showEmailInventoryModal, setShowEmailInventoryModal] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
 
   // Log viewer state
   const [showLogViewer, setShowLogViewer] = useState(false);
@@ -510,6 +512,7 @@ function App() {
         onOpenCredentials={() => setShowCredentialsModal(true)}
         onOpenShellLibrary={() => setShowShellTemplatesModal(true)}
         onOpenEmailInventory={() => setShowEmailInventoryModal(true)}
+        onOpenAdmin={() => setShowAdminModal(true)}
         onOpenLogs={() => openLogViewer()}
         onOpenTimeline={() => setShowTimeline(true)}
         onOpenAssets={() => setShowAssets(true)}
@@ -676,6 +679,12 @@ function App() {
         fetchEmailConfig={fetchEmailConfig}
         fetchInventoryPreview={fetchInventoryPreview}
         sendInventoryEmail={sendInventoryEmail}
+        showToast={showToast}
+      />
+
+      <AdminModal
+        isOpen={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
         showToast={showToast}
       />
     </div>

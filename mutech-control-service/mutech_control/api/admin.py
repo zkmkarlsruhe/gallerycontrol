@@ -1804,3 +1804,30 @@ async def trigger_task(task_name: str, request: Request):
         )
 
     return {"status": "triggered", "task": task_name}
+
+
+@router.post("/scheduler/trigger-all")
+async def trigger_all_tasks(request: Request):
+    """Trigger immediate execution of all scheduler tasks.
+
+    Triggers all enabled tasks that are not currently running or have open circuits.
+    Returns a summary of which tasks were triggered and which were skipped.
+    """
+    scheduler = getattr(request.app.state, "task_scheduler", None)
+    if not scheduler:
+        raise HTTPException(status_code=503, detail="Scheduler not available")
+
+    triggered = []
+    skipped = []
+
+    for task_name in scheduler._tasks.keys():
+        if scheduler.trigger_task(task_name):
+            triggered.append(task_name)
+        else:
+            skipped.append(task_name)
+
+    return {
+        "status": "triggered",
+        "triggered": triggered,
+        "skipped": skipped,
+    }
