@@ -2,7 +2,7 @@
 
 import logging
 from io import StringIO
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -425,6 +425,73 @@ async def export_lamp_history_csv(
         raise
     except Exception as e:
         logger.error(f"Error exporting lamp history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/lamp-history/csv")
+async def export_bulk_lamp_history_csv(
+    asset_ids: List[str],
+    session=Depends(get_session),
+):
+    """Export lamp history for multiple assets as CSV.
+
+    Args:
+        asset_ids: List of asset UUIDs
+    """
+    try:
+        if not asset_ids:
+            raise HTTPException(status_code=400, detail="No asset IDs provided")
+
+        # Parse and validate all UUIDs
+        asset_uuids = [parse_uuid(aid, "asset_id") for aid in asset_ids]
+
+        # Get asset numbers for the filename and CSV
+        asset_stmt = select(Asset).where(Asset.id.in_(asset_uuids))
+        asset_result = await session.execute(asset_stmt)
+        assets = {str(a.id): a.asset_number for a in asset_result.scalars().all()}
+
+        if not assets:
+            raise HTTPException(status_code=404, detail="No assets found")
+
+        # Get lamp history for all assets
+        stmt = (
+            select(LampHoursLog)
+            .where(LampHoursLog.asset_id.in_(asset_uuids))
+            .order_by(LampHoursLog.timestamp.desc())
+            .limit(50000)
+        )
+        result = await session.execute(stmt)
+        logs = result.scalars().all()
+
+        # Build CSV with asset_number column
+        output = StringIO()
+        output.write("asset_number,timestamp,lamp_hours,event_type,device_name,artwork_name,exhibition_name\n")
+
+        for log in logs:
+            asset_number = assets.get(str(log.asset_id), "unknown")
+            output.write(
+                f"\"{asset_number}\","
+                f"{log.timestamp.isoformat()},"
+                f"{log.lamp_hours},"
+                f"{log.event_type},"
+                f"\"{log.device_name or ''}\","
+                f"\"{log.artwork_name or ''}\","
+                f"\"{log.exhibition_name or ''}\"\n"
+            )
+
+        output.seek(0)
+        filename = f"lamp_history_{len(asset_ids)}_assets.csv"
+
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error exporting bulk lamp history: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

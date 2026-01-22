@@ -201,6 +201,7 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
   const [lampHoursResult, setLampHoursResult] = useState<any>(null);
   const [exhibitions, setExhibitions] = useState<ExhibitionOption[]>([]);
   const [selectedExhibition, setSelectedExhibition] = useState<string>('');
+  const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
 
   const loadAssets = useCallback(async () => {
     setLoading(true);
@@ -319,6 +320,30 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
     }
   };
 
+  const exportSelectedCSV = async () => {
+    const ids = Array.from(selectedAssets);
+    try {
+      const response = await fetch('/api/assets/lamp-history/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ids),
+      });
+      if (!response.ok) {
+        console.error('Failed to export CSV');
+        return;
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lamp_history_${ids.length}_assets.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export CSV:', err);
+    }
+  };
+
   return (
     <div className="asset-browser-page">
       <div className="page-header">
@@ -394,6 +419,15 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
             ))}
           </select>
           <button type="submit" className="btn btn-primary">Search</button>
+          {selectedAssets.size > 0 && (
+            <button
+              type="button"
+              className="btn btn-outline export-selected"
+              onClick={exportSelectedCSV}
+            >
+              Export {selectedAssets.size} Selected
+            </button>
+          )}
         </form>
       </div>
 
@@ -410,6 +444,20 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
             <table className="asset-table">
             <thead>
               <tr>
+                <th className="col-select">
+                  <input
+                    type="checkbox"
+                    checked={selectedAssets.size === assets.length && assets.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedAssets(new Set(assets.map(a => a.id)));
+                      } else {
+                        setSelectedAssets(new Set());
+                      }
+                    }}
+                    title="Select all"
+                  />
+                </th>
                 <th className="col-status"></th>
                 <th>Asset</th>
                 <th>Exhibition</th>
@@ -433,6 +481,18 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
                       expandedAssetId === asset.id ? null : asset.id
                     )}
                   >
+                    <td className="col-select" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedAssets.has(asset.id)}
+                        onChange={(e) => {
+                          const next = new Set(selectedAssets);
+                          if (e.target.checked) next.add(asset.id);
+                          else next.delete(asset.id);
+                          setSelectedAssets(next);
+                        }}
+                      />
+                    </td>
                     <td className="col-status">
                       <span className={`status-dot ${stateClass}`} title={
                         asset.device_state === 1 ? 'On'
@@ -472,7 +532,7 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
                   </tr>
                   {expandedAssetId === asset.id && (
                     <tr key={`${asset.id}-timeline`} className="timeline-row">
-                      <td colSpan={7}>
+                      <td colSpan={8}>
                         <LampHoursTimeline assetId={asset.id} />
                       </td>
                     </tr>

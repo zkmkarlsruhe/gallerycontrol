@@ -3927,6 +3927,16 @@ body {
   font-weight: 500;
 }
 
+.asset-table .col-select {
+  width: 30px;
+  padding: 0.5rem !important;
+  text-align: center;
+}
+
+.asset-table .col-select input[type="checkbox"] {
+  cursor: pointer;
+}
+
 .asset-table .col-status {
   width: 24px;
   padding: 0.25rem !important;
