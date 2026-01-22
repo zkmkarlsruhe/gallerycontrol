@@ -3787,6 +3787,12 @@ body {
   flex: 1;
 }
 
+.asset-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .asset-table {
   width: 100%;
   border-collapse: collapse;

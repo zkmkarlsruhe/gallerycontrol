@@ -211,6 +211,7 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
   const [editAsset, setEditAsset] = useState<Asset | null>(null);
   const [backfillRunning, setBackfillRunning] = useState(false);
   const [backfillResult, setBackfillResult] = useState<any>(null);
+  const [relinkRunning, setRelinkRunning] = useState(false);
 
   const loadAssets = useCallback(async () => {
     setLoading(true);
@@ -289,6 +290,21 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
     }
   };
 
+  const handleRelink = async () => {
+    setRelinkRunning(true);
+    try {
+      const res = await fetch('/api/admin/scheduler/trigger/asset_linker', { method: 'POST' });
+      if (res.ok) {
+        // Reload assets after a short delay to see updated links
+        setTimeout(loadAssets, 2000);
+      }
+    } catch (err) {
+      console.error('Failed to trigger relink:', err);
+    } finally {
+      setRelinkRunning(false);
+    }
+  };
+
   return (
     <div className="asset-browser-page">
       <div className="page-header">
@@ -299,8 +315,17 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
         <div className="page-actions">
           <button
             className="btn btn-sm btn-outline"
+            onClick={handleRelink}
+            disabled={relinkRunning}
+            title="Link unlinked assets to devices via DNS lookup"
+          >
+            {relinkRunning ? 'Linking...' : 'Run Relink'}
+          </button>
+          <button
+            className="btn btn-sm btn-outline"
             onClick={handleBackfill}
             disabled={backfillRunning}
+            title="Create missing assets from existing PJLink devices"
           >
             {backfillRunning ? 'Running...' : 'Backfill Assets'}
           </button>
@@ -332,16 +357,17 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
         </form>
       </div>
 
-      {loading ? (
-        <div className="loading">Loading assets...</div>
-      ) : assets.length === 0 ? (
-        <div className="empty-state">
-          <p>No assets found.</p>
-          <p>Assets are automatically created when PJLink devices are added with asset numbers in their hostnames.</p>
-        </div>
-      ) : (
-        <>
-          <table className="asset-table">
+      <div className="asset-content">
+        {loading ? (
+          <div className="loading">Loading assets...</div>
+        ) : assets.length === 0 ? (
+          <div className="empty-state">
+            <p>No assets found.</p>
+            <p>Assets are automatically created when PJLink devices are added with asset numbers in their hostnames.</p>
+          </div>
+        ) : (
+          <>
+            <table className="asset-table">
             <thead>
               <tr>
                 <th>Asset Number</th>
@@ -426,8 +452,9 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
               </button>
             </div>
           )}
-        </>
-      )}
+          </>
+        )}
+      </div>
 
       {editAsset && (
         <EditAssetModal
