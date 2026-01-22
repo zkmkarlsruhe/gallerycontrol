@@ -4,6 +4,7 @@ import { ConfirmButton } from './ui/ConfirmButton';
 import { useDevicePollProgress } from '../context/PollStatusContext';
 import { useDeviceInfo } from '../hooks/useDeviceInfo';
 import { formatDeviceDisplayName } from '../utils/deviceDisplay';
+import { portUtils } from '../utils/portUtils';
 
 type DeviceState = -1 | 0 | 1 | 2 | 3;
 
@@ -84,12 +85,28 @@ function PollProgressBar({ progress, isFastPolling, isVerifying }: { progress: n
   );
 }
 
+/** Format relative time for freshness display */
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
+}
+
 /** Display extended device info based on device type */
-function DeviceInfoPanel({ info, loading, error, deviceType }: {
+function DeviceInfoPanel({ info, loading, error, deviceType, cachedAt, isStale }: {
   info: Record<string, any> | null;
   loading: boolean;
   error: string | null;
   deviceType: string;
+  cachedAt?: Date | null;
+  isStale?: boolean;
 }) {
   if (loading) {
     return (
@@ -99,7 +116,7 @@ function DeviceInfoPanel({ info, loading, error, deviceType }: {
     );
   }
 
-  if (error) {
+  if (error && !info) {
     return (
       <div className="device-info-extended">
         <span className="text-danger"><i className="bi bi-exclamation-triangle"></i> {error}</span>
@@ -109,10 +126,29 @@ function DeviceInfoPanel({ info, loading, error, deviceType }: {
 
   if (!info) return null;
 
+  // Freshness indicator component
+  const FreshnessIndicator = () => {
+    if (!cachedAt) return null;
+    const timeStr = formatRelativeTime(cachedAt);
+    if (isStale) {
+      return (
+        <span className="device-info-freshness stale" title="Device offline - showing cached data">
+          <i className="bi bi-exclamation-triangle"></i> Cached {timeStr}
+        </span>
+      );
+    }
+    return (
+      <span className="device-info-freshness" title="Last updated">
+        Updated {timeStr}
+      </span>
+    );
+  };
+
   // Render based on device type
   if (deviceType === 'pjlink') {
     return (
       <div className="device-info-extended">
+        <FreshnessIndicator />
         {info.manufacturer && <span><strong>Manufacturer:</strong> {info.manufacturer}</span>}
         {info.product && <span><strong>Model:</strong> {info.product}</span>}
         {info.name && <span><strong>Name:</strong> {info.name}</span>}
@@ -129,6 +165,7 @@ function DeviceInfoPanel({ info, loading, error, deviceType }: {
   if (deviceType === 'netio') {
     return (
       <div className="device-info-extended">
+        <FreshnessIndicator />
         {info.model && <span><strong>Model:</strong> {info.model}</span>}
         {info.mac && <span><strong>MAC:</strong> {info.mac}</span>}
         {info.firmware && <span><strong>Firmware:</strong> {info.firmware}</span>}
@@ -143,6 +180,7 @@ function DeviceInfoPanel({ info, loading, error, deviceType }: {
   if (deviceType === 'anel') {
     return (
       <div className="device-info-extended">
+        <FreshnessIndicator />
         {info.name && <span><strong>Name:</strong> {info.name}</span>}
         {info.mac && <span><strong>MAC:</strong> {info.mac}</span>}
         {info.ip && <span><strong>IP:</strong> {info.ip}</span>}
@@ -155,6 +193,7 @@ function DeviceInfoPanel({ info, loading, error, deviceType }: {
   // Generic fallback - show all info
   return (
     <div className="device-info-extended">
+      <FreshnessIndicator />
       {Object.entries(info).map(([key, value]) => (
         <span key={key}><strong>{key}:</strong> {String(value)}</span>
       ))}
@@ -218,10 +257,12 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
   const isFastPolling = device.poll_status?.is_fast_polling || isVerifying;
 
   // Fetch extended device info when accordion is open (only for non-shell devices)
-  const { info: deviceInfo, loading: infoLoading, error: infoError } = useDeviceInfo(
+  // For pjlink devices, always fetch so lamp hours are available in compact view
+  const shouldFetchInfo = device.device_type !== 'shell' && (isOpen || device.device_type === 'pjlink');
+  const { info: deviceInfo, loading: infoLoading, error: infoError, cachedAt, isStale } = useDeviceInfo(
     device.id,
     device.device_type,
-    isOpen && device.device_type !== 'shell'
+    shouldFetchInfo
   );
 
   // Show stripes if: client-side pending state OR server-side verifying
@@ -260,8 +301,20 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
           )}
         </span>
         <span><strong>Type:</strong> {device.device_type}</span>
-        {device.device_type !== 'shell' && <span><strong>Port:</strong> {device.port || '-'}</span>}
+        {(device.device_type === 'netio' || device.device_type === 'anel') && (
+          <span><strong>Port:</strong> {device.port !== null && device.port !== undefined ? portUtils.dbToUI(device.port) : '-'}</span>
+        )}
+        {device.device_type === 'pjlink' && (
+          <span><strong>Port:</strong> {device.port !== null && device.port !== undefined ? device.port : '-'}</span>
+        )}
         <span><strong>State:</strong> {getDeviceStateLabel(device.state as DeviceState)}</span>
+        {device.device_type === 'pjlink' && (
+          <span><strong>Lamp:</strong> {
+            infoLoading ? '...' :
+            deviceInfo?.lamp_hours !== undefined ? `${deviceInfo.lamp_hours}h` :
+            '-'
+          }</span>
+        )}
         <span><strong>Next poll:</strong> {secondsRemaining}s</span>
       </div>
       {/* Extended device info (MAC, lamp hours, etc.) - shown when open */}
@@ -271,6 +324,8 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
           loading={infoLoading}
           error={infoError}
           deviceType={device.device_type}
+          cachedAt={cachedAt}
+          isStale={isStale}
         />
       )}
       {/* Shell command details */}
