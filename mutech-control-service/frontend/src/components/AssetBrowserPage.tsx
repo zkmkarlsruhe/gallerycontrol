@@ -31,26 +31,15 @@ const EVENT_ICONS: Record<string, string> = {
   manual: '✏️',
 };
 
-function formatDate(isoString: string): string {
-  const date = new Date(isoString);
-  return date.toLocaleString();
-}
-
 function LampHoursTimeline({ assetId }: { assetId: string }) {
   const [logs, setLogs] = useState<LampHoursLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-
-  // Reset page when assetId changes
-  useEffect(() => {
-    setPage(1);
-  }, [assetId]);
 
   const loadLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/assets/${assetId}/lamp-history?page=${page}&per_page=20`);
+      const res = await fetch(`/api/assets/${assetId}/lamp-history?per_page=500`);
       if (res.ok) {
         const data: LampHistoryResponse = await res.json();
         setLogs(data.items);
@@ -61,7 +50,7 @@ function LampHoursTimeline({ assetId }: { assetId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [assetId, page]);
+  }, [assetId]);
 
   useEffect(() => {
     loadLogs();
@@ -72,71 +61,64 @@ function LampHoursTimeline({ assetId }: { assetId: string }) {
   };
 
   if (loading) {
-    return <div className="timeline-loading">Loading lamp history...</div>;
+    return <div className="lamp-history-loading">Loading...</div>;
   }
 
   if (logs.length === 0) {
-    return <div className="timeline-empty">No lamp hours history recorded yet.</div>;
+    return <div className="lamp-history-empty">No lamp hours history recorded yet.</div>;
   }
 
   return (
-    <div className="lamp-hours-timeline">
-      <div className="timeline-header">
-        <h4>Lamp Hours History ({total} entries)</h4>
+    <div className="lamp-history-table-container">
+      <div className="lamp-history-header">
+        <span>{total} entries</span>
         <button className="btn btn-sm btn-outline" onClick={handleExportCsv}>
-          <i className="bi bi-download me-1"></i>
           Export CSV
         </button>
       </div>
-      <div className="timeline-entries">
-        {logs.map((log, index) => {
-          const prevLog = logs[index + 1];
-          const delta = prevLog ? log.lamp_hours - prevLog.lamp_hours : null;
+      <table className="lamp-history-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Event</th>
+            <th>Hours</th>
+            <th>+/-</th>
+            <th>Exhibition</th>
+            <th>Artwork</th>
+            <th>Device</th>
+          </tr>
+        </thead>
+        <tbody>
+          {logs.map((log, index) => {
+            const prevLog = logs[index + 1];
+            const delta = prevLog ? log.lamp_hours - prevLog.lamp_hours : null;
+            const date = new Date(log.timestamp);
+            const dateStr = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+            const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-          return (
-            <div key={log.id} className={`timeline-entry event-${log.event_type}`}>
-              <div className="timeline-marker">
-                <span className="timeline-icon">{EVENT_ICONS[log.event_type] || '📊'}</span>
-                <div className="timeline-line"></div>
-              </div>
-              <div className="timeline-content">
-                <div className="timeline-event-type">{log.event_type}</div>
-                <div className="timeline-lamp-hours">
-                  {log.lamp_hours}h
-                  {delta !== null && delta > 0 && (
-                    <span className="timeline-delta">+{delta}h</span>
+            return (
+              <tr key={log.id} className={`event-${log.event_type}`}>
+                <td className="col-date">{dateStr} {timeStr}</td>
+                <td className="col-event">
+                  <span className="event-icon">{EVENT_ICONS[log.event_type] || '📊'}</span>
+                  {log.event_type}
+                </td>
+                <td className="col-hours">{log.lamp_hours}h</td>
+                <td className="col-delta">
+                  {delta !== null && delta !== 0 && (
+                    <span className={delta > 0 ? 'delta-pos' : 'delta-neg'}>
+                      {delta > 0 ? '+' : ''}{delta}
+                    </span>
                   )}
-                </div>
-                <div className="timeline-context">
-                  {log.device_name && <span>{log.device_name}</span>}
-                  {log.artwork_name && <span> / {log.artwork_name}</span>}
-                  {log.exhibition_name && <span> / {log.exhibition_name}</span>}
-                </div>
-                <div className="timeline-timestamp">{formatDate(log.timestamp)}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {total > 20 && (
-        <div className="timeline-pagination">
-          <button
-            className="btn btn-sm"
-            disabled={page === 1}
-            onClick={() => setPage(p => p - 1)}
-          >
-            Previous
-          </button>
-          <span>Page {page} of {Math.ceil(total / 20)}</span>
-          <button
-            className="btn btn-sm"
-            disabled={page * 20 >= total}
-            onClick={() => setPage(p => p + 1)}
-          >
-            Next
-          </button>
-        </div>
-      )}
+                </td>
+                <td className="col-exhibition">{log.exhibition_name || '-'}</td>
+                <td className="col-artwork">{log.artwork_name || '-'}</td>
+                <td className="col-device">{log.device_name || '-'}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -204,21 +186,20 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [expandedAssetId, setExpandedAssetId] = useState<string | null>(null);
   const [editAsset, setEditAsset] = useState<Asset | null>(null);
   const [backfillRunning, setBackfillRunning] = useState(false);
   const [backfillResult, setBackfillResult] = useState<any>(null);
   const [relinkRunning, setRelinkRunning] = useState(false);
+  const [lampHoursRunning, setLampHoursRunning] = useState(false);
+  const [lampHoursResult, setLampHoursResult] = useState<any>(null);
 
   const loadAssets = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        page: String(page),
-        per_page: '20',
+        per_page: '1000',
       });
       if (search) {
         params.set('search', search);
@@ -227,7 +208,6 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
       if (res.ok) {
         const data: AssetListResponse = await res.json();
         setAssets(data.items);
-        setTotalPages(data.pages);
         setTotal(data.total);
       }
     } catch (err) {
@@ -235,7 +215,7 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [search]);
 
   useEffect(() => {
     loadAssets();
@@ -243,7 +223,6 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setPage(1);
     loadAssets();
   };
 
@@ -305,6 +284,23 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
     }
   };
 
+  const handleRecordLampHours = async () => {
+    setLampHoursRunning(true);
+    setLampHoursResult(null);
+    try {
+      const res = await fetch('/api/assets/record-initial-lamp-hours', { method: 'POST' });
+      if (res.ok) {
+        const result = await res.json();
+        setLampHoursResult(result);
+        loadAssets();
+      }
+    } catch (err) {
+      console.error('Failed to record lamp hours:', err);
+    } finally {
+      setLampHoursRunning(false);
+    }
+  };
+
   return (
     <div className="asset-browser-page">
       <div className="page-header">
@@ -329,6 +325,14 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
           >
             {backfillRunning ? 'Running...' : 'Backfill Assets'}
           </button>
+          <button
+            className="btn btn-sm btn-outline"
+            onClick={handleRecordLampHours}
+            disabled={lampHoursRunning}
+            title="Record current lamp hours for linked devices without history"
+          >
+            {lampHoursRunning ? 'Recording...' : 'Record Lamp Hours'}
+          </button>
           <button className="btn btn-sm btn-close-page" onClick={onClose}>
             <i className="bi bi-x-lg"></i>
           </button>
@@ -341,6 +345,14 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
           {backfillResult.created} lamp hours logged,
           {backfillResult.skipped?.length || 0} skipped,
           {backfillResult.failed?.length || 0} failed
+        </div>
+      )}
+
+      {lampHoursResult && (
+        <div className="backfill-result alert alert-info">
+          <strong>Lamp hours recorded:</strong> {lampHoursResult.recorded} devices,
+          {lampHoursResult.skipped?.length || 0} skipped,
+          {lampHoursResult.failed?.length || 0} failed
         </div>
       )}
 
@@ -370,41 +382,50 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
             <table className="asset-table">
             <thead>
               <tr>
-                <th>Asset Number</th>
-                <th>Hostname</th>
-                <th>Current Device</th>
-                <th>Last Lamp Hours</th>
-                <th>Notes</th>
+                <th className="col-status"></th>
+                <th>Asset</th>
+                <th>Exhibition</th>
+                <th>Artwork</th>
+                <th>Device</th>
+                <th>Lamp Hours</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {assets.map((asset) => (
+              {assets.map((asset) => {
+                const stateClass = asset.device_state === 1 ? 'state-on'
+                  : asset.device_state === 0 ? 'state-standby'
+                  : asset.device_state === -1 ? 'state-offline'
+                  : 'state-unknown';
+                return (
                 <React.Fragment key={asset.id}>
                   <tr
-                    className={expandedAssetId === asset.id ? 'expanded' : ''}
+                    className={`asset-row ${expandedAssetId === asset.id ? 'expanded' : ''} ${stateClass} ${!asset.current_device_id ? 'asset-unlinked' : ''}`}
                     onClick={() => setExpandedAssetId(
                       expandedAssetId === asset.id ? null : asset.id
                     )}
                   >
+                    <td className="col-status">
+                      <span className={`status-dot ${stateClass}`} title={
+                        asset.device_state === 1 ? 'On'
+                        : asset.device_state === 0 ? 'Standby'
+                        : asset.device_state === -1 ? 'Offline'
+                        : 'Not linked'
+                      }></span>
+                    </td>
                     <td className="asset-number">{asset.asset_number}</td>
-                    <td className="hostname">{asset.hostname || '-'}</td>
+                    <td className="exhibition">{asset.exhibition_name || '-'}</td>
+                    <td className="artwork">{asset.artwork_name || '-'}</td>
                     <td className="current-device">
                       {asset.current_device_name || <span className="text-muted">Not linked</span>}
                     </td>
                     <td className="lamp-hours">
                       {asset.last_lamp_hours !== null ? (
-                        <>
-                          {asset.last_lamp_hours}h
-                          <span className="last-event">
-                            ({asset.last_event_type})
-                          </span>
-                        </>
+                        <>{asset.last_lamp_hours}h</>
                       ) : (
                         '-'
                       )}
                     </td>
-                    <td className="notes">{asset.notes || '-'}</td>
                     <td className="actions" onClick={(e) => e.stopPropagation()}>
                       <button
                         className="btn btn-sm btn-edit"
@@ -423,35 +444,15 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
                   </tr>
                   {expandedAssetId === asset.id && (
                     <tr key={`${asset.id}-timeline`} className="timeline-row">
-                      <td colSpan={6}>
+                      <td colSpan={7}>
                         <LampHoursTimeline assetId={asset.id} />
                       </td>
                     </tr>
                   )}
                 </React.Fragment>
-              ))}
+              );})}
             </tbody>
           </table>
-
-          {totalPages > 1 && (
-            <div className="pagination">
-              <button
-                className="btn btn-sm"
-                disabled={page === 1}
-                onClick={() => setPage(p => p - 1)}
-              >
-                Previous
-              </button>
-              <span>Page {page} of {totalPages}</span>
-              <button
-                className="btn btn-sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage(p => p + 1)}
-              >
-                Next
-              </button>
-            </div>
-          )}
           </>
         )}
       </div>

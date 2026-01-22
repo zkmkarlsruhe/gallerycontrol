@@ -858,6 +858,24 @@ body {
   color: #495057;
 }
 
+/* Device info freshness indicator */
+.device-info-freshness {
+  color: #6c757d;
+  font-size: 0.7rem;
+  font-style: italic;
+}
+
+.device-info-freshness.stale {
+  color: #856404;
+  background: #fff3cd;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+}
+
+.device-info-freshness.stale i {
+  margin-right: 0.25rem;
+}
+
 /* Host link with copy button */
 .host-link-container {
   display: inline-flex;
@@ -3904,10 +3922,35 @@ body {
   font-weight: 500;
 }
 
-.asset-table .lamp-hours .last-event {
-  color: #6c757d;
-  font-size: 0.75rem;
-  margin-left: 0.25rem;
+.asset-table .col-status {
+  width: 24px;
+  padding: 0.25rem !important;
+  text-align: center;
+}
+
+.asset-table .status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #adb5bd;
+}
+
+.asset-table .status-dot.state-on {
+  background: #27ae60;
+  box-shadow: 0 0 4px rgba(39, 174, 96, 0.5);
+}
+
+.asset-table .status-dot.state-standby {
+  background: #f39c12;
+}
+
+.asset-table .status-dot.state-offline {
+  background: #e74c3c;
+}
+
+.asset-table .status-dot.state-unknown {
+  background: #adb5bd;
 }
 
 .asset-table .notes {
@@ -3931,6 +3974,15 @@ body {
   background: #fafafa;
 }
 
+/* Unlinked assets - visually distinguished but still interactive */
+.asset-row.asset-unlinked {
+  opacity: 0.5;
+  background: #f5f5f5;
+}
+.asset-row.asset-unlinked:hover {
+  opacity: 0.7;
+}
+
 .loading,
 .empty-state {
   padding: 3rem;
@@ -3949,104 +4001,117 @@ body {
 
 /* ========== Lamp Hours Timeline ========== */
 
-.lamp-hours-timeline {
-  padding: 1rem;
-  background: white;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  margin: 1rem;
+/* Lamp history compact table */
+.lamp-history-table-container {
+  padding: 0.5rem 1rem;
+  background: #f8f9fa;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
-.timeline-header {
+.lamp-history-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
-}
-
-.timeline-header h4 {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.timeline-loading,
-.timeline-empty {
-  padding: 2rem;
-  text-align: center;
-  color: #6c757d;
-}
-
-.timeline-entries {
-  display: flex;
-  flex-direction: column;
-}
-
-.timeline-entry {
-  display: flex;
-  position: relative;
-  padding-bottom: 1rem;
-}
-
-.timeline-marker {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 40px;
-  flex-shrink: 0;
-}
-
-.timeline-icon {
-  font-size: 1.25rem;
-  z-index: 1;
-  background: white;
-  padding: 0.25rem;
-}
-
-.timeline-line {
-  flex: 1;
-  width: 2px;
-  background: #dee2e6;
-  margin-top: 0.25rem;
-}
-
-.timeline-entry:last-child .timeline-line {
-  display: none;
-}
-
-.timeline-content {
-  flex: 1;
-  padding-left: 0.5rem;
-}
-
-.timeline-event-type {
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.7rem;
-  color: #6c757d;
-}
-
-.timeline-lamp-hours {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #212529;
-}
-
-.timeline-delta {
-  font-size: 0.8rem;
-  color: #27ae60;
-  margin-left: 0.5rem;
-  font-weight: 500;
-}
-
-.timeline-context {
+  margin-bottom: 0.5rem;
   font-size: 0.75rem;
   color: #6c757d;
 }
 
-.timeline-timestamp {
+.lamp-history-loading,
+.lamp-history-empty {
+  padding: 1rem;
+  text-align: center;
+  color: #6c757d;
+  font-size: 0.8rem;
+}
+
+.lamp-history-table {
+  width: 100%;
+  font-size: 0.75rem;
+  border-collapse: collapse;
+}
+
+.lamp-history-table th {
+  text-align: left;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid #dee2e6;
+  font-weight: 600;
+  color: #495057;
+  background: #e9ecef;
+  position: sticky;
+  top: 0;
+}
+
+.lamp-history-table td {
+  padding: 0.2rem 0.5rem;
+  border-bottom: 1px solid #f1f3f5;
+  white-space: nowrap;
+}
+
+.lamp-history-table tr:hover {
+  background: #fff;
+}
+
+.lamp-history-table .col-date {
+  color: #6c757d;
+  font-family: monospace;
   font-size: 0.7rem;
-  color: #adb5bd;
-  margin-top: 0.25rem;
+}
+
+.lamp-history-table .col-event {
+  font-weight: 500;
+}
+
+.lamp-history-table .col-event .event-icon {
+  margin-right: 0.25rem;
+}
+
+.lamp-history-table .col-hours {
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.lamp-history-table .col-delta {
+  font-family: monospace;
+  font-size: 0.7rem;
+}
+
+.lamp-history-table .col-delta .delta-pos {
+  color: #27ae60;
+}
+
+.lamp-history-table .col-delta .delta-neg {
+  color: #e74c3c;
+}
+
+.lamp-history-table .col-exhibition,
+.lamp-history-table .col-artwork,
+.lamp-history-table .col-device {
+  color: #6c757d;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lamp-history-table tr.event-power_on {
+  background: rgba(39, 174, 96, 0.05);
+}
+
+.lamp-history-table tr.event-power_off {
+  background: rgba(52, 73, 94, 0.05);
+}
+
+.lamp-history-table tr.event-onboard {
+  background: rgba(52, 152, 219, 0.08);
+}
+
+.lamp-history-table tr.event-offboard {
+  background: rgba(231, 76, 60, 0.08);
+}
+
+.lamp-history-table tr.event-manual {
+  background: rgba(241, 196, 15, 0.08);
 }
 
 .timeline-pagination {
