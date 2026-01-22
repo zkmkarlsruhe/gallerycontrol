@@ -142,22 +142,25 @@ def _get_poll_status(request: Request, device_id: str) -> dict | None:
 async def _get_lamp_hours_map(session) -> dict[UUID, int]:
     """Get latest lamp hours for all assets, keyed by asset_id."""
     from sqlalchemy import func
-    from sqlalchemy.orm import aliased
 
     # Subquery to get the latest timestamp per asset
     latest_subq = (
         select(
             LampHoursLog.asset_id,
-            func.max(LampHoursLog.id).label("max_id")
+            func.max(LampHoursLog.timestamp).label("max_ts")
         )
         .group_by(LampHoursLog.asset_id)
         .subquery()
     )
 
-    # Join to get the actual lamp_hours value
+    # Join to get the actual lamp_hours value for the latest timestamp
     stmt = (
         select(LampHoursLog.asset_id, LampHoursLog.lamp_hours)
-        .join(latest_subq, LampHoursLog.id == latest_subq.c.max_id)
+        .join(
+            latest_subq,
+            (LampHoursLog.asset_id == latest_subq.c.asset_id) &
+            (LampHoursLog.timestamp == latest_subq.c.max_ts)
+        )
     )
     result = await session.execute(stmt)
     return {row.asset_id: row.lamp_hours for row in result}
