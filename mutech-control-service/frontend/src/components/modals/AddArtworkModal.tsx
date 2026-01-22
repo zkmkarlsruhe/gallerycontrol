@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Modal } from '../ui/Modal';
+import { useCallback } from 'react';
+import { MultiCreateModal } from './MultiCreateModal';
 
 interface AddArtworkModalProps {
   isOpen: boolean;
@@ -16,68 +16,29 @@ export function AddArtworkModal({
   onClose,
   onSave,
 }: AddArtworkModalProps) {
-  const [names, setNames] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const getNames = () => names.split(',').map(n => n.trim()).filter(n => n.length > 0);
-
-  const handleSave = async () => {
-    const nameList = getNames();
-    if (nameList.length === 0) return;
-    setSaving(true);
-    try {
-      for (const name of nameList) {
-        await onSave(exhibitionId, name);
-      }
-      setNames('');
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const nameCount = getNames().length;
+  // Wrap onSave to include exhibitionId
+  const handleSave = useCallback(
+    (name: string) => onSave(exhibitionId, name),
+    [exhibitionId, onSave]
+  );
 
   return (
-    <Modal
+    <MultiCreateModal
       isOpen={isOpen}
       title="Add Artwork"
+      itemLabel="Artwork"
+      itemLabelPlural="Artworks"
+      placeholder="e.g. Raum 1, Raum 2, Raum 3"
       onClose={onClose}
-      footer={
+      onSave={handleSave}
+      contextInfo={
         <>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
-            Close
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={handleSave}
-            disabled={saving || nameCount === 0}
-          >
-            {saving ? 'Saving...' : nameCount > 1 ? `Add ${nameCount} Artworks` : 'Add Artwork'}
-          </button>
+          <strong>Adding artwork to:</strong>
+          <div className="mt-2">
+            Exhibition: <strong>{exhibitionName}</strong>
+          </div>
         </>
       }
-    >
-      <div className="context-info mb-3">
-        <strong>Adding artwork to:</strong>
-        <div className="mt-2">
-          Exhibition: <strong>{exhibitionName}</strong>
-        </div>
-      </div>
-      <div className="mb-3">
-        <label className="form-label">Artwork Name(s)</label>
-        <input
-          type="text"
-          className="form-control"
-          placeholder="e.g. Raum 1, Raum 2, Raum 3"
-          value={names}
-          onChange={(e) => setNames(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-          autoFocus
-        />
-        <small className="form-text text-muted">Separate multiple names with commas</small>
-      </div>
-    </Modal>
+    />
   );
 }
