@@ -19,7 +19,7 @@ from mutech_control.devices.pjlink_manager import PJLinkManager
 from mutech_control.devices.shell_manager import ShellManager, load_credentials
 from mutech_control.monitoring.state_monitor import StateMonitor
 from mutech_control.orchestrator.command_orchestrator import CommandOrchestrator
-from mutech_control.scheduler import CronScheduler, TaskScheduler
+from mutech_control.scheduler import CronScheduler
 from mutech_control.scheduler.tasks import (
     run_asset_linker,
     run_device_info_cache,
@@ -92,10 +92,6 @@ async def lifespan(app: FastAPI):
     asset_service = AssetService(db_manager, device_managers, orchestrator_config)
     logger.info("Asset service initialized")
 
-    # Initialize task scheduler for periodic maintenance tasks (legacy)
-    task_scheduler = TaskScheduler(db_manager, orchestrator_config, asset_service, orchestrator)
-    logger.info("Task scheduler initialized (legacy)")
-
     # Initialize unified cron scheduler
     cron_scheduler = CronScheduler(
         db_manager=db_manager,
@@ -144,7 +140,6 @@ async def lifespan(app: FastAPI):
     app.state.state_monitor = state_monitor
     app.state.sse_broadcaster = sse_broadcaster
     app.state.asset_service = asset_service
-    app.state.task_scheduler = task_scheduler
     app.state.cron_scheduler = cron_scheduler
 
     # Start config watching (hot-reload) with SSE broadcast
@@ -165,9 +160,6 @@ async def lifespan(app: FastAPI):
         state_monitor.batch_size = monitoring_config["batch_size"]
         state_monitor.device_timeout = monitoring_config["device_timeout_seconds"]
 
-        # Update task scheduler intervals
-        task_scheduler.refresh_from_config(new_config.get_all())
-
         # Broadcast config change to SSE clients
         import asyncio
         asyncio.create_task(sse_broadcaster.send_config_change(monitoring_config))
@@ -177,9 +169,6 @@ async def lifespan(app: FastAPI):
 
     # Start state monitoring
     await state_monitor.start()
-
-    # Start task scheduler for periodic maintenance (legacy)
-    await task_scheduler.start()
 
     # Start cron scheduler for unified scheduling
     await cron_scheduler.start()
@@ -194,9 +183,6 @@ async def lifespan(app: FastAPI):
 
     # Stop cron scheduler
     await cron_scheduler.stop()
-
-    # Stop task scheduler (legacy)
-    await task_scheduler.stop()
 
     # Stop state monitoring
     await state_monitor.stop()
