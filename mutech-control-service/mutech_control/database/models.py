@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
@@ -325,3 +326,115 @@ class LampHoursLog(Base):
 
     def __repr__(self) -> str:
         return f"<LampHoursLog(id={self.id}, asset={self.asset_id}, hours={self.lamp_hours}, event='{self.event_type}')>"
+
+
+class ScheduledJob(Base):
+    """Unified scheduled job for cron-based execution.
+
+    Handles both system maintenance tasks (asset_linker, log_cleanup, etc.)
+    and device automation (turn projector on at 9am).
+    """
+
+    __tablename__ = "scheduled_jobs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name = Column(String(100), nullable=False)
+    job_type = Column(String(20), nullable=False)  # 'system' or 'device'
+    cron_expression = Column(String(100), nullable=False)
+
+    # Device job fields
+    target_device_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("devices.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    action_type = Column(String(20), nullable=True)  # 'on', 'off', 'action'
+    action_name = Column(String(100), nullable=True)  # For shell device actions
+
+    # System job fields
+    task_name = Column(String(50), nullable=True)  # 'asset_linker', 'log_cleanup', etc.
+    task_config = Column(JSON, nullable=True)  # Task-specific configuration
+
+    # State
+    enabled = Column(Boolean, default=True, nullable=False)
+    last_run_at = Column(DateTime, nullable=True)
+    last_success = Column(Boolean, nullable=True)
+    last_error = Column(Text, nullable=True)
+    last_duration_ms = Column(Integer, nullable=True)
+    next_run_at = Column(DateTime, nullable=True)
+
+    # Resiliency
+    fail_count = Column(Integer, default=0, nullable=False)
+    backoff_until = Column(DateTime, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    target_device = relationship("Device", backref="scheduled_jobs")
+    execution_logs = relationship(
+        "ScheduledJobLog",
+        back_populates="job",
+        cascade="all, delete-orphan",
+        order_by="desc(ScheduledJobLog.executed_at)",
+    )
+
+    # Indexes
+    __table_args__ = (
+        Index(
+            "idx_scheduled_jobs_enabled_next_run",
+            "enabled",
+            "next_run_at",
+            postgresql_where=text("enabled = true"),
+        ),
+        Index("idx_scheduled_jobs_job_type", "job_type"),
+        Index(
+            "idx_scheduled_jobs_device",
+            "target_device_id",
+            postgresql_where=text("target_device_id IS NOT NULL"),
+        ),
+        Index(
+            "idx_scheduled_jobs_task_name",
+            "task_name",
+            postgresql_where=text("task_name IS NOT NULL"),
+        ),
+    )
+
+    @property
+    def circuit_open(self) -> bool:
+        """Circuit is open after 5 consecutive failures."""
+        return self.fail_count >= 5
+
+    def __repr__(self) -> str:
+        return f"<ScheduledJob(id={self.id}, name='{self.name}', type='{self.job_type}', enabled={self.enabled})>"
+
+
+class ScheduledJobLog(Base):
+    """Execution history for scheduled jobs."""
+
+    __tablename__ = "scheduled_job_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    job_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("scheduled_jobs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    scheduled_at = Column(DateTime, nullable=False)
+    executed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    success = Column(Boolean, nullable=False)
+    error_message = Column(Text, nullable=True)
+    duration_ms = Column(Integer, nullable=True)
+    result = Column(JSON, nullable=True)  # Task result data for system jobs
+
+    # Relationships
+    job = relationship("ScheduledJob", back_populates="execution_logs")
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_scheduled_job_logs_job_executed", "job_id", "executed_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ScheduledJobLog(id={self.id}, job={self.job_id}, success={self.success})>"
