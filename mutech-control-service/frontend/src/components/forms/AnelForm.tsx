@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Credential } from '../../types';
 import { useHostReachability, type ReachabilityStatus } from '../../hooks/useHostReachability';
+import { SettingsSection, ReachabilityIndicator, getHostInputClass, CredentialSelector, PortSelector } from './shared';
 
 // Generate ANEL hostname from number: 21 -> netzwerksteckdose21.zkm.de
 function generateAnelHostname(num: string): string {
@@ -28,9 +29,6 @@ interface AnelFormProps {
 
 export function AnelForm({ data, onChange, credentials = [], onReachabilityChange, usedPorts = [] }: AnelFormProps) {
   const [quickNum, setQuickNum] = useState('');
-
-  // Filter credentials by anel type
-  const anelCredentials = credentials.filter(c => c.credential_type === 'anel');
 
   const update = (field: keyof AnelFormData, value: string | number | boolean) => {
     onChange({ ...data, [field]: value });
@@ -99,16 +97,12 @@ export function AnelForm({ data, onChange, credentials = [], onReachabilityChang
             <div className="host-input-wrapper flex-grow-1">
               <input
                 type="text"
-                className={`form-control ${reachabilityStatus === 'unreachable' ? 'is-invalid' : reachabilityStatus === 'reachable' ? 'is-valid' : ''}`}
+                className={`form-control ${getHostInputClass(reachabilityStatus)}`}
                 placeholder="netzwerksteckdose21.zkm.de"
                 value={data.host}
                 onChange={(e) => update('host', e.target.value)}
               />
-              <span className={`reachability-indicator status-${reachabilityStatus}`} title={reachabilityError || ''}>
-                {reachabilityStatus === 'checking' && <i className="bi bi-arrow-repeat spin"></i>}
-                {reachabilityStatus === 'reachable' && <i className="bi bi-check-circle-fill"></i>}
-                {reachabilityStatus === 'unreachable' && <i className="bi bi-x-circle-fill"></i>}
-              </span>
+              <ReachabilityIndicator status={reachabilityStatus} error={reachabilityError} />
             </div>
           </div>
           {reachabilityStatus === 'unreachable' && reachabilityError ? (
@@ -117,84 +111,31 @@ export function AnelForm({ data, onChange, credentials = [], onReachabilityChang
             <small className="form-text text-muted">ANEL device on control network</small>
           )}
         </div>
-        <div className="mb-3">
-          <label className="form-label">Port Number (1-8)</label>
-          <div className="port-selector">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map(portNum => {
-              const isUsed = usedPorts.includes(portNum);
-              return (
-                <div
-                  key={portNum}
-                  className={`port-btn ${data.port === portNum ? 'active' : ''} ${isUsed ? 'used' : ''}`}
-                  onClick={() => !isUsed && update('port', portNum)}
-                  title={isUsed ? 'Port already in use' : ''}
-                >
-                  {portNum}
-                </div>
-              );
-            })}
-          </div>
-          {usedPorts.length > 0 && (
-            <small className="form-text text-muted">
-              Grayed out ports are already in use on this host
-            </small>
-          )}
-        </div>
-        <div className="mb-3">
-          <label className="form-label">Credentials</label>
-          <select
-            className="form-select"
-            value={data.credential_id}
-            onChange={(e) => update('credential_id', e.target.value)}
-          >
-            <option value="">Default (admin/anel)</option>
-            {anelCredentials.map(cred => (
-              <option key={cred.id} value={cred.id}>
-                {cred.name} ({cred.username})
-              </option>
-            ))}
-          </select>
-          {anelCredentials.length === 0 ? (
-            <small className="form-text text-muted">
-              Add ANEL credentials in the Credentials Store if needed
-            </small>
-          ) : (
-            <small className="form-text text-muted">
-              For ANEL devices with custom login
-            </small>
-          )}
-        </div>
+        <PortSelector
+          maxPorts={8}
+          selectedPort={data.port}
+          usedPorts={usedPorts}
+          onChange={(port) => update('port', port)}
+          label="Port Number (1-8)"
+        />
+        <CredentialSelector
+          credentials={credentials}
+          credentialType="anel"
+          selectedId={data.credential_id}
+          onChange={(id) => update('credential_id', id)}
+          emptyLabel="Default (admin/anel)"
+          helpText="For ANEL devices with custom login"
+          showUsername
+        />
       </div>
 
-      <div className="form-section">
-        <div className="section-title">Settings</div>
-        <div className="form-check mb-3">
-          <input
-            className="form-check-input"
-            type="checkbox"
-            id="anel-enabled"
-            checked={data.enabled}
-            onChange={(e) => update('enabled', e.target.checked)}
-          />
-          <label className="form-check-label" htmlFor="anel-enabled">
-            <strong>Device Enabled</strong>
-          </label>
-          <small className="d-block text-muted">When disabled, device is ignored by the system</small>
-        </div>
-        <div className="form-check mb-3">
-          <input
-            className="form-check-input"
-            type="checkbox"
-            id="anel-automation"
-            checked={data.automation_enabled}
-            onChange={(e) => update('automation_enabled', e.target.checked)}
-          />
-          <label className="form-check-label" htmlFor="anel-automation">
-            <strong>Include in Automation</strong>
-          </label>
-          <small className="d-block text-muted">Included in bulk ON/OFF operations for artwork/exhibition</small>
-        </div>
-      </div>
+      <SettingsSection
+        deviceType="anel"
+        enabled={data.enabled}
+        automationEnabled={data.automation_enabled}
+        onEnabledChange={(enabled) => update('enabled', enabled)}
+        onAutomationChange={(enabled) => update('automation_enabled', enabled)}
+      />
     </div>
   );
 }

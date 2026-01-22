@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
 import type { Credential } from '../../types';
 import { useHostReachability, type ReachabilityStatus } from '../../hooks/useHostReachability';
+import { SettingsSection, ReachabilityIndicator, getHostInputClass, CredentialSelector } from './shared';
 
 interface PJLinkFormData {
   name: string;
   host: string;
   port: number;
-  credential_id: string; // empty string = no password
+  credential_id: string;
   enabled: boolean;
   automation_enabled: boolean;
 }
@@ -35,9 +36,6 @@ export function PJLinkForm({ data, onChange, credentials = [], onReachabilityCha
     onReachabilityChange?.(reachabilityStatus);
   }, [reachabilityStatus, onReachabilityChange]);
 
-  // Filter credentials by pjlink type
-  const pjlinkCredentials = credentials.filter(c => c.credential_type === 'pjlink');
-
   return (
     <div className="device-form">
       <div className="form-section">
@@ -63,16 +61,12 @@ export function PJLinkForm({ data, onChange, credentials = [], onReachabilityCha
               <div className="host-input-wrapper">
                 <input
                   type="text"
-                  className={`form-control ${reachabilityStatus === 'unreachable' ? 'is-invalid' : reachabilityStatus === 'reachable' ? 'is-valid' : ''}`}
+                  className={`form-control ${getHostInputClass(reachabilityStatus)}`}
                   placeholder="192.168.10.45"
                   value={data.host}
                   onChange={(e) => update('host', e.target.value)}
                 />
-                <span className={`reachability-indicator status-${reachabilityStatus}`} title={reachabilityError || ''}>
-                  {reachabilityStatus === 'checking' && <i className="bi bi-arrow-repeat spin"></i>}
-                  {reachabilityStatus === 'reachable' && <i className="bi bi-check-circle-fill"></i>}
-                  {reachabilityStatus === 'unreachable' && <i className="bi bi-x-circle-fill"></i>}
-                </span>
+                <ReachabilityIndicator status={reachabilityStatus} error={reachabilityError} />
               </div>
               {reachabilityStatus === 'unreachable' && reachabilityError && (
                 <small className="text-danger">{reachabilityError}</small>
@@ -93,57 +87,23 @@ export function PJLinkForm({ data, onChange, credentials = [], onReachabilityCha
             </div>
           </div>
         </div>
-        <div className="mb-3">
-          <label className="form-label">Credentials</label>
-          <select
-            className="form-select"
-            value={data.credential_id}
-            onChange={(e) => update('credential_id', e.target.value)}
-          >
-            <option value="">None (no password)</option>
-            {pjlinkCredentials.map(cred => (
-              <option key={cred.id} value={cred.id}>
-                {cred.name}
-              </option>
-            ))}
-          </select>
-          {pjlinkCredentials.length === 0 && (
-            <small className="form-text text-muted">
-              Add PJLink credentials in the Credentials Store
-            </small>
-          )}
-        </div>
+        <CredentialSelector
+          credentials={credentials}
+          credentialType="pjlink"
+          selectedId={data.credential_id}
+          onChange={(id) => update('credential_id', id)}
+          emptyLabel="None (no password)"
+          helpText="Add PJLink credentials in the Credentials Store"
+        />
       </div>
 
-      <div className="form-section">
-        <div className="section-title">Settings</div>
-        <div className="form-check mb-3">
-          <input
-            className="form-check-input"
-            type="checkbox"
-            id="pjlink-enabled"
-            checked={data.enabled}
-            onChange={(e) => update('enabled', e.target.checked)}
-          />
-          <label className="form-check-label" htmlFor="pjlink-enabled">
-            <strong>Device Enabled</strong>
-          </label>
-          <small className="d-block text-muted">When disabled, device is ignored by the system</small>
-        </div>
-        <div className="form-check mb-3">
-          <input
-            className="form-check-input"
-            type="checkbox"
-            id="pjlink-automation"
-            checked={data.automation_enabled}
-            onChange={(e) => update('automation_enabled', e.target.checked)}
-          />
-          <label className="form-check-label" htmlFor="pjlink-automation">
-            <strong>Include in Automation</strong>
-          </label>
-          <small className="d-block text-muted">Included in bulk ON/OFF operations for artwork/exhibition</small>
-        </div>
-      </div>
+      <SettingsSection
+        deviceType="pjlink"
+        enabled={data.enabled}
+        automationEnabled={data.automation_enabled}
+        onEnabledChange={(enabled) => update('enabled', enabled)}
+        onAutomationChange={(enabled) => update('automation_enabled', enabled)}
+      />
     </div>
   );
 }

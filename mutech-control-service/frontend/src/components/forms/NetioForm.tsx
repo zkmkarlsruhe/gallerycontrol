@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Credential } from '../../types';
 import { useHostReachability, type ReachabilityStatus } from '../../hooks/useHostReachability';
+import { SettingsSection, ReachabilityIndicator, getHostInputClass, CredentialSelector, PortSelector } from './shared';
 
 // Generate NETIO hostname from number: 49 -> netzwerksteckdose-netio-049.zkm.de
 function generateNetioHostname(num: string): string {
@@ -54,9 +55,6 @@ export function NetioForm({ data, onChange, credentials = [], onReachabilityChan
     onReachabilityChange?.(reachabilityStatus);
   }, [reachabilityStatus, onReachabilityChange]);
 
-  // Filter credentials by netio type
-  const netioCredentials = credentials.filter(c => c.credential_type === 'netio');
-
   return (
     <div className="device-form">
       <div className="form-section">
@@ -100,100 +98,44 @@ export function NetioForm({ data, onChange, credentials = [], onReachabilityChan
             <div className="host-input-wrapper flex-grow-1">
               <input
                 type="text"
-                className={`form-control ${reachabilityStatus === 'unreachable' ? 'is-invalid' : reachabilityStatus === 'reachable' ? 'is-valid' : ''}`}
+                className={`form-control ${getHostInputClass(reachabilityStatus)}`}
                 placeholder="netzwerksteckdose-netio-049.zkm.de"
                 value={data.host}
                 onChange={(e) => update('host', e.target.value)}
               />
-              <span className={`reachability-indicator status-${reachabilityStatus}`} title={reachabilityError || ''}>
-                {reachabilityStatus === 'checking' && <i className="bi bi-arrow-repeat spin"></i>}
-                {reachabilityStatus === 'reachable' && <i className="bi bi-check-circle-fill"></i>}
-                {reachabilityStatus === 'unreachable' && <i className="bi bi-x-circle-fill"></i>}
-              </span>
+              <ReachabilityIndicator status={reachabilityStatus} error={reachabilityError} />
             </div>
           </div>
           {reachabilityStatus === 'unreachable' && reachabilityError && (
             <small className="text-danger">{reachabilityError}</small>
           )}
         </div>
-        <div className="mb-3">
-          <label className="form-label">Port Number (1-3)</label>
-          <div className="port-selector">
-            {[1, 2, 3].map(portNum => {
-              const isUsed = usedPorts.includes(portNum);
-              return (
-                <div
-                  key={portNum}
-                  className={`port-btn ${data.port === portNum ? 'active' : ''} ${isUsed ? 'used' : ''}`}
-                  onClick={() => !isUsed && update('port', portNum)}
-                  title={isUsed ? 'Port already in use' : ''}
-                >
-                  {portNum}
-                </div>
-              );
-            })}
-          </div>
-          {usedPorts.length > 0 && (
-            <small className="form-text text-muted">
-              Grayed out ports are already in use on this host
-            </small>
-          )}
-        </div>
-        <div className="mb-3">
-          <label className="form-label">Credentials</label>
-          <select
-            className="form-select"
-            value={data.credential_id}
-            onChange={(e) => update('credential_id', e.target.value)}
-          >
-            <option value="">Select...</option>
-            {netioCredentials.map(cred => (
-              <option key={cred.id} value={cred.id}>
-                {cred.name} ({cred.username})
-              </option>
-            ))}
-          </select>
-          {netioCredentials.length === 0 ? (
-            <small className="form-text text-danger">
-              No NETIO credentials. Add in Credentials Store first.
-            </small>
-          ) : (
-            <small className="form-text text-muted">
-              Required for NETIO authentication
-            </small>
-          )}
-        </div>
+        <PortSelector
+          maxPorts={3}
+          selectedPort={data.port}
+          usedPorts={usedPorts}
+          onChange={(port) => update('port', port)}
+          label="Port Number (1-3)"
+        />
+        <CredentialSelector
+          credentials={credentials}
+          credentialType="netio"
+          selectedId={data.credential_id}
+          onChange={(id) => update('credential_id', id)}
+          emptyLabel="Select..."
+          emptyHelpText="No NETIO credentials. Add in Credentials Store first."
+          helpText="Required for NETIO authentication"
+          showUsername
+        />
       </div>
 
-      <div className="form-section">
-        <div className="section-title">Settings</div>
-        <div className="form-check mb-3">
-          <input
-            className="form-check-input"
-            type="checkbox"
-            id="netio-enabled"
-            checked={data.enabled}
-            onChange={(e) => update('enabled', e.target.checked)}
-          />
-          <label className="form-check-label" htmlFor="netio-enabled">
-            <strong>Device Enabled</strong>
-          </label>
-          <small className="d-block text-muted">When disabled, device is ignored by the system</small>
-        </div>
-        <div className="form-check mb-3">
-          <input
-            className="form-check-input"
-            type="checkbox"
-            id="netio-automation"
-            checked={data.automation_enabled}
-            onChange={(e) => update('automation_enabled', e.target.checked)}
-          />
-          <label className="form-check-label" htmlFor="netio-automation">
-            <strong>Include in Automation</strong>
-          </label>
-          <small className="d-block text-muted">Included in bulk ON/OFF operations for artwork/exhibition</small>
-        </div>
-      </div>
+      <SettingsSection
+        deviceType="netio"
+        enabled={data.enabled}
+        automationEnabled={data.automation_enabled}
+        onEnabledChange={(enabled) => update('enabled', enabled)}
+        onAutomationChange={(enabled) => update('automation_enabled', enabled)}
+      />
     </div>
   );
 }
