@@ -319,12 +319,23 @@ class PJLinkManager(DeviceManager):
             # Query lamp hours (LAMP)
             response = await self._send_command(device.host, port, "LAMP ?", password)
             if "LAMP=" in response:
-                # Format: "LAMP=<hours> <on/off>" e.g., "LAMP=1234 1"
+                # Format: "LAMP=<hours> <on/off>" for single lamp
+                # Multi-lamp: "LAMP=<hours1> <on/off1> <hours2> <on/off2> ..."
                 lamp_data = response.split("=", 1)[1].strip().split()
                 if lamp_data:
-                    info["lamp_hours"] = int(lamp_data[0])
-                    if len(lamp_data) > 1:
-                        info["lamp_on"] = lamp_data[1] == "1"
+                    # Parse all lamps (pairs of hours, status)
+                    lamps = []
+                    for i in range(0, len(lamp_data) - 1, 2):
+                        hours = int(lamp_data[i])
+                        is_on = lamp_data[i + 1] == "1" if i + 1 < len(lamp_data) else False
+                        lamps.append({"hours": hours, "on": is_on})
+
+                    if lamps:
+                        info["lamps"] = lamps
+                        # Use sum of all lamp hours for total
+                        info["lamp_hours"] = sum(l["hours"] for l in lamps)
+                        # Lamp is on if any lamp is on
+                        info["lamp_on"] = any(l["on"] for l in lamps)
 
             # Query error status (ERST)
             response = await self._send_command(device.host, port, "ERST ?", password)
