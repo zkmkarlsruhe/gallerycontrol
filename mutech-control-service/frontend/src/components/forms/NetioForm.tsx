@@ -24,9 +24,10 @@ interface NetioFormProps {
   onChange: (data: NetioFormData) => void;
   credentials?: Credential[];
   onReachabilityChange?: (status: ReachabilityStatus) => void;
+  usedPorts?: number[];
 }
 
-export function NetioForm({ data, onChange, credentials = [], onReachabilityChange }: NetioFormProps) {
+export function NetioForm({ data, onChange, credentials = [], onReachabilityChange, usedPorts = [] }: NetioFormProps) {
   const [quickNum, setQuickNum] = useState('');
 
   const update = (field: keyof NetioFormData, value: string | number | boolean) => {
@@ -118,16 +119,25 @@ export function NetioForm({ data, onChange, credentials = [], onReachabilityChan
         <div className="mb-3">
           <label className="form-label">Port Number (1-3)</label>
           <div className="port-selector">
-            {[1, 2, 3].map(portNum => (
-              <div
-                key={portNum}
-                className={`port-btn ${data.port === portNum ? 'active' : ''}`}
-                onClick={() => update('port', portNum)}
-              >
-                {portNum}
-              </div>
-            ))}
+            {[1, 2, 3].map(portNum => {
+              const isUsed = usedPorts.includes(portNum);
+              return (
+                <div
+                  key={portNum}
+                  className={`port-btn ${data.port === portNum ? 'active' : ''} ${isUsed ? 'used' : ''}`}
+                  onClick={() => !isUsed && update('port', portNum)}
+                  title={isUsed ? 'Port already in use' : ''}
+                >
+                  {portNum}
+                </div>
+              );
+            })}
           </div>
+          {usedPorts.length > 0 && (
+            <small className="form-text text-muted">
+              Grayed out ports are already in use on this host
+            </small>
+          )}
         </div>
         <div className="mb-3">
           <label className="form-label">Credentials</label>

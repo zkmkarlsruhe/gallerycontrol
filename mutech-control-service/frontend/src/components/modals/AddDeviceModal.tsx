@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import type { Credential, ShellTemplate } from '../../types';
+import { useState, useCallback, useMemo } from 'react';
+import type { Credential, ShellTemplate, Device } from '../../types';
 import { Modal } from '../ui/Modal';
 import { DeviceTypeSelector, type DeviceType } from '../forms/DeviceTypeSelector';
 import { PJLinkForm, defaultPJLinkData } from '../forms/PJLinkForm';
@@ -17,6 +17,7 @@ interface AddDeviceModalProps {
   onSave: (artworkId: string, data: any) => Promise<void>;
   credentials?: Credential[];
   templates?: ShellTemplate[];
+  existingDevices?: Device[];
 }
 
 export function AddDeviceModal({
@@ -28,6 +29,7 @@ export function AddDeviceModal({
   onSave,
   credentials = [],
   templates = [],
+  existingDevices = [],
 }: AddDeviceModalProps) {
   const [deviceType, setDeviceType] = useState<DeviceType>('pjlink');
   const [pjlinkData, setPjlinkData] = useState(defaultPJLinkData);
@@ -36,6 +38,23 @@ export function AddDeviceModal({
   const [shellData, setShellData] = useState(defaultShellData);
   const [saving, setSaving] = useState(false);
   const [reachabilityStatus, setReachabilityStatus] = useState<ReachabilityStatus>('idle');
+
+  // Get used ports for NETIO and ANEL devices by host
+  // Note: Database stores 0-indexed ports (0,1,2) but UI displays 1-indexed (1,2,3)
+  // So we add 1 to convert DB ports to UI ports
+  const netioUsedPorts = useMemo(() => {
+    if (!netioData.host) return [];
+    return existingDevices
+      .filter(d => d.device_type === 'netio' && d.host === netioData.host && d.port !== null)
+      .map(d => (d.port as number) + 1);  // Convert 0-indexed DB to 1-indexed UI
+  }, [existingDevices, netioData.host]);
+
+  const anelUsedPorts = useMemo(() => {
+    if (!anelData.host) return [];
+    return existingDevices
+      .filter(d => d.device_type === 'anel' && d.host === anelData.host && d.port !== null)
+      .map(d => (d.port as number) + 1);  // Convert 0-indexed DB to 1-indexed UI
+  }, [existingDevices, anelData.host]);
 
   const handleReachabilityChange = useCallback((status: ReachabilityStatus) => {
     setReachabilityStatus(status);
@@ -180,8 +199,8 @@ export function AddDeviceModal({
 
       {/* Device-specific forms */}
       {deviceType === 'pjlink' && <PJLinkForm data={pjlinkData} onChange={setPjlinkData} credentials={credentials} onReachabilityChange={handleReachabilityChange} />}
-      {deviceType === 'netio' && <NetioForm data={netioData} onChange={setNetioData} credentials={credentials} onReachabilityChange={handleReachabilityChange} />}
-      {deviceType === 'anel' && <AnelForm data={anelData} onChange={setAnelData} onReachabilityChange={handleReachabilityChange} />}
+      {deviceType === 'netio' && <NetioForm data={netioData} onChange={setNetioData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={netioUsedPorts} />}
+      {deviceType === 'anel' && <AnelForm data={anelData} onChange={setAnelData} onReachabilityChange={handleReachabilityChange} usedPorts={anelUsedPorts} />}
       {deviceType === 'shell' && <ShellForm data={shellData} onChange={setShellData} credentials={credentials} templates={templates} />}
     </Modal>
   );

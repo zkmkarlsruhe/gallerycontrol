@@ -128,6 +128,17 @@ function App() {
     return devices;
   }, [exhibitions]);
 
+  // Extract raw devices for AddDeviceModal (to check used ports)
+  const existingDevices = useMemo(() => {
+    const devices: Device[] = [];
+    for (const exhibition of exhibitions) {
+      for (const artwork of exhibition.artworks) {
+        devices.push(...artwork.devices);
+      }
+    }
+    return devices;
+  }, [exhibitions]);
+
   const showToast = useCallback((message: string, type: 'success' | 'danger' | 'info' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -622,6 +633,7 @@ function App() {
           onSave={handleSaveDevice}
           credentials={credentials}
           templates={templates}
+          existingDevices={existingDevices}
         />
       )}
 
