@@ -13,7 +13,15 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mutech_control.database.connection import get_session
-from mutech_control.database.models import Artwork, Credential, Device, Exhibition, ShellTemplate
+from mutech_control.database.models import (
+    Artwork,
+    Credential,
+    Device,
+    Exhibition,
+    ScheduledJob,
+    ScheduledJobLog,
+    ShellTemplate,
+)
 from mutech_control.devices.shell_manager import load_credentials
 
 logger = logging.getLogger(__name__)
@@ -1839,3 +1847,420 @@ async def trigger_all_tasks(request: Request):
         "triggered": triggered,
         "skipped": skipped,
     }
+
+
+# ========== Scheduled Jobs (Cron) Endpoints ==========
+
+
+class ScheduledJobCreate(BaseModel):
+    """Create a new scheduled job."""
+
+    name: str
+    cron_expression: str
+    job_type: str = "device"  # 'system' or 'device'
+    # Device job fields
+    target_device_id: str | None = None
+    action_type: str | None = None  # 'on', 'off', 'action'
+    action_name: str | None = None  # For shell actions
+    # System job fields
+    task_name: str | None = None
+    task_config: dict | None = None
+    enabled: bool = True
+
+
+class ScheduledJobUpdate(BaseModel):
+    """Update a scheduled job."""
+
+    name: str | None = None
+    cron_expression: str | None = None
+    target_device_id: str | None = None
+    action_type: str | None = None
+    action_name: str | None = None
+    task_config: dict | None = None
+    enabled: bool | None = None
+
+
+@router.get("/scheduled-jobs")
+async def list_scheduled_jobs(
+    job_type: str | None = None,
+    device_id: str | None = None,
+    session=Depends(get_session),
+):
+    """List all scheduled jobs.
+
+    Args:
+        job_type: Filter by 'system' or 'device'
+        device_id: Filter by target device ID
+    """
+    try:
+        stmt = select(ScheduledJob).options(selectinload(ScheduledJob.target_device))
+
+        if job_type:
+            stmt = stmt.where(ScheduledJob.job_type == job_type)
+
+        if device_id:
+            stmt = stmt.where(ScheduledJob.target_device_id == UUID(device_id))
+
+        stmt = stmt.order_by(ScheduledJob.job_type, ScheduledJob.name)
+        result = await session.execute(stmt)
+        jobs = result.scalars().all()
+
+        return [
+            {
+                "id": str(job.id),
+                "name": job.name,
+                "job_type": job.job_type,
+                "cron_expression": job.cron_expression,
+                "target_device_id": str(job.target_device_id) if job.target_device_id else None,
+                "target_device_name": job.target_device.name if job.target_device else None,
+                "action_type": job.action_type,
+                "action_name": job.action_name,
+                "task_name": job.task_name,
+                "task_config": job.task_config,
+                "enabled": job.enabled,
+                "last_run_at": job.last_run_at.isoformat() if job.last_run_at else None,
+                "last_success": job.last_success,
+                "last_error": job.last_error,
+                "last_duration_ms": job.last_duration_ms,
+                "next_run_at": job.next_run_at.isoformat() if job.next_run_at else None,
+                "fail_count": job.fail_count,
+                "circuit_open": job.circuit_open,
+                "created_at": job.created_at.isoformat(),
+                "updated_at": job.updated_at.isoformat(),
+            }
+            for job in jobs
+        ]
+
+    except Exception as e:
+        logger.error(f"Error listing scheduled jobs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/scheduled-jobs/{job_id}")
+async def get_scheduled_job(job_id: str, session=Depends(get_session)):
+    """Get a single scheduled job by ID."""
+    try:
+        stmt = (
+            select(ScheduledJob)
+            .where(ScheduledJob.id == UUID(job_id))
+            .options(selectinload(ScheduledJob.target_device))
+        )
+        result = await session.execute(stmt)
+        job = result.scalar_one_or_none()
+
+        if not job:
+            raise HTTPException(status_code=404, detail="Scheduled job not found")
+
+        return {
+            "id": str(job.id),
+            "name": job.name,
+            "job_type": job.job_type,
+            "cron_expression": job.cron_expression,
+            "target_device_id": str(job.target_device_id) if job.target_device_id else None,
+            "target_device_name": job.target_device.name if job.target_device else None,
+            "action_type": job.action_type,
+            "action_name": job.action_name,
+            "task_name": job.task_name,
+            "task_config": job.task_config,
+            "enabled": job.enabled,
+            "last_run_at": job.last_run_at.isoformat() if job.last_run_at else None,
+            "last_success": job.last_success,
+            "last_error": job.last_error,
+            "last_duration_ms": job.last_duration_ms,
+            "next_run_at": job.next_run_at.isoformat() if job.next_run_at else None,
+            "fail_count": job.fail_count,
+            "circuit_open": job.circuit_open,
+            "backoff_until": job.backoff_until.isoformat() if job.backoff_until else None,
+            "created_at": job.created_at.isoformat(),
+            "updated_at": job.updated_at.isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting scheduled job: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/scheduled-jobs", status_code=201)
+async def create_scheduled_job(
+    job: ScheduledJobCreate, request: Request, session=Depends(get_session)
+):
+    """Create a new scheduled job.
+
+    For device jobs, provide target_device_id and action_type.
+    For system jobs, provide task_name.
+    """
+    from mutech_control.scheduler.cron_scheduler import CronScheduler
+
+    try:
+        # Validate cron expression
+        is_valid, error = CronScheduler.validate_cron_expression(job.cron_expression)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=f"Invalid cron expression: {error}")
+
+        # Validate job type specific fields
+        if job.job_type == "device":
+            if not job.target_device_id:
+                raise HTTPException(status_code=400, detail="target_device_id required for device jobs")
+            if not job.action_type:
+                raise HTTPException(status_code=400, detail="action_type required for device jobs")
+            if job.action_type not in ("on", "off", "action"):
+                raise HTTPException(status_code=400, detail="action_type must be 'on', 'off', or 'action'")
+            if job.action_type == "action" and not job.action_name:
+                raise HTTPException(status_code=400, detail="action_name required for action type")
+
+            # Verify device exists
+            device_stmt = select(Device).where(Device.id == UUID(job.target_device_id))
+            device_result = await session.execute(device_stmt)
+            device = device_result.scalar_one_or_none()
+            if not device:
+                raise HTTPException(status_code=404, detail="Target device not found")
+
+        elif job.job_type == "system":
+            if not job.task_name:
+                raise HTTPException(status_code=400, detail="task_name required for system jobs")
+        else:
+            raise HTTPException(status_code=400, detail="job_type must be 'system' or 'device'")
+
+        # Calculate next run time
+        next_runs = CronScheduler.get_next_runs(job.cron_expression, count=1)
+        next_run_at = next_runs[0] if next_runs else None
+
+        new_job = ScheduledJob(
+            name=job.name,
+            job_type=job.job_type,
+            cron_expression=job.cron_expression,
+            target_device_id=UUID(job.target_device_id) if job.target_device_id else None,
+            action_type=job.action_type,
+            action_name=job.action_name,
+            task_name=job.task_name,
+            task_config=job.task_config,
+            enabled=job.enabled,
+            next_run_at=next_run_at,
+        )
+        session.add(new_job)
+        await session.flush()
+
+        return {
+            "id": str(new_job.id),
+            "name": new_job.name,
+            "job_type": new_job.job_type,
+            "cron_expression": new_job.cron_expression,
+            "next_run_at": new_job.next_run_at.isoformat() if new_job.next_run_at else None,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating scheduled job: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/scheduled-jobs/{job_id}")
+async def update_scheduled_job(
+    job_id: str, job: ScheduledJobUpdate, session=Depends(get_session)
+):
+    """Update a scheduled job."""
+    from mutech_control.scheduler.cron_scheduler import CronScheduler
+
+    try:
+        stmt = select(ScheduledJob).where(ScheduledJob.id == UUID(job_id))
+        result = await session.execute(stmt)
+        existing = result.scalar_one_or_none()
+
+        if not existing:
+            raise HTTPException(status_code=404, detail="Scheduled job not found")
+
+        # Build update values
+        values = {}
+        for key, value in job.dict().items():
+            if value is not None:
+                if key == "target_device_id":
+                    values[key] = UUID(value)
+                else:
+                    values[key] = value
+
+        # Validate cron expression if being updated
+        if "cron_expression" in values:
+            is_valid, error = CronScheduler.validate_cron_expression(values["cron_expression"])
+            if not is_valid:
+                raise HTTPException(status_code=400, detail=f"Invalid cron expression: {error}")
+            # Recalculate next run time
+            next_runs = CronScheduler.get_next_runs(values["cron_expression"], count=1)
+            values["next_run_at"] = next_runs[0] if next_runs else None
+
+        if not values:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        # Apply updates
+        for key, value in values.items():
+            setattr(existing, key, value)
+
+        await session.flush()
+
+        return {
+            "id": str(existing.id),
+            "name": existing.name,
+            "enabled": existing.enabled,
+            "next_run_at": existing.next_run_at.isoformat() if existing.next_run_at else None,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating scheduled job: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/scheduled-jobs/{job_id}", status_code=204)
+async def delete_scheduled_job(job_id: str, session=Depends(get_session)):
+    """Delete a scheduled job."""
+    try:
+        stmt = delete(ScheduledJob).where(ScheduledJob.id == UUID(job_id))
+        result = await session.execute(stmt)
+
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Scheduled job not found")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting scheduled job: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/scheduled-jobs/{job_id}/trigger")
+async def trigger_scheduled_job(job_id: str, request: Request, session=Depends(get_session)):
+    """Trigger immediate execution of a scheduled job.
+
+    The job will run on the next scheduler check cycle.
+    """
+    cron_scheduler = getattr(request.app.state, "cron_scheduler", None)
+    if not cron_scheduler:
+        raise HTTPException(status_code=503, detail="Cron scheduler not available")
+
+    try:
+        success = await cron_scheduler.trigger_job(UUID(job_id))
+        if not success:
+            raise HTTPException(
+                status_code=400,
+                detail="Job not found, circuit open, or already running",
+            )
+
+        return {"status": "triggered", "job_id": job_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error triggering scheduled job: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/scheduled-jobs/{job_id}/reset-circuit")
+async def reset_scheduled_job_circuit(
+    job_id: str, request: Request, session=Depends(get_session)
+):
+    """Reset circuit breaker for a scheduled job.
+
+    After 5 consecutive failures, a job's circuit opens and it stops running.
+    This endpoint resets the circuit, allowing the job to run again.
+    """
+    cron_scheduler = getattr(request.app.state, "cron_scheduler", None)
+    if not cron_scheduler:
+        raise HTTPException(status_code=503, detail="Cron scheduler not available")
+
+    try:
+        success = await cron_scheduler.reset_circuit(UUID(job_id))
+        if not success:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        return {"status": "reset", "job_id": job_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resetting job circuit: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/scheduled-jobs/{job_id}/logs")
+async def get_scheduled_job_logs(
+    job_id: str, limit: int = 50, session=Depends(get_session)
+):
+    """Get execution logs for a scheduled job."""
+    try:
+        stmt = (
+            select(ScheduledJobLog)
+            .where(ScheduledJobLog.job_id == UUID(job_id))
+            .order_by(ScheduledJobLog.executed_at.desc())
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        logs = result.scalars().all()
+
+        return [
+            {
+                "id": str(log.id),
+                "scheduled_at": log.scheduled_at.isoformat(),
+                "executed_at": log.executed_at.isoformat(),
+                "success": log.success,
+                "error_message": log.error_message,
+                "duration_ms": log.duration_ms,
+                "result": log.result,
+            }
+            for log in logs
+        ]
+
+    except Exception as e:
+        logger.error(f"Error getting scheduled job logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/scheduled-jobs/cron/preview")
+async def preview_cron_schedule(cron_expression: str, count: int = 10):
+    """Preview the next run times for a cron expression.
+
+    Args:
+        cron_expression: Standard cron expression (minute hour day month weekday)
+        count: Number of future runs to return (max 20)
+    """
+    from mutech_control.scheduler.cron_scheduler import CronScheduler
+
+    try:
+        # Validate cron expression
+        is_valid, error = CronScheduler.validate_cron_expression(cron_expression)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=f"Invalid cron expression: {error}")
+
+        # Get next runs
+        count = min(count, 20)  # Cap at 20
+        next_runs = CronScheduler.get_next_runs(cron_expression, count=count)
+
+        return {
+            "cron_expression": cron_expression,
+            "next_runs": [run.isoformat() for run in next_runs],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error previewing cron schedule: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/cron-scheduler/status")
+async def get_cron_scheduler_status(request: Request):
+    """Get unified cron scheduler status.
+
+    Returns status of all scheduled jobs including system and device jobs.
+    """
+    cron_scheduler = getattr(request.app.state, "cron_scheduler", None)
+    if not cron_scheduler:
+        raise HTTPException(status_code=503, detail="Cron scheduler not available")
+
+    try:
+        return await cron_scheduler.get_status()
+    except Exception as e:
+        logger.error(f"Error getting cron scheduler status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
