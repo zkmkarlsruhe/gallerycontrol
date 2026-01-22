@@ -119,7 +119,7 @@ async def lifespan(app: FastAPI):
     )
     cron_scheduler.register_system_task(
         "device_info_cache",
-        lambda **kwargs: run_device_info_cache(db_manager, device_managers, **kwargs),
+        lambda **kwargs: run_device_info_cache(db_manager, orchestrator, **kwargs),
         {"max_concurrent": 5, "timeout_seconds": 10},
     )
     cron_scheduler.register_system_task(
