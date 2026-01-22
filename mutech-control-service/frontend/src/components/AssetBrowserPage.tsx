@@ -182,6 +182,11 @@ function EditAssetModal({
   );
 }
 
+interface ExhibitionOption {
+  id: string;
+  name: string;
+}
+
 export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,6 +199,8 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
   const [relinkRunning, setRelinkRunning] = useState(false);
   const [lampHoursRunning, setLampHoursRunning] = useState(false);
   const [lampHoursResult, setLampHoursResult] = useState<any>(null);
+  const [exhibitions, setExhibitions] = useState<ExhibitionOption[]>([]);
+  const [selectedExhibition, setSelectedExhibition] = useState<string>('');
 
   const loadAssets = useCallback(async () => {
     setLoading(true);
@@ -203,6 +210,9 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
       });
       if (search) {
         params.set('search', search);
+      }
+      if (selectedExhibition) {
+        params.set('exhibition_id', selectedExhibition);
       }
       const res = await fetch(`/api/assets?${params}`);
       if (res.ok) {
@@ -215,11 +225,19 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [search, selectedExhibition]);
 
   useEffect(() => {
     loadAssets();
   }, [loadAssets]);
+
+  // Load exhibitions for filter dropdown
+  useEffect(() => {
+    fetch('/api/assets/exhibitions')
+      .then(r => r.json())
+      .then(setExhibitions)
+      .catch(err => console.error('Failed to load exhibitions:', err));
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -365,6 +383,16 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <select
+            className="form-control exhibition-filter"
+            value={selectedExhibition}
+            onChange={(e) => setSelectedExhibition(e.target.value)}
+          >
+            <option value="">All Exhibitions</option>
+            {exhibitions.map(ex => (
+              <option key={ex.id} value={ex.id}>{ex.name}</option>
+            ))}
+          </select>
           <button type="submit" className="btn btn-primary">Search</button>
         </form>
       </div>

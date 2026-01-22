@@ -12,7 +12,7 @@ from sqlalchemy import func, select, desc
 from sqlalchemy.orm import selectinload, aliased
 
 from mutech_control.database.connection import get_session
-from mutech_control.database.models import Asset, Device, LampHoursLog
+from mutech_control.database.models import Asset, Artwork, Device, Exhibition, LampHoursLog
 
 logger = logging.getLogger(__name__)
 
@@ -72,11 +72,39 @@ class ManualLampHoursRequest(BaseModel):
     notes: Optional[str] = None
 
 
+@router.get("/exhibitions")
+async def list_exhibitions_for_filter(session=Depends(get_session)):
+    """Get exhibition list for asset filter dropdown.
+
+    Returns exhibitions that have at least one device with an asset.
+    """
+    try:
+        stmt = (
+            select(Exhibition.id, Exhibition.name)
+            .join(Artwork, Artwork.exhibition_id == Exhibition.id)
+            .join(Device, Device.artwork_id == Artwork.id)
+            .where(Device.asset_id.isnot(None))
+            .distinct()
+            .order_by(Exhibition.name)
+        )
+        result = await session.execute(stmt)
+        rows = result.all()
+
+        return [
+            {"id": str(row.id), "name": row.name}
+            for row in rows
+        ]
+    except Exception as e:
+        logger.error(f"Error listing exhibitions for filter: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("")
 async def list_assets(
     page: int = 1,
     per_page: int = 50,
     search: Optional[str] = None,
+    exhibition_id: Optional[str] = None,
     session=Depends(get_session),
 ):
     """List all assets with pagination and optional search.
@@ -85,6 +113,7 @@ async def list_assets(
         page: Page number (default 1)
         per_page: Items per page (default 50, max 100)
         search: Optional search term for asset_number or hostname
+        exhibition_id: Optional filter by exhibition UUID
     """
     try:
         per_page = min(per_page, 100)
@@ -99,8 +128,23 @@ async def list_assets(
                 (Asset.hostname.ilike(search_term))
             )
 
-        # Get total count
-        count_stmt = select(func.count()).select_from(Asset)
+        # Parse exhibition_id filter
+        exhibition_uuid = None
+        if exhibition_id:
+            exhibition_uuid = parse_uuid(exhibition_id, "exhibition_id")
+
+        # Get total count (needs join for exhibition filter)
+        if exhibition_uuid:
+            count_stmt = (
+                select(func.count(func.distinct(Asset.id)))
+                .select_from(Asset)
+                .join(Device, Device.asset_id == Asset.id)
+                .join(Artwork, Device.artwork_id == Artwork.id)
+                .where(Artwork.exhibition_id == exhibition_uuid)
+            )
+        else:
+            count_stmt = select(func.count()).select_from(Asset)
+
         if search_filter is not None:
             count_stmt = count_stmt.where(search_filter)
         count_result = await session.execute(count_stmt)
@@ -119,17 +163,22 @@ async def list_assets(
         # Alias for joining lamp logs
         LatestLog = aliased(LampHoursLog)
 
-        # Main query: Asset + current device + latest lamp log (via subquery join)
+        # Main query: Asset + current device + artwork/exhibition + latest lamp log
         stmt = (
             select(
                 Asset,
                 Device.id.label("device_id"),
                 Device.name.label("device_name"),
+                Device.state.label("device_state"),
+                Artwork.name.label("artwork_name"),
+                Exhibition.name.label("exhibition_name"),
                 LatestLog.lamp_hours.label("last_lamp_hours"),
                 LatestLog.event_type.label("last_event_type"),
                 LatestLog.timestamp.label("last_event_at"),
             )
             .outerjoin(Device, Device.asset_id == Asset.id)
+            .outerjoin(Artwork, Device.artwork_id == Artwork.id)
+            .outerjoin(Exhibition, Artwork.exhibition_id == Exhibition.id)
             .outerjoin(
                 latest_log_subq,
                 latest_log_subq.c.asset_id == Asset.id
@@ -145,6 +194,10 @@ async def list_assets(
         # Apply search filter
         if search_filter is not None:
             stmt = stmt.where(search_filter)
+
+        # Apply exhibition filter
+        if exhibition_uuid:
+            stmt = stmt.where(Exhibition.id == exhibition_uuid)
 
         # Apply pagination
         stmt = stmt.offset(offset).limit(per_page)
@@ -164,6 +217,9 @@ async def list_assets(
                 "updated_at": asset.updated_at.isoformat(),
                 "current_device_id": str(row.device_id) if row.device_id else None,
                 "current_device_name": row.device_name,
+                "device_state": row.device_state,
+                "artwork_name": row.artwork_name,
+                "exhibition_name": row.exhibition_name,
                 "last_lamp_hours": row.last_lamp_hours,
                 "last_event_type": row.last_event_type,
                 "last_event_at": row.last_event_at.isoformat() if row.last_event_at else None,
@@ -527,4 +583,31 @@ async def backfill_assets(request: Request):
         raise
     except Exception as e:
         logger.error(f"Error during backfill: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/record-initial-lamp-hours")
+async def record_initial_lamp_hours(request: Request):
+    """Record initial lamp hours for linked devices without history.
+
+    Queries current lamp hours from projectors that are linked to assets
+    but have no lamp hours history recorded yet.
+
+    This is useful for devices that were linked before lamp tracking was
+    implemented.
+
+    Returns progress report when done.
+    """
+    try:
+        asset_service = getattr(request.app.state, 'asset_service', None)
+        if not asset_service:
+            raise HTTPException(status_code=503, detail="Asset service not available")
+
+        results = await asset_service.record_initial_lamp_hours()
+        return results
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error recording initial lamp hours: {e}")
         raise HTTPException(status_code=500, detail=str(e))
