@@ -147,7 +147,7 @@ class ANELManager(DeviceManager):
 
         try:
             timeout = self.config.get("request_timeout", 5)
-            port = device.port or device.config.get("port", 0)
+            port = device.port if device.port is not None else device.config.get("port", 0)
 
             async with asyncio.timeout(timeout):
                 logger.info(f"ANEL: Getting state for {device.host}:{port}")
@@ -202,7 +202,7 @@ class ANELManager(DeviceManager):
 
         try:
             timeout = self.config.get("request_timeout", 5)
-            port = device.port or device.config.get("port", 0)
+            port = device.port if device.port is not None else device.config.get("port", 0)
             username, password = _get_device_credentials(device)
             command_str = "on" if on else "off"
 

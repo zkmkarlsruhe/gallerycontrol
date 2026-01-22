@@ -72,7 +72,7 @@ class NETIOManager(DeviceManager):
 
         try:
             timeout = self.config.get("request_timeout", 5)
-            port = device.port or device.config.get("port", 1)
+            port = device.port if device.port is not None else device.config.get("port", 1)
             username, password = _get_device_credentials(device)
 
             async with asyncio.timeout(timeout):
@@ -146,7 +146,7 @@ class NETIOManager(DeviceManager):
 
         try:
             timeout = self.config.get("request_timeout", 5)
-            port = device.port or device.config.get("port", 1)
+            port = device.port if device.port is not None else device.config.get("port", 1)
             username, password = _get_device_credentials(device)
             command_str = "on" if on else "off"
 
