@@ -1301,6 +1301,26 @@ body {
   border-color: var(--primary);
 }
 
+/* Hostname Quick Entry */
+.hostname-quick-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.hostname-quick-entry .quick-num-input {
+  width: 60px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.hostname-quick-entry .quick-hint {
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-family: monospace;
+}
+
 /* Info Box */
 .info-box {
   background: #fff3cd;

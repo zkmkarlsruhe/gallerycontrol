@@ -1,6 +1,14 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { Credential } from '../../types';
 import { useHostReachability, type ReachabilityStatus } from '../../hooks/useHostReachability';
+
+// Generate NETIO hostname from number: 49 -> netzwerksteckdose-netio-049.zkm.de
+function generateNetioHostname(num: string): string {
+  const n = parseInt(num, 10);
+  if (isNaN(n) || n < 1) return '';
+  const padded = n.toString().padStart(3, '0');
+  return `netzwerksteckdose-netio-${padded}.zkm.de`;
+}
 
 interface NetioFormData {
   name: string;
@@ -19,8 +27,18 @@ interface NetioFormProps {
 }
 
 export function NetioForm({ data, onChange, credentials = [], onReachabilityChange }: NetioFormProps) {
+  const [quickNum, setQuickNum] = useState('');
+
   const update = (field: keyof NetioFormData, value: string | number | boolean) => {
     onChange({ ...data, [field]: value });
+  };
+
+  const handleQuickHostname = () => {
+    const hostname = generateNetioHostname(quickNum);
+    if (hostname) {
+      update('host', hostname);
+      setQuickNum('');
+    }
   };
 
   // Check host reachability (port 80 for HTTP API)
@@ -58,11 +76,32 @@ export function NetioForm({ data, onChange, credentials = [], onReachabilityChan
         <div className="section-title">Connection</div>
         <div className="mb-3">
           <label className="form-label">Host / IP Address</label>
+          <div className="hostname-quick-entry">
+            <input
+              type="text"
+              className="form-control form-control-sm quick-num-input"
+              placeholder="049"
+              value={quickNum}
+              onChange={(e) => setQuickNum(e.target.value.replace(/\D/g, ''))}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleQuickHostname())}
+              maxLength={3}
+            />
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={handleQuickHostname}
+              disabled={!quickNum}
+              title="Generate hostname from number"
+            >
+              <i className="bi bi-arrow-right"></i>
+            </button>
+            <span className="quick-hint">netio-{quickNum.padStart(3, '0') || '___'}</span>
+          </div>
           <div className="host-input-wrapper">
             <input
               type="text"
               className={`form-control ${reachabilityStatus === 'unreachable' ? 'is-invalid' : reachabilityStatus === 'reachable' ? 'is-valid' : ''}`}
-              placeholder="192.168.50.12"
+              placeholder="netzwerksteckdose-netio-049.zkm.de"
               value={data.host}
               onChange={(e) => update('host', e.target.value)}
             />
