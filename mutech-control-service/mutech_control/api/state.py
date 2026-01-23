@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 from mutech_control.config import get_config
 from mutech_control.database.connection import get_session
 from mutech_control.database.models import Artwork, Device, Exhibition, LampHoursLog
+from mutech_control.devices.base import STATE_NAMES, state_to_name
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,44 @@ async def _get_lamp_hours_map(session) -> dict[UUID, int]:
     return {row.asset_id: row.lamp_hours for row in result}
 
 
+def _build_device_state(
+    device,
+    request: Request,
+    effective_enabled: bool,
+    lamp_hours: int | None = None,
+) -> dict:
+    """Build device state dictionary.
+
+    Args:
+        device: Device model instance
+        request: FastAPI request for poll status
+        effective_enabled: Computed enabled state considering parent chain
+        lamp_hours: Optional lamp hours from asset
+
+    Returns:
+        Device state dictionary matching DeviceState schema
+    """
+    return {
+        "id": str(device.id),
+        "name": device.name,
+        "device_type": device.device_type,
+        "host": device.host,
+        "port": device.port,
+        "state": device.state,
+        "enabled": device.enabled,
+        "effective_enabled": effective_enabled,
+        "automation_enabled": device.automation_enabled,
+        "last_checked_at": device.last_checked_at.isoformat() if device.last_checked_at else None,
+        "next_check_allowed_at": device.next_check_allowed_at.isoformat() if device.next_check_allowed_at else None,
+        "poll_status": _get_poll_status(request, str(device.id)),
+        "actions": _get_shell_actions(device),
+        "config": device.config,
+        "resolved": device.resolved,
+        "asset_id": str(device.asset_id) if device.asset_id else None,
+        "lamp_hours": lamp_hours,
+    }
+
+
 @router.get("/exhibitions", response_model=List[ExhibitionState])
 async def list_all_exhibitions(request: Request, session=Depends(get_session)):
     """List all exhibitions with full state tree."""
@@ -196,29 +235,12 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
                         "enabled": aw.enabled,
                         "effective_enabled": aw.enabled and ex.enabled,
                         "devices": [
-                            {
-                                "id": str(dev.id),
-                                "name": dev.name,
-                                "device_type": dev.device_type,
-                                "host": dev.host,
-                                "port": dev.port,
-                                "state": dev.state,
-                                "enabled": dev.enabled,
-                                "effective_enabled": dev.enabled and aw.enabled and ex.enabled,
-                                "automation_enabled": dev.automation_enabled,
-                                "last_checked_at": dev.last_checked_at.isoformat()
-                                if dev.last_checked_at
-                                else None,
-                                "next_check_allowed_at": dev.next_check_allowed_at.isoformat()
-                                if dev.next_check_allowed_at
-                                else None,
-                                "poll_status": _get_poll_status(request, str(dev.id)),
-                                "actions": _get_shell_actions(dev),
-                                "config": dev.config,
-                                "resolved": dev.resolved,
-                                "asset_id": str(dev.asset_id) if dev.asset_id else None,
-                                "lamp_hours": lamp_hours_map.get(dev.asset_id) if dev.asset_id else None,
-                            }
+                            _build_device_state(
+                                dev,
+                                request,
+                                dev.enabled and aw.enabled and ex.enabled,
+                                lamp_hours_map.get(dev.asset_id) if dev.asset_id else None,
+                            )
                             for dev in aw.devices
                         ],
                     }
@@ -262,28 +284,11 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
                     "enabled": aw.enabled,
                     "effective_enabled": aw.enabled and exhibition.enabled,
                     "devices": [
-                        {
-                            "id": str(dev.id),
-                            "name": dev.name,
-                            "device_type": dev.device_type,
-                            "host": dev.host,
-                            "port": dev.port,
-                            "state": dev.state,
-                            "enabled": dev.enabled,
-                            "effective_enabled": dev.enabled and aw.enabled and exhibition.enabled,
-                            "automation_enabled": dev.automation_enabled,
-                            "last_checked_at": dev.last_checked_at.isoformat()
-                            if dev.last_checked_at
-                            else None,
-                            "next_check_allowed_at": dev.next_check_allowed_at.isoformat()
-                            if dev.next_check_allowed_at
-                            else None,
-                            "poll_status": _get_poll_status(request, str(dev.id)),
-                            "actions": _get_shell_actions(dev),
-                            "config": dev.config,
-                            "resolved": dev.resolved,
-                            "asset_id": str(dev.asset_id) if dev.asset_id else None,
-                        }
+                        _build_device_state(
+                            dev,
+                            request,
+                            dev.enabled and aw.enabled and exhibition.enabled,
+                        )
                         for dev in aw.devices
                     ],
                 }
@@ -320,28 +325,7 @@ async def get_device_state(request: Request, device_id: str, session=Depends(get
             if device.artwork.exhibition:
                 effective_enabled = effective_enabled and device.artwork.exhibition.enabled
 
-        return {
-            "id": str(device.id),
-            "name": device.name,
-            "device_type": device.device_type,
-            "host": device.host,
-            "port": device.port,
-            "state": device.state,
-            "enabled": device.enabled,
-            "effective_enabled": effective_enabled,
-            "automation_enabled": device.automation_enabled,
-            "last_checked_at": device.last_checked_at.isoformat()
-            if device.last_checked_at
-            else None,
-            "next_check_allowed_at": device.next_check_allowed_at.isoformat()
-            if device.next_check_allowed_at
-            else None,
-            "poll_status": _get_poll_status(request, device_id),
-            "actions": _get_shell_actions(device),
-            "config": device.config,
-            "resolved": device.resolved,
-            "asset_id": str(device.asset_id) if device.asset_id else None,
-        }
+        return _build_device_state(device, request, effective_enabled)
 
     except HTTPException:
         raise
@@ -486,8 +470,6 @@ async def list_state_changes(
         result = await session.execute(stmt)
         rows = result.all()
 
-        state_names = {-1: "error", 0: "off", 1: "on", 2: "cooling", 3: "warming"}
-
         return [
             {
                 "id": str(row[0].id),
@@ -495,9 +477,9 @@ async def list_state_changes(
                 "device_name": row[1],
                 "device_type": row[2],
                 "previous_state": row[0].previous_state,
-                "previous_state_name": state_names.get(row[0].previous_state, "unknown"),
+                "previous_state_name": state_to_name(row[0].previous_state),
                 "new_state": row[0].new_state,
-                "new_state_name": state_names.get(row[0].new_state, "unknown"),
+                "new_state_name": state_to_name(row[0].new_state),
                 "trigger": row[0].trigger,
                 "timestamp": row[0].timestamp.isoformat(),
             }
@@ -564,8 +546,6 @@ async def export_state_changes(
         result = await session.execute(stmt)
         rows = result.all()
 
-        state_names = {-1: "error", 0: "off", 1: "on", 2: "cooling", 3: "warming"}
-
         # Build CSV
         output = StringIO()
         output.write("timestamp,device_id,device_name,previous_state,new_state,trigger\n")
@@ -577,8 +557,8 @@ async def export_state_changes(
                 f"{change.timestamp.isoformat()},"
                 f"{change.device_id},"
                 f"\"{device_name}\","
-                f"{state_names.get(change.previous_state, 'unknown')},"
-                f"{state_names.get(change.new_state, 'unknown')},"
+                f"{state_to_name(change.previous_state)},"
+                f"{state_to_name(change.new_state)},"
                 f"{change.trigger}\n"
             )
 

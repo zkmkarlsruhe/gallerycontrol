@@ -156,7 +156,6 @@ class CommandVerifier:
             device=task_info.device_name,
             device_id=device_id[:8],
             direction=task_info.direction.value.upper(),
-            attempt=task_info.attempt,
         )
 
         # Unregister from fast polling

@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import select, update
 
 from mutech_control.database.models import Artwork, Device, StateChangeLog
+from mutech_control.devices.base import state_to_name
 from mutech_control.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -91,13 +92,5 @@ async def update_device_state_with_log(
         return False
 
 
-def format_state(state: int) -> str:
-    """Format state integer to human-readable string."""
-    states = {
-        -1: "error",
-        0: "off",
-        1: "on",
-        2: "cooling",
-        3: "warming",
-    }
-    return states.get(state, f"unknown({state})")
+# Re-export for backwards compatibility
+format_state = state_to_name

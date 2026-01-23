@@ -1,10 +1,15 @@
 """Cooldown manager for rate-limiting device requests."""
 
+from __future__ import annotations
+
 import time
 from datetime import datetime, timedelta, timezone
 from threading import Lock
-from typing import Dict
+from typing import TYPE_CHECKING, Dict
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from mutech_control.devices.base import DeviceResult
 
 
 class CooldownManager:
@@ -111,3 +116,28 @@ class CooldownManager:
             current_time = time.time()
             return sum(1 for next_allowed in self._cooldowns.values()
                       if next_allowed > current_time)
+
+    def check_cooldown(self, device_id: UUID, current_state: int) -> DeviceResult | None:
+        """
+        Check cooldown and return error result if device is in cooldown.
+
+        Args:
+            device_id: UUID of the device
+            current_state: Current state to return if blocked
+
+        Returns:
+            DeviceResult with error if in cooldown, None if request is allowed
+        """
+        if self.is_allowed(device_id):
+            return None
+
+        # Import here to avoid circular import
+        from mutech_control.devices.base import DeviceResult
+
+        next_time = self.next_allowed_time(device_id)
+        remaining = self.get_remaining_seconds(device_id)
+        return DeviceResult(
+            success=False,
+            state=current_state,
+            error=f"Cooldown active, next allowed at {next_time} ({remaining:.1f}s remaining)",
+        )

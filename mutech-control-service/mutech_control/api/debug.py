@@ -17,6 +17,7 @@ from mutech_control.database.models import (
     StateChangeLog,
 )
 from mutech_control.database.operation_logger import cleanup_old_operation_logs
+from mutech_control.devices.base import STATE_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -111,8 +112,6 @@ class CleanupResult(BaseModel):
     cutoff_time: str
 
 
-# Helper
-STATE_NAMES = {-1: "error", 0: "off", 1: "on", 2: "cooling", 3: "warming"}
 
 
 @router.get("/summary", response_model=DebugSummary)

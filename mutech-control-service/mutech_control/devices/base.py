@@ -5,7 +5,28 @@ from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 from uuid import UUID
 
+# Device state constants
+STATE_ERROR = -1
+STATE_OFF = 0
+STATE_ON = 1
+STATE_COOLING = 2
+STATE_WARMING = 3
+
 DeviceState = Literal[-1, 0, 1, 2, 3]  # error, off, on, cooling, warming
+
+# State name mapping
+STATE_NAMES: dict[int, str] = {
+    STATE_ERROR: "error",
+    STATE_OFF: "off",
+    STATE_ON: "on",
+    STATE_COOLING: "cooling",
+    STATE_WARMING: "warming",
+}
+
+
+def state_to_name(state: int) -> str:
+    """Convert state integer to human-readable name."""
+    return STATE_NAMES.get(state, f"unknown({state})")
 
 
 class DeviceProtocol(Protocol):

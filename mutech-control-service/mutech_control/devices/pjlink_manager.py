@@ -79,15 +79,8 @@ class PJLinkManager(DeviceManager):
 
     async def get_state(self, device) -> DeviceResult:
         """Get projector power state."""
-        # Check cooldown
-        if not self.cooldown_manager.is_allowed(device.id):
-            next_time = self.cooldown_manager.next_allowed_time(device.id)
-            remaining = self.cooldown_manager.get_remaining_seconds(device.id)
-            return DeviceResult(
-                success=False,
-                state=device.state,
-                error=f"Cooldown active, next allowed at {next_time} ({remaining:.1f}s remaining)",
-            )
+        if cooldown_result := self.cooldown_manager.check_cooldown(device.id, device.state):
+            return cooldown_result
 
         start_time = asyncio.get_event_loop().time()
 
@@ -155,15 +148,8 @@ class PJLinkManager(DeviceManager):
 
     async def set_power(self, device, on: bool) -> DeviceResult:
         """Set projector power state."""
-        # Check cooldown
-        if not self.cooldown_manager.is_allowed(device.id):
-            next_time = self.cooldown_manager.next_allowed_time(device.id)
-            remaining = self.cooldown_manager.get_remaining_seconds(device.id)
-            return DeviceResult(
-                success=False,
-                state=device.state,
-                error=f"Cooldown active, next allowed at {next_time} ({remaining:.1f}s remaining)",
-            )
+        if cooldown_result := self.cooldown_manager.check_cooldown(device.id, device.state):
+            return cooldown_result
 
         start_time = asyncio.get_event_loop().time()
 
