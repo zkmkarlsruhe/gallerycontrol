@@ -139,3 +139,37 @@ class SSEBroadcaster:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         return f"data: {json.dumps(event)}\n\n"
+
+    async def send_protection_status(
+        self,
+        artwork_id: str,
+        status: dict,
+    ):
+        """Broadcast protection status update event.
+
+        Sent when protection state changes (start, stop, budget update).
+        """
+        logger.debug(f"Broadcasting protection_status for artwork {artwork_id}")
+        await self.broadcast({
+            "type": "protection_status",
+            "artwork_id": artwork_id,
+            "status": status,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+
+    async def send_protection_forced_off(
+        self,
+        artwork_id: str,
+        reason: str,
+    ):
+        """Broadcast protection forced off event.
+
+        Sent when an artwork is auto-stopped due to protection rules.
+        """
+        logger.warning(f"Broadcasting protection_forced_off for artwork {artwork_id}: {reason}")
+        await self.broadcast({
+            "type": "protection_forced_off",
+            "artwork_id": artwork_id,
+            "reason": reason,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })

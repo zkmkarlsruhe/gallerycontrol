@@ -40,6 +40,7 @@ export interface Artwork {
   enabled: boolean;
   effective_enabled: boolean;
   devices: Device[];
+  protection_config?: ProtectionConfig | null;
 }
 
 export interface Exhibition {
@@ -191,6 +192,43 @@ export interface ManualLampHoursRequest {
   lamp_hours: number;
   device_id?: string;
   notes?: string;
+}
+
+// Protection Types
+
+export interface ProtectionTimeSlice {
+  window: number; // Window size in minutes
+  max: number; // Max runtime in minutes
+}
+
+export interface ProtectionConfig {
+  time_slices?: ProtectionTimeSlice[];
+  max_runtime?: number; // Max continuous runtime in seconds
+  cooldown?: number; // Cooldown period in seconds
+  force_completion?: boolean; // Ignore OFF until max_runtime
+  min_budget_to_start?: number; // Minimum budget to start (seconds)
+}
+
+export interface ProtectionTimeSliceStatus {
+  window: number;
+  used: number; // seconds
+  max: number; // seconds
+  remaining: number; // seconds
+  resets_at: string; // ISO timestamp
+}
+
+export interface ProtectionStatus {
+  protected: boolean;
+  config?: ProtectionConfig;
+  state?: {
+    is_running: boolean;
+    runtime_seconds: number;
+    cooldown_active: boolean;
+    cooldown_remaining: number;
+    time_slices: ProtectionTimeSliceStatus[];
+    can_start: boolean;
+    block_reason: string | null;
+  };
 }
 
 // Service Health Types

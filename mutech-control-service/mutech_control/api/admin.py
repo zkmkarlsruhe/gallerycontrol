@@ -53,12 +53,30 @@ class ArtworkCreate(BaseModel):
     enabled: bool = True
 
 
+class ProtectionTimeSlice(BaseModel):
+    """Time slice protection rule."""
+
+    window: int  # Window size in minutes
+    max: int  # Max runtime in minutes
+
+
+class ProtectionConfig(BaseModel):
+    """Artwork protection configuration."""
+
+    time_slices: List[ProtectionTimeSlice] | None = None
+    max_runtime: int | None = None  # Max continuous runtime in seconds
+    cooldown: int | None = None  # Cooldown period in seconds
+    force_completion: bool = False  # Ignore OFF until max_runtime
+    min_budget_to_start: int = 0  # Minimum budget to start (seconds)
+
+
 class ArtworkUpdate(BaseModel):
     """Artwork update model."""
 
     name: str | None = None
     enabled: bool | None = None
     exhibition_id: str | None = None
+    protection_config: ProtectionConfig | Dict[str, Any] | None = None
 
 
 class DeviceCreate(BaseModel):
@@ -314,19 +332,66 @@ async def create_artwork(artwork: ArtworkCreate, session=Depends(get_session)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _validate_protection_config(config: dict) -> None:
+    """Validate time slice consistency in protection config.
+
+    For each pair (inner, outer) where outer.window > inner.window:
+        max_possible = (outer.window / inner.window) * inner.max
+        outer.max must be <= max_possible
+    """
+    time_slices = config.get("time_slices", [])
+    if not time_slices:
+        return
+
+    # Sort by window size
+    sorted_slices = sorted(time_slices, key=lambda x: x.get("window", 0))
+
+    for i, inner in enumerate(sorted_slices):
+        for outer in sorted_slices[i + 1:]:
+            inner_window = inner.get("window", 0)
+            outer_window = outer.get("window", 0)
+            inner_max = inner.get("max", 0)
+            outer_max = outer.get("max", 0)
+
+            if inner_window == 0:
+                continue
+
+            max_possible = (outer_window / inner_window) * inner_max
+            if outer_max > max_possible:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid time slice: {outer_window}min max ({outer_max}min) "
+                    f"exceeds possible from {inner_window}min window ({max_possible:.0f}min max)"
+                )
+
+
 @router.put("/artworks/{artwork_id}")
 async def update_artwork(
-    artwork_id: str, artwork: ArtworkUpdate, session=Depends(get_session)
+    artwork_id: str, artwork: ArtworkUpdate, request: Request, session=Depends(get_session)
 ):
     """Update an artwork."""
     try:
         values = {}
+        protection_updated = False
+
         for key, value in artwork.dict().items():
             if value is not None:
                 if key == "exhibition_id":
                     values[key] = UUID(value)
+                elif key == "protection_config":
+                    # Handle protection_config - convert Pydantic model to dict
+                    if isinstance(value, dict):
+                        # Validate before saving
+                        _validate_protection_config(value)
+                        values[key] = value
+                        protection_updated = True
                 else:
                     values[key] = value
+
+        # Allow clearing protection_config by explicitly passing null/empty
+        if artwork.protection_config == {} or artwork.dict().get("protection_config") == {}:
+            values["protection_config"] = None
+            protection_updated = True
 
         if not values:
             raise HTTPException(status_code=400, detail="No fields to update")
@@ -343,11 +408,18 @@ async def update_artwork(
         if not updated:
             raise HTTPException(status_code=404, detail="Artwork not found")
 
+        # Reload protection config in protection service if updated
+        if protection_updated:
+            protection_service = getattr(request.app.state, "protection_service", None)
+            if protection_service:
+                await protection_service.reload_config(UUID(artwork_id))
+
         return {
             "id": str(updated.id),
             "name": updated.name,
             "exhibition_id": str(updated.exhibition_id),
             "enabled": updated.enabled,
+            "protection_config": updated.protection_config,
         }
 
     except HTTPException:

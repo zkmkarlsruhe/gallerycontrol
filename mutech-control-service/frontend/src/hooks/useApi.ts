@@ -9,6 +9,8 @@ import type {
   ShellTemplateCreate,
   ShellTemplateUpdate,
   ServiceHealth,
+  ProtectionConfig,
+  ProtectionStatus,
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
@@ -135,7 +137,7 @@ export function useApi() {
   // CRUD: Update artwork
   const updateArtwork = useCallback(async (
     id: string,
-    data: { name?: string; enabled?: boolean }
+    data: { name?: string; enabled?: boolean; protection_config?: ProtectionConfig | null }
   ): Promise<void> => {
     const response = await fetch(`${API_BASE}/api/admin/artworks/${id}`, {
       method: 'PUT',
@@ -326,6 +328,17 @@ export function useApi() {
     }
   }, []);
 
+  // Fetch protection status for an artwork
+  const getProtectionStatus = useCallback(async (artworkId: string): Promise<ProtectionStatus> => {
+    try {
+      const response = await fetch(`${API_BASE}/api/state/artworks/${artworkId}/protection-status`);
+      if (!response.ok) return { protected: false };
+      return response.json();
+    } catch {
+      return { protected: false };
+    }
+  }, []);
+
   return {
     loading,
     error,
@@ -356,5 +369,6 @@ export function useApi() {
     fetchInventoryPreview,
     sendInventoryEmail,
     fetchServiceHealth,
+    getProtectionStatus,
   };
 }

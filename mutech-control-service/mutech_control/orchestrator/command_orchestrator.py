@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from mutech_control.monitoring.state_monitor import StateMonitor
     from mutech_control.scheduler.cron_scheduler import CronScheduler
     from mutech_control.services.asset_service import AssetService
+    from mutech_control.services.protection_service import ProtectionService
 
 logger = get_logger(__name__)
 
@@ -32,6 +33,7 @@ class CommandOrchestrator:
         self.command_verifier = CommandVerifier(db_manager, device_managers, config)
         self._asset_service: Optional["AssetService"] = None
         self._scheduler: Optional["CronScheduler"] = None
+        self._protection_service: Optional["ProtectionService"] = None
 
         orchestrator_config = config.get("orchestrator", {})
 
@@ -59,6 +61,10 @@ class CommandOrchestrator:
     def set_scheduler(self, scheduler: "CronScheduler") -> None:
         """Set scheduler reference for one-shot task scheduling."""
         self._scheduler = scheduler
+
+    def set_protection_service(self, protection_service: "ProtectionService") -> None:
+        """Set protection service reference for artwork overuse prevention."""
+        self._protection_service = protection_service
 
     def _on_verification_done(self, task: asyncio.Task) -> None:
         """Callback for verification task completion - logs any errors."""
@@ -98,6 +104,26 @@ class CommandOrchestrator:
                    source=source)
 
         try:
+            # 0. Check protection rules for ON commands
+            if command == "on" and self._protection_service:
+                artwork_id = await self._get_artwork_id_for_target(target_type, target_id)
+                if artwork_id and self._protection_service.is_protected(artwork_id):
+                    allowed, reason = await self._protection_service.check_can_start(artwork_id)
+                    if not allowed:
+                        logger.warning(
+                            "Command blocked by protection",
+                            command=command.upper(),
+                            target_type=target_type,
+                            target_id=target_id[:8],
+                            reason=reason,
+                        )
+                        return {
+                            "success": False,
+                            "blocked": True,
+                            "reason": reason,
+                            "request_id": request_id,
+                        }
+
             # 1. Resolve target to list of devices
             devices = await self._resolve_target(target_type, target_id)
 
@@ -138,6 +164,15 @@ class CommandOrchestrator:
             successful = sum(1 for r in results if r.get("success"))
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
+            # Notify protection service of state changes
+            if successful > 0 and self._protection_service:
+                artwork_id = await self._get_artwork_id_for_target(target_type, target_id)
+                if artwork_id and self._protection_service.is_protected(artwork_id):
+                    if command == "on":
+                        await self._protection_service.notify_started(artwork_id)
+                    elif command == "off":
+                        await self._protection_service.notify_stopped(artwork_id)
+
             logger.info("Command execution completed",
                        command=command.upper(),
                        devices_targeted=len(devices),
@@ -162,6 +197,26 @@ class CommandOrchestrator:
                         error=str(e),
                         duration_ms=duration_ms)
             return {"success": False, "error": str(e), "request_id": request_id}
+
+    async def _get_artwork_id_for_target(
+        self, target_type: str, target_id: str
+    ) -> Optional[UUID]:
+        """Get artwork ID for a given target.
+
+        Returns artwork ID if target is an artwork or single device in an artwork.
+        Returns None for exhibitions (protection is per-artwork).
+        """
+        if target_type == "artwork":
+            return UUID(target_id)
+        elif target_type == "device":
+            # Get device's artwork_id
+            async with self.db_manager.session() as session:
+                stmt = select(Device.artwork_id).where(Device.id == UUID(target_id))
+                result = await session.execute(stmt)
+                row = result.first()
+                return row[0] if row else None
+        # Exhibition-level commands don't trigger protection (too broad)
+        return None
 
     async def _resolve_target(
         self, target_type: str, target_id: str

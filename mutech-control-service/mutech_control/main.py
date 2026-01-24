@@ -30,6 +30,7 @@ from mutech_control.scheduler.tasks import (
     run_memory_cleanup,
 )
 from mutech_control.services.asset_service import AssetService
+from mutech_control.services.protection_service import ProtectionService
 from mutech_control.services.sse_broadcaster import SSEBroadcaster
 
 # Configure logging
@@ -95,6 +96,12 @@ async def lifespan(app: FastAPI):
     asset_service = AssetService(db_manager, device_managers, orchestrator_config)
     logger.info("Asset service initialized")
 
+    # Initialize protection service for artwork overuse prevention
+    protection_service = ProtectionService(
+        db_manager, sse_broadcaster=sse_broadcaster, config=orchestrator_config
+    )
+    logger.info("Protection service initialized")
+
     # Initialize service health monitor for external services (runners, etc.)
     services_config = config.get("services", {})
     service_monitor = ServiceHealthMonitor(services_config)
@@ -157,6 +164,10 @@ async def lifespan(app: FastAPI):
     orchestrator.set_scheduler(cron_scheduler)
     logger.info("Cron scheduler connected to orchestrator")
 
+    # Connect protection service to orchestrator for protection checks
+    orchestrator.set_protection_service(protection_service)
+    logger.info("Protection service connected to orchestrator")
+
     # Store in app state
     app.state.db_manager = db_manager
     app.state.device_managers = device_managers
@@ -166,6 +177,7 @@ async def lifespan(app: FastAPI):
     app.state.asset_service = asset_service
     app.state.cron_scheduler = cron_scheduler
     app.state.service_monitor = service_monitor
+    app.state.protection_service = protection_service
 
     # Start config watching (hot-reload) with SSE broadcast
     def on_config_change(loader):
@@ -203,6 +215,9 @@ async def lifespan(app: FastAPI):
     # Start cron scheduler for unified scheduling
     await cron_scheduler.start()
 
+    # Start protection service for artwork overuse prevention
+    await protection_service.start()
+
     logger.info("MuTech Control Service started successfully")
     logger.info("API documentation available at /docs")
 
@@ -215,6 +230,9 @@ async def lifespan(app: FastAPI):
     cancelled = await orchestrator.command_verifier.cancel_all_verifications()
     if cancelled:
         logger.info(f"Cancelled {cancelled} active verifications")
+
+    # Stop protection service
+    await protection_service.stop()
 
     # Stop cron scheduler
     await cron_scheduler.stop()

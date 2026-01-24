@@ -54,12 +54,19 @@ class Artwork(Base):
     exhibition_id = Column(UUID(as_uuid=True), ForeignKey("exhibitions.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     enabled = Column(Boolean, default=True, nullable=False)
+    protection_config = Column(JSON, nullable=True)  # Protection rules for overuse prevention
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     # Relationships
     exhibition = relationship("Exhibition", back_populates="artworks")
     devices = relationship("Device", back_populates="artwork", cascade="all, delete-orphan")
+    protection_state = relationship(
+        "ArtworkProtectionState",
+        back_populates="artwork",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
     # Indexes
     __table_args__ = (Index("idx_artworks_exhibition", "exhibition_id"),)
@@ -466,3 +473,43 @@ class ScheduledJobLog(Base):
 
     def __repr__(self) -> str:
         return f"<ScheduledJobLog(id={self.id}, job={self.job_id}, success={self.success})>"
+
+
+class ArtworkProtectionState(Base):
+    """Runtime state for artwork protection tracking.
+
+    Stores the current protection state for artworks with protection_config enabled.
+    Tracks running status, cooldown periods, and time-slice budget usage.
+
+    Protection config schema (stored in Artwork.protection_config):
+        {
+            "time_slices": [
+                {"window": 15, "max": 7},   # max 7 min per 15-min chunk
+                {"window": 60, "max": 20},  # max 20 min per hour
+            ],
+            "max_runtime": 150,        # seconds continuous runtime
+            "cooldown": 120,           # seconds forced rest after max_runtime
+            "force_completion": false, # if true, ignore OFF until max_runtime
+            "min_budget_to_start": 60  # won't start if budget < this (seconds)
+        }
+    """
+
+    __tablename__ = "artwork_protection_states"
+
+    artwork_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("artworks.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    is_running = Column(Boolean, default=False, nullable=False)
+    started_at = Column(DateTime, nullable=True)  # When current run started
+    cooldown_until = Column(DateTime, nullable=True)  # Active cooldown period end
+    time_slice_usage = Column(JSON, default=dict, nullable=False)  # {"15": 420, "60": 1200}
+    last_window_reset = Column(JSON, default=dict, nullable=False)  # {"15": "2024-...", "60": "..."}
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    artwork = relationship("Artwork", back_populates="protection_state")
+
+    def __repr__(self) -> str:
+        return f"<ArtworkProtectionState(artwork_id={self.artwork_id}, is_running={self.is_running})>"

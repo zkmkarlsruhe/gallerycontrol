@@ -652,3 +652,32 @@ async def check_service_now(request: Request, service_id: str):
     except Exception as e:
         logger.error(f"Error checking service: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== Artwork Protection ==========
+
+
+@router.get("/artworks/{artwork_id}/protection-status")
+async def get_protection_status(request: Request, artwork_id: str):
+    """Get protection status for an artwork.
+
+    Returns the protection configuration and current state including:
+    - Whether protection is enabled
+    - Current runtime if running
+    - Cooldown status
+    - Time slice budget usage and remaining
+    - Whether artwork can start
+
+    Returns {"protected": false} if artwork has no protection config.
+    """
+    try:
+        protection_service = getattr(request.app.state, "protection_service", None)
+        if not protection_service:
+            return {"protected": False, "message": "Protection service not initialized"}
+
+        status = await protection_service.get_protection_status(UUID(artwork_id))
+        return status
+
+    except Exception as e:
+        logger.error(f"Error getting protection status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
