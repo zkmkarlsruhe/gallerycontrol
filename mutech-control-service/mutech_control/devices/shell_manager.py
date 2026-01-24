@@ -201,6 +201,12 @@ class ShellManager(DeviceManager):
             )
 
         except asyncio.TimeoutError:
+            # Kill the subprocess to prevent zombie processes
+            try:
+                proc.kill()
+                await proc.wait()
+            except (ProcessLookupError, OSError):
+                pass  # Process already terminated or OS error during cleanup
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
             logger.error(f"Shell: Command timeout for {device.name}")
             return DeviceResult(
@@ -293,6 +299,12 @@ class ShellManager(DeviceManager):
                 )
 
         except asyncio.TimeoutError:
+            # Kill the subprocess to prevent zombie processes
+            try:
+                proc.kill()
+                await proc.wait()
+            except (ProcessLookupError, OSError):
+                pass  # Process already terminated or OS error during cleanup
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
             logger.error(f"Shell: Command timeout for {device.name}")
             return DeviceResult(

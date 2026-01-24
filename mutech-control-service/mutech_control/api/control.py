@@ -144,6 +144,12 @@ async def execute_device_action(
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
     except asyncio.TimeoutError:
+        # Kill the subprocess to prevent zombie processes
+        try:
+            proc.kill()
+            await proc.wait()
+        except (ProcessLookupError, OSError):
+            pass  # Process already terminated or OS error during cleanup
         logger.error(f"Action timeout for {device_id}")
         return {"success": False, "action": action_name, "error": "Command timeout"}
 
