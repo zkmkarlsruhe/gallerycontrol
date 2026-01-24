@@ -220,8 +220,11 @@ async def get_broadcast_cache(
     all cached states without querying devices directly.
     """
     try:
+        # Get thread-safe snapshot of cached states
+        device_states = await service.get_all_cached_states()
+
         cached_devices = []
-        for host, status in service._device_states.items():
+        for host, status in device_states.items():
             cached_devices.append(
                 CachedDeviceState(
                     host=host,

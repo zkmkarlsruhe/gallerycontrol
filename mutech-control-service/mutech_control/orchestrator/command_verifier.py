@@ -68,6 +68,8 @@ class CommandVerifier:
         self.config = config
         self.state_monitor = state_monitor
         self._active_verifications: Dict[str, VerificationTask] = {}
+        # Lock to prevent race conditions during verification start/cancel
+        self._verification_lock = asyncio.Lock()
 
     def set_state_monitor(self, state_monitor: "StateMonitor") -> None:
         """Set state monitor reference (for deferred initialization)."""
@@ -93,10 +95,6 @@ class CommandVerifier:
         for device in devices:
             device_id = str(device.id)
 
-            # Cancel any existing verification for this device
-            if device_id in self._active_verifications:
-                await self.cancel_verification(device_id)
-
             # Get verification config for this device type
             verify_config = self._get_verify_config(device.device_type)
             if not verify_config:
@@ -117,21 +115,27 @@ class CommandVerifier:
 
             enforcement_duration = verify_config.get("stable_duration_seconds", 300)
 
-            # Start new enforcement task
-            task = asyncio.create_task(
-                self._verify_single_device(device, ver_direction, verify_config)
-            )
+            # Use lock to prevent race condition between check-cancel-create
+            async with self._verification_lock:
+                # Cancel any existing verification for this device
+                if device_id in self._active_verifications:
+                    await self._cancel_verification_unlocked(device_id)
 
-            self._active_verifications[device_id] = VerificationTask(
-                device_id=device_id,
-                device_name=device.name,
-                device_type=device.device_type,
-                direction=ver_direction,
-                target_states=success_states,
-                task=task,
-                enforcement_duration=enforcement_duration,
-                correction_count=0,
-            )
+                # Start new enforcement task
+                task = asyncio.create_task(
+                    self._verify_single_device(device, ver_direction, verify_config)
+                )
+
+                self._active_verifications[device_id] = VerificationTask(
+                    device_id=device_id,
+                    device_name=device.name,
+                    device_type=device.device_type,
+                    direction=ver_direction,
+                    target_states=success_states,
+                    task=task,
+                    enforcement_duration=enforcement_duration,
+                    correction_count=0,
+                )
 
             logger.info(
                 "Enforcement task started",
@@ -146,11 +150,22 @@ class CommandVerifier:
         """Cancel an active verification for a device.
 
         Returns True if a verification was cancelled, False if none was active.
+        Thread-safe wrapper that acquires the lock.
         """
-        if device_id not in self._active_verifications:
+        async with self._verification_lock:
+            return await self._cancel_verification_unlocked(device_id)
+
+    async def _cancel_verification_unlocked(self, device_id: str) -> bool:
+        """Cancel an active verification without acquiring lock.
+
+        Must be called while holding _verification_lock.
+        Returns True if a verification was cancelled, False if none was active.
+        """
+        # Atomically remove from dict first to prevent race conditions
+        task_info = self._active_verifications.pop(device_id, None)
+        if task_info is None:
             return False
 
-        task_info = self._active_verifications[device_id]
         logger.info(
             "Cancelling active verification",
             device=task_info.device_name,
@@ -160,7 +175,7 @@ class CommandVerifier:
 
         # Unregister from fast polling
         if self.state_monitor:
-            self.state_monitor.unregister_fast_poll(device_id)
+            await self.state_monitor.unregister_fast_poll(device_id)
 
         task_info.task.cancel()
         try:
@@ -168,18 +183,16 @@ class CommandVerifier:
         except asyncio.CancelledError:
             pass
 
-        # Task's finally block may have already cleaned up
-        if device_id in self._active_verifications:
-            del self._active_verifications[device_id]
         return True
 
     async def cancel_all_verifications(self) -> int:
         """Cancel all active verifications. Returns count of cancelled tasks."""
-        count = len(self._active_verifications)
-        device_ids = list(self._active_verifications.keys())
+        async with self._verification_lock:
+            count = len(self._active_verifications)
+            device_ids = list(self._active_verifications.keys())
 
-        for device_id in device_ids:
-            await self.cancel_verification(device_id)
+            for device_id in device_ids:
+                await self._cancel_verification_unlocked(device_id)
 
         logger.info("All verifications cancelled", count=count)
         return count
@@ -192,10 +205,11 @@ class CommandVerifier:
         This is called by StateMonitor when a fast-poll device reaches
         one of its target states.
         """
-        if device_id not in self._active_verifications:
+        # Use get() to avoid race condition if cancelled between check and access
+        task_info = self._active_verifications.get(device_id)
+        if task_info is None:
             return
 
-        task_info = self._active_verifications[device_id]
         task_info.reached_state = state
 
         # Calculate remaining enforcement time
@@ -216,10 +230,11 @@ class CommandVerifier:
         During active enforcement, this triggers an immediate correction command.
         We keep trying for the full enforcement period (no max retries).
         """
-        if device_id not in self._active_verifications:
+        # Use get() to avoid race condition if cancelled between check and access
+        task_info = self._active_verifications.get(device_id)
+        if task_info is None:
             return
 
-        task_info = self._active_verifications[device_id]
         task_info.deviated_state = state
         task_info.correction_count += 1
 
@@ -307,7 +322,12 @@ class CommandVerifier:
                 logger.error(f"No manager found for device type {device.device_type}")
                 return
 
-            task_info = self._active_verifications[device_id]
+            # Use get() to handle race condition if task was cancelled before we got here
+            task_info = self._active_verifications.get(device_id)
+            if task_info is None:
+                logger.warning("Verification cancelled before enforcement started",
+                             device=device.name)
+                return
 
             logger.info(
                 "Active enforcement started",
@@ -318,7 +338,12 @@ class CommandVerifier:
 
             # Register with StateMonitor for fast polling
             # The deviation_callback will handle corrections automatically
-            self.state_monitor.register_fast_poll(
+            if not self.state_monitor:
+                logger.error("StateMonitor not set, cannot register for fast polling",
+                           device=device.name)
+                return
+
+            await self.state_monitor.register_fast_poll(
                 device_id=device_id,
                 target_states=success_states,
                 callback=self.on_state_reached,
@@ -329,7 +354,7 @@ class CommandVerifier:
             await asyncio.sleep(enforcement_duration)
 
             # Enforcement period ended - do final state check
-            self.state_monitor.unregister_fast_poll(device_id)
+            await self.state_monitor.unregister_fast_poll(device_id)
 
             result = await manager.get_state(device)
 
@@ -386,9 +411,9 @@ class CommandVerifier:
         finally:
             # Clean up - ensure unregistered from fast polling
             if self.state_monitor:
-                self.state_monitor.unregister_fast_poll(device_id)
-            if device_id in self._active_verifications:
-                del self._active_verifications[device_id]
+                await self.state_monitor.unregister_fast_poll(device_id)
+            # Use pop to avoid KeyError if cancel_verification already removed it
+            self._active_verifications.pop(device_id, None)
 
     # ========== Helper Methods ==========
 
@@ -444,10 +469,11 @@ class CommandVerifier:
 
     def get_verification_info(self, device_id: str) -> dict | None:
         """Get information about an active enforcement."""
-        if device_id not in self._active_verifications:
+        # Use get() to avoid race condition
+        task_info = self._active_verifications.get(device_id)
+        if task_info is None:
             return None
 
-        task_info = self._active_verifications[device_id]
         elapsed = asyncio.get_event_loop().time() - task_info.created_at
         remaining = max(0, task_info.enforcement_duration - elapsed)
 
@@ -464,7 +490,9 @@ class CommandVerifier:
 
     def get_all_verifications(self) -> list:
         """Get information about all active verifications."""
+        # Copy keys to avoid RuntimeError if dict changes during iteration
+        device_ids = list(self._active_verifications.keys())
         return [
-            self.get_verification_info(device_id)
-            for device_id in self._active_verifications
+            info for device_id in device_ids
+            if (info := self.get_verification_info(device_id)) is not None
         ]

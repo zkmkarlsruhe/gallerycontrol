@@ -60,6 +60,14 @@ class CommandOrchestrator:
         """Set scheduler reference for one-shot task scheduling."""
         self._scheduler = scheduler
 
+    def _on_verification_done(self, task: asyncio.Task) -> None:
+        """Callback for verification task completion - logs any errors."""
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc:
+            logger.error("Verification task failed unexpectedly", error=str(exc))
+
     async def execute_control_command(
         self,
         target_type: Literal["exhibition", "artwork", "device"],
@@ -106,15 +114,17 @@ class CommandOrchestrator:
                        total_devices=len(devices),
                        command=command)
 
-            # 3. Cancel any active verifications for these devices (web source only)
-            if source == "web":
-                for device in devices:
-                    device_id = str(device.id)
-                    if self.command_verifier.is_verifying(device_id):
-                        await self.command_verifier.cancel_verification(device_id)
-                        logger.info("Cancelled active verification for new command",
-                                   device=device.name,
-                                   new_command=command)
+            # 3. Cancel any active verifications for these devices
+            # Both web and fast sources should cancel verifications since the
+            # expected device state is changing
+            for device in devices:
+                device_id = str(device.id)
+                if self.command_verifier.is_verifying(device_id):
+                    await self.command_verifier.cancel_verification(device_id)
+                    logger.info("Cancelled active verification for new command",
+                               device=device.name,
+                               new_command=command,
+                               source=source)
 
             # 4. Execute command based on source and command type
             if source == "web":
@@ -275,9 +285,11 @@ class CommandOrchestrator:
 
             if devices_to_verify:
                 logger.info(f"Starting ON verification for {len(devices_to_verify)} devices")
-                asyncio.create_task(
+                task = asyncio.create_task(
                     self.command_verifier.verify_devices(devices_to_verify, "on")
                 )
+                # Track task for proper error handling
+                task.add_done_callback(self._on_verification_done)
 
         return results
 
@@ -320,9 +332,11 @@ class CommandOrchestrator:
 
             if devices_to_verify:
                 logger.info(f"Starting OFF verification for {len(devices_to_verify)} devices")
-                asyncio.create_task(
+                task = asyncio.create_task(
                     self.command_verifier.verify_devices(devices_to_verify, "off")
                 )
+                # Track task for proper error handling
+                task.add_done_callback(self._on_verification_done)
 
         return processed_results
 

@@ -67,6 +67,9 @@ class ANELService:
         self._state_lock = asyncio.Lock()
         self._is_shutdown = False
 
+        # Track background tasks for proper error handling
+        self._background_tasks: set[asyncio.Task] = set()
+
     async def start(self) -> None:
         """Initialize connections and start background tasks."""
         logger.info("Starting ANEL service...")
@@ -88,6 +91,23 @@ class ANELService:
 
         logger.info("ANEL service started")
 
+    def _create_background_task(self, coro, name: str = None) -> asyncio.Task:
+        """Create a tracked background task with error handling."""
+        task = asyncio.create_task(coro, name=name)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._on_background_task_done)
+        return task
+
+    def _on_background_task_done(self, task: asyncio.Task) -> None:
+        """Callback when background task completes."""
+        self._background_tasks.discard(task)
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc:
+            logger.error("Background task failed",
+                        extra={"task_name": task.get_name(), "error": str(exc)})
+
     async def shutdown(self) -> None:
         """Graceful shutdown with queue drain."""
         logger.info("Shutting down ANEL service...")
@@ -103,6 +123,15 @@ class ANELService:
         if cancelled:
             logger.info(f"Cancelled {cancelled} pending commands")
 
+        # Cancel all background tasks
+        for task in list(self._background_tasks):
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._background_tasks.clear()
+
         # Cleanup connection
         if self.connection:
             await self.connection.cleanup()
@@ -115,8 +144,11 @@ class ANELService:
         try:
             status = parse_status_response(data)
             if status:
-                # Update cached state
-                asyncio.create_task(self._update_device_state(status))
+                # Update cached state (tracked task for proper error handling)
+                self._create_background_task(
+                    self._update_device_state(status),
+                    name=f"update_state_{status.ip}"
+                )
                 logger.debug(
                     f"Broadcast from {status.ip}: {len(status.ports)} ports"
                 )
@@ -347,8 +379,19 @@ class ANELService:
             return None
 
     def get_cached_state(self, host: str) -> DeviceStatus | None:
-        """Get cached device state (from broadcasts)."""
+        """Get cached device state (from broadcasts).
+
+        Note: This is safe without lock because dict.get() is atomic in Python.
+        """
         return self._device_states.get(host)
+
+    async def get_all_cached_states(self) -> dict[str, DeviceStatus]:
+        """Get all cached device states (thread-safe copy).
+
+        Returns a snapshot to avoid iteration during modification.
+        """
+        async with self._state_lock:
+            return dict(self._device_states)
 
     @property
     def queue_length(self) -> int:

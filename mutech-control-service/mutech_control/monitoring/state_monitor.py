@@ -55,17 +55,26 @@ class StateMonitor:
         # Get monitoring config
         monitor_config = config.get("monitoring", {})
         self.enabled = monitor_config.get("enabled", True)
-        self.interval = monitor_config.get("poll_interval_seconds", 60)
-        self.fast_interval = monitor_config.get("fast_poll_interval_seconds", 30)
-        self.batch_size = monitor_config.get("batch_size", 30)  # Parallel batches
+        self._interval = monitor_config.get("poll_interval_seconds", 60)
+        self._fast_interval = monitor_config.get("fast_poll_interval_seconds", 30)
+        self._batch_size = monitor_config.get("batch_size", 30)  # Parallel batches
         self.batch_delay = monitor_config.get("batch_delay_seconds", 0)  # No delay for parallel
-        self.device_timeout = monitor_config.get("device_timeout_seconds", 5)  # Per-device timeout
+        self._device_timeout = monitor_config.get("device_timeout_seconds", 5)  # Per-device timeout
+
+        # Lock for thread-safe config updates
+        self._config_lock = asyncio.Lock()
+
+        # Lock for fast poll device registry (prevents race during register/unregister)
+        self._fast_poll_lock = asyncio.Lock()
 
         # Fast polling for verification
         self._fast_poll_devices: Dict[str, FastPollEntry] = {}
 
         # Track last poll time per device for adaptive intervals
         self._last_polled: Dict[str, datetime] = {}
+
+        # Track background tasks to prevent silent failures
+        self._background_tasks: set[asyncio.Task] = set()
 
         # Cycle tracking for progress bars
         self._cycle_start_time: datetime | None = None
@@ -75,6 +84,57 @@ class StateMonitor:
         # DNS resolution interval (default 1 hour)
         asset_config = config.get("asset_tracking", {})
         self.dns_resolve_interval = asset_config.get("dns_resolve_interval", 3600)
+
+    # Thread-safe config properties
+    @property
+    def interval(self) -> int:
+        return self._interval
+
+    @interval.setter
+    def interval(self, value: int) -> None:
+        self._interval = value
+
+    @property
+    def fast_interval(self) -> int:
+        return self._fast_interval
+
+    @fast_interval.setter
+    def fast_interval(self, value: int) -> None:
+        self._fast_interval = value
+
+    @property
+    def batch_size(self) -> int:
+        return self._batch_size
+
+    @batch_size.setter
+    def batch_size(self, value: int) -> None:
+        self._batch_size = value
+
+    @property
+    def device_timeout(self) -> int:
+        return self._device_timeout
+
+    @device_timeout.setter
+    def device_timeout(self, value: int) -> None:
+        self._device_timeout = value
+
+    def _create_background_task(self, coro, name: str = None) -> asyncio.Task:
+        """Create a tracked background task with error handling."""
+        task = asyncio.create_task(coro, name=name)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._on_background_task_done)
+        return task
+
+    def _on_background_task_done(self, task: asyncio.Task) -> None:
+        """Callback when background task completes."""
+        self._background_tasks.discard(task)
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc:
+            logger.error("Background task failed",
+                        task_name=task.get_name(),
+                        error=str(exc))
 
     async def start(self):
         """Start the monitoring service."""
@@ -106,11 +166,58 @@ class StateMonitor:
             except asyncio.CancelledError:
                 pass
 
+        # Cancel all background tasks
+        for task in list(self._background_tasks):
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._background_tasks.clear()
+
         logger.info("State monitoring stopped")
+
+    async def cleanup_stale_entries(self, valid_device_ids: set[str]) -> int:
+        """
+        Remove _last_polled entries for devices that no longer exist.
+
+        Should be called periodically (e.g., hourly) to prevent memory leaks.
+
+        Args:
+            valid_device_ids: Set of device UUID strings that still exist
+
+        Returns:
+            Number of entries removed
+        """
+        # Copy keys first to avoid modification during iteration
+        last_polled_keys = list(self._last_polled.keys())
+        stale = [
+            device_id for device_id in last_polled_keys
+            if device_id not in valid_device_ids
+        ]
+        for device_id in stale:
+            self._last_polled.pop(device_id, None)
+
+        # Use lock for fast poll entries since they're accessed from multiple coroutines
+        async with self._fast_poll_lock:
+            fast_poll_keys = list(self._fast_poll_devices.keys())
+            stale_fast = [
+                device_id for device_id in fast_poll_keys
+                if device_id not in valid_device_ids
+            ]
+            for device_id in stale_fast:
+                self._fast_poll_devices.pop(device_id, None)
+
+        if stale or stale_fast:
+            logger.debug("Cleaned up stale device entries",
+                        last_polled_removed=len(stale),
+                        fast_poll_removed=len(stale_fast))
+
+        return len(stale) + len(stale_fast)
 
     # ========== Fast Polling Registration ==========
 
-    def register_fast_poll(
+    async def register_fast_poll(
         self,
         device_id: str,
         target_states: List[int],
@@ -125,14 +232,15 @@ class StateMonitor:
             callback: Async function called when target state reached: callback(device_id, state)
             deviation_callback: Async function called when state NOT in target_states (for enforcement)
         """
-        self._fast_poll_devices[device_id] = FastPollEntry(
-            device_id=device_id,
-            target_states=target_states,
-            callback=callback,
-            deviation_callback=deviation_callback,
-        )
-        # Clear last poll time so device gets polled on next cycle
-        self._last_polled.pop(device_id, None)
+        async with self._fast_poll_lock:
+            self._fast_poll_devices[device_id] = FastPollEntry(
+                device_id=device_id,
+                target_states=target_states,
+                callback=callback,
+                deviation_callback=deviation_callback,
+            )
+            # Clear last poll time so device gets polled on next cycle
+            self._last_polled.pop(device_id, None)
 
         logger.info("Device registered for fast polling",
                    device_id=device_id[:8],
@@ -140,28 +248,32 @@ class StateMonitor:
 
         # Broadcast verification start via SSE
         if self._sse:
-            asyncio.create_task(
-                self._sse.send_verification_change(device_id, started=True, poll_interval=self.fast_interval)
+            self._create_background_task(
+                self._sse.send_verification_change(device_id, started=True, poll_interval=self.fast_interval),
+                name=f"sse_verification_start_{device_id[:8]}"
             )
 
-    def unregister_fast_poll(self, device_id: str) -> bool:
+    async def unregister_fast_poll(self, device_id: str) -> bool:
         """Remove a device from fast polling.
 
         Returns True if device was registered, False otherwise.
         """
-        if device_id in self._fast_poll_devices:
-            del self._fast_poll_devices[device_id]
-            logger.info("Device unregistered from fast polling",
-                       device_id=device_id[:8])
+        async with self._fast_poll_lock:
+            entry = self._fast_poll_devices.pop(device_id, None)
+            if entry is None:
+                return False
 
-            # Broadcast verification end via SSE
-            if self._sse:
-                asyncio.create_task(
-                    self._sse.send_verification_change(device_id, started=False, poll_interval=self.interval)
-                )
+        logger.info("Device unregistered from fast polling",
+                   device_id=device_id[:8])
 
-            return True
-        return False
+        # Broadcast verification end via SSE
+        if self._sse:
+            self._create_background_task(
+                self._sse.send_verification_change(device_id, started=False, poll_interval=self.interval),
+                name=f"sse_verification_end_{device_id[:8]}"
+            )
+
+        return True
 
     def is_fast_polling(self, device_id: str) -> bool:
         """Check if device is currently in fast polling mode."""
@@ -299,7 +411,7 @@ class StateMonitor:
                         if self._sse:
                             poll_interval = self.fast_interval if is_enforcing else self.interval
                             next_poll_at = poll_time + timedelta(seconds=poll_interval)
-                            asyncio.create_task(
+                            self._create_background_task(
                                 self._sse.send_poll_complete(
                                     device_id=device_id,
                                     success=False,
@@ -307,7 +419,8 @@ class StateMonitor:
                                     duration_ms=self.device_timeout * 1000,
                                     next_poll_at=next_poll_at,
                                     poll_interval=poll_interval,
-                                )
+                                ),
+                                name=f"sse_poll_timeout_{device_id[:8]}"
                             )
                         batch_results.append(("timeout", device.name))
                     except Exception as e:
@@ -356,7 +469,10 @@ class StateMonitor:
         next_poll_at = poll_time + timedelta(seconds=poll_interval)
 
         # Periodic DNS resolution (runs in background, doesn't block polling)
-        asyncio.create_task(self._update_device_dns(device))
+        self._create_background_task(
+            self._update_device_dns(device),
+            name=f"dns_update_{device_id[:8]}"
+        )
 
         if not manager:
             logger.warning("No manager for device type",
@@ -367,7 +483,7 @@ class StateMonitor:
                 self.db_manager, device.id, -1, "polling", device.state
             )
             if self._sse:
-                asyncio.create_task(
+                self._create_background_task(
                     self._sse.send_poll_complete(
                         device_id=device_id,
                         success=False,
@@ -375,7 +491,8 @@ class StateMonitor:
                         duration_ms=0,
                         next_poll_at=next_poll_at,
                         poll_interval=poll_interval,
-                    )
+                    ),
+                    name=f"sse_no_manager_{device_id[:8]}"
                 )
             return False
 
@@ -415,7 +532,7 @@ class StateMonitor:
 
                 # Broadcast poll complete via SSE
                 if self._sse:
-                    asyncio.create_task(
+                    self._create_background_task(
                         self._sse.send_poll_complete(
                             device_id=device_id,
                             success=True,
@@ -423,20 +540,22 @@ class StateMonitor:
                             duration_ms=duration_ms,
                             next_poll_at=next_poll_at,
                             poll_interval=poll_interval,
-                        )
+                        ),
+                        name=f"sse_poll_success_{device_id[:8]}"
                     )
 
                 # Check if this device reached its verification target state
-                if device_id in self._fast_poll_devices:
-                    entry = self._fast_poll_devices[device_id]
+                entry = self._fast_poll_devices.get(device_id)
+                if entry is not None:
                     if result.state in entry.target_states:
                         logger.info("Device reached target state",
                                    device=device.name,
                                    state=result.state,
                                    target_states=entry.target_states)
                         # Notify callback (don't await inline to avoid blocking)
-                        asyncio.create_task(
-                            self._notify_target_reached(device_id, result.state, entry.callback)
+                        self._create_background_task(
+                            self._notify_target_reached(device_id, result.state, entry.callback),
+                            name=f"notify_target_{device_id[:8]}"
                         )
                     elif entry.deviation_callback is not None:
                         # State deviated from target - notify for enforcement
@@ -444,8 +563,9 @@ class StateMonitor:
                                       device=device.name,
                                       state=result.state,
                                       target_states=entry.target_states)
-                        asyncio.create_task(
-                            self._notify_state_deviated(device_id, result.state, entry.deviation_callback)
+                        self._create_background_task(
+                            self._notify_state_deviated(device_id, result.state, entry.deviation_callback),
+                            name=f"notify_deviation_{device_id[:8]}"
                         )
 
                 return True
@@ -473,7 +593,7 @@ class StateMonitor:
 
                 # Broadcast poll failure via SSE (still useful for frontend)
                 if self._sse:
-                    asyncio.create_task(
+                    self._create_background_task(
                         self._sse.send_poll_complete(
                             device_id=device_id,
                             success=False,
@@ -481,7 +601,8 @@ class StateMonitor:
                             duration_ms=duration_ms,
                             next_poll_at=next_poll_at,
                             poll_interval=poll_interval,
-                        )
+                        ),
+                        name=f"sse_poll_fail_{device_id[:8]}"
                     )
 
                 return False
@@ -507,7 +628,7 @@ class StateMonitor:
                 )
 
             if self._sse:
-                asyncio.create_task(
+                self._create_background_task(
                     self._sse.send_poll_complete(
                         device_id=device_id,
                         success=False,
@@ -515,7 +636,8 @@ class StateMonitor:
                         duration_ms=duration_ms,
                         next_poll_at=next_poll_at,
                         poll_interval=poll_interval,
-                    )
+                    ),
+                    name=f"sse_poll_error_{device_id[:8]}"
                 )
             return False
 

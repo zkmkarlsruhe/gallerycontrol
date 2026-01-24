@@ -214,7 +214,13 @@ class ServiceHealthMonitor:
                 try:
                     result = callback(service_id, old_status, service.status)
                     if asyncio.iscoroutine(result):
-                        asyncio.create_task(result)
+                        # Create task with error handling
+                        task = asyncio.create_task(result)
+                        task.add_done_callback(
+                            lambda t: logger.error(
+                                f"Async callback failed: service={service_id}, error={t.exception()}"
+                            ) if t.exception() else None
+                        )
                 except Exception as e:
                     logger.error(f"Error in status change callback: service={service_id}, error={e}")
 

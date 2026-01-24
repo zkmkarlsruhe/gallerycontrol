@@ -76,10 +76,9 @@ class SSEBroadcaster:
 
     async def broadcast(self, event: dict):
         """Send event to all connected clients."""
-        if not self._clients:
-            return
-
         async with self._lock:
+            if not self._clients:
+                return
             for queue in self._clients:
                 try:
                     queue.put_nowait(event)
