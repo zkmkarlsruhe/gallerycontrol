@@ -68,3 +68,12 @@ node_modules/
 .agentbox/
 .claude/
 .mcp.json
+
+# Agentbox state (session data, not for version control)
+.agentbox/claude/projects/
+.agentbox/claude/file-history/
+.agentbox/claude/todos/
+.agentbox/claude/debug/
+.agentbox/claude/statsig/
+.agentbox/codex/sessions/
+.agentbox/backup-pre-migration/

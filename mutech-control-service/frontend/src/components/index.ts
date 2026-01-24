@@ -6,6 +6,7 @@ export { DebugSection } from './DebugSection';
 export { LogViewer } from './LogViewer';
 export { StateTimelinePage } from './StateTimelinePage';
 export { AssetBrowserPage } from './AssetBrowserPage';
+export { ServiceHealthBanner } from './ServiceHealthBanner';
 
 // Exhibition components
 export { ExhibitionOverview } from './ExhibitionOverview';

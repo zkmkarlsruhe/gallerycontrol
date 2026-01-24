@@ -573,3 +573,82 @@ async def export_state_changes(
     except Exception as e:
         logger.error(f"Error exporting state changes: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== Service Health ==========
+
+
+class ServiceHealthResponse(BaseModel):
+    """Response model for service health."""
+    service_id: str
+    name: str
+    description: str
+    status: str
+    last_check: str | None
+    last_seen: str | None
+    error: str | None
+    response_time_ms: int | None
+    affects_device_types: list[str]
+    consecutive_failures: int
+
+
+@router.get("/services", response_model=list[ServiceHealthResponse])
+async def get_services_health(request: Request):
+    """Get health status of all external services/runners.
+
+    Returns status of services that the backend depends on (e.g., ANEL runner).
+    Use this to show users when a service is down instead of individual device errors.
+    """
+    try:
+        service_monitor = getattr(request.app.state, "service_monitor", None)
+        if not service_monitor:
+            return []
+
+        services = service_monitor.get_all_services()
+        return [service.to_dict() for service in services.values()]
+
+    except Exception as e:
+        logger.error(f"Error getting service health: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/services/{service_id}", response_model=ServiceHealthResponse)
+async def get_service_health(request: Request, service_id: str):
+    """Get health status of a specific service."""
+    try:
+        service_monitor = getattr(request.app.state, "service_monitor", None)
+        if not service_monitor:
+            raise HTTPException(status_code=404, detail="Service monitor not available")
+
+        service = service_monitor.get_service_health(service_id)
+        if not service:
+            raise HTTPException(status_code=404, detail=f"Service '{service_id}' not found")
+
+        return service.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting service health: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/services/{service_id}/check")
+async def check_service_now(request: Request, service_id: str):
+    """Trigger immediate health check for a service."""
+    try:
+        service_monitor = getattr(request.app.state, "service_monitor", None)
+        if not service_monitor:
+            raise HTTPException(status_code=404, detail="Service monitor not available")
+
+        service = await service_monitor.check_now(service_id)
+        if not service:
+            raise HTTPException(status_code=404, detail=f"Service '{service_id}' not found")
+
+        return service.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking service: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

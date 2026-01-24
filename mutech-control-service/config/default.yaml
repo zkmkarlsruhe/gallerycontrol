@@ -97,6 +97,16 @@ scheduler:
       max_concurrent: 5           # Max concurrent device queries
       timeout_seconds: 10         # Per-device timeout
 
+services:
+  anel_runner:
+    name: "ANEL Runner"
+    description: "UDP relay for ANEL power strips"
+    url: "${ANEL_RUNNER_URL}"
+    health_endpoint: "/health"
+    check_interval_seconds: 30
+    timeout_seconds: 5
+    affects_device_types: ["anel"]
+
 logging:
   level: "INFO"
   format: "json"

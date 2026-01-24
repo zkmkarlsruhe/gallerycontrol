@@ -192,3 +192,20 @@ export interface ManualLampHoursRequest {
   device_id?: string;
   notes?: string;
 }
+
+// Service Health Types
+
+export type ServiceStatus = 'online' | 'offline' | 'degraded' | 'unknown';
+
+export interface ServiceHealth {
+  service_id: string;
+  name: string;
+  description: string;
+  status: ServiceStatus;
+  last_check: string | null;
+  last_seen: string | null;
+  error: string | null;
+  response_time_ms: number | null;
+  affects_device_types: string[];
+  consecutive_failures: number;
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApi } from './hooks/useApi';
-import type { Exhibition, Credential, Device, ShellTemplate } from './types';
+import type { Exhibition, Credential, Device, ShellTemplate, ServiceHealth } from './types';
 import {
   Header,
   Toast,
@@ -18,6 +18,7 @@ import {
   LogViewer,
   StateTimelinePage,
   AssetBrowserPage,
+  ServiceHealthBanner,
 } from './components';
 import { EmailInventoryModal } from './components/modals/EmailInventoryModal';
 import { AdminModal } from './components/modals/AdminModal';
@@ -81,11 +82,13 @@ function App() {
     fetchEmailConfig,
     fetchInventoryPreview,
     sendInventoryEmail,
+    fetchServiceHealth,
   } = useApi();
 
   const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [templates, setTemplates] = useState<ShellTemplate[]>([]);
+  const [serviceHealth, setServiceHealth] = useState<ServiceHealth[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(true);
@@ -190,13 +193,23 @@ function App() {
     }
   }, [fetchShellTemplates]);
 
+  const loadServiceHealth = useCallback(async () => {
+    const data = await fetchServiceHealth();
+    setServiceHealth(data);
+  }, [fetchServiceHealth]);
+
   useEffect(() => {
     loadData();
     loadCredentials();
     loadTemplates();
+    loadServiceHealth();
     const interval = setInterval(loadData, 5000);
-    return () => clearInterval(interval);
-  }, [loadData, loadCredentials, loadTemplates]);
+    const healthInterval = setInterval(loadServiceHealth, 15000); // Check service health every 15s
+    return () => {
+      clearInterval(interval);
+      clearInterval(healthInterval);
+    };
+  }, [loadData, loadCredentials, loadTemplates, loadServiceHealth]);
 
   // Clear pending states when device states match targets AND not in fast polling
   useEffect(() => {
@@ -566,6 +579,11 @@ function App() {
       {/* Main Content View */}
       {currentView === 'main' && (
         <div className="main-content">
+          {/* Service Health Banner */}
+          <div className="m-3 mb-0">
+            <ServiceHealthBanner services={serviceHealth} />
+          </div>
+
           {/* Error Banner */}
           {error && (
             <div className="alert alert-danger m-3 mb-0">{error}</div>

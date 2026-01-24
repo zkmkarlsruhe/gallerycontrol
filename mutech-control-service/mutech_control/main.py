@@ -17,6 +17,7 @@ from mutech_control.devices.anel_manager import ANELManager
 from mutech_control.devices.netio_manager import NETIOManager
 from mutech_control.devices.pjlink_manager import PJLinkManager
 from mutech_control.devices.shell_manager import ShellManager, load_credentials
+from mutech_control.monitoring.service_health import ServiceHealthMonitor
 from mutech_control.monitoring.state_monitor import StateMonitor
 from mutech_control.orchestrator.command_orchestrator import CommandOrchestrator
 from mutech_control.scheduler import CronScheduler
@@ -93,6 +94,11 @@ async def lifespan(app: FastAPI):
     asset_service = AssetService(db_manager, device_managers, orchestrator_config)
     logger.info("Asset service initialized")
 
+    # Initialize service health monitor for external services (runners, etc.)
+    services_config = config.get("services", {})
+    service_monitor = ServiceHealthMonitor(services_config)
+    logger.info(f"Service health monitor initialized for: {list(services_config.keys())}")
+
     # Initialize unified cron scheduler
     cron_scheduler = CronScheduler(
         db_manager=db_manager,
@@ -152,6 +158,7 @@ async def lifespan(app: FastAPI):
     app.state.sse_broadcaster = sse_broadcaster
     app.state.asset_service = asset_service
     app.state.cron_scheduler = cron_scheduler
+    app.state.service_monitor = service_monitor
 
     # Start config watching (hot-reload) with SSE broadcast
     def on_config_change(loader):
@@ -181,6 +188,9 @@ async def lifespan(app: FastAPI):
     # Start state monitoring
     await state_monitor.start()
 
+    # Start service health monitoring
+    await service_monitor.start()
+
     # Start cron scheduler for unified scheduling
     await cron_scheduler.start()
 
@@ -194,6 +204,9 @@ async def lifespan(app: FastAPI):
 
     # Stop cron scheduler
     await cron_scheduler.stop()
+
+    # Stop service health monitoring
+    await service_monitor.stop()
 
     # Stop state monitoring
     await state_monitor.stop()

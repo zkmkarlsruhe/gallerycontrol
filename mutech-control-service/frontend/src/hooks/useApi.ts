@@ -8,6 +8,7 @@ import type {
   ShellTemplate,
   ShellTemplateCreate,
   ShellTemplateUpdate,
+  ServiceHealth,
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
@@ -314,6 +315,17 @@ export function useApi() {
     return response.json();
   }, []);
 
+  // Fetch service health status
+  const fetchServiceHealth = useCallback(async (): Promise<ServiceHealth[]> => {
+    try {
+      const response = await fetch(`${API_BASE}/api/state/services`);
+      if (!response.ok) return [];
+      return response.json();
+    } catch {
+      return [];
+    }
+  }, []);
+
   return {
     loading,
     error,
@@ -343,5 +355,6 @@ export function useApi() {
     fetchEmailConfig,
     fetchInventoryPreview,
     sendInventoryEmail,
+    fetchServiceHealth,
   };
 }
