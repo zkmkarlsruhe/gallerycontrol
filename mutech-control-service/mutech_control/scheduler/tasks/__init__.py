@@ -5,6 +5,7 @@ from mutech_control.scheduler.tasks.device_info_cache import run_device_info_cac
 from mutech_control.scheduler.tasks.lamp_hours_check import run_lamp_hours_check
 from mutech_control.scheduler.tasks.lamp_hours_record import run_lamp_hours_record
 from mutech_control.scheduler.tasks.log_cleanup import run_log_cleanup
+from mutech_control.scheduler.tasks.memory_cleanup import run_memory_cleanup
 
 __all__ = [
     "run_asset_linker",
@@ -12,4 +13,5 @@ __all__ = [
     "run_lamp_hours_check",
     "run_lamp_hours_record",
     "run_log_cleanup",
+    "run_memory_cleanup",
 ]

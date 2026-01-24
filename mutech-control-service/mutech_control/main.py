@@ -27,6 +27,7 @@ from mutech_control.scheduler.tasks import (
     run_lamp_hours_check,
     run_lamp_hours_record,
     run_log_cleanup,
+    run_memory_cleanup,
 )
 from mutech_control.services.asset_service import AssetService
 from mutech_control.services.sse_broadcaster import SSEBroadcaster
@@ -136,6 +137,12 @@ async def lifespan(app: FastAPI):
         lambda **kwargs: run_lamp_hours_record(db_manager, asset_service, **kwargs),
         {},  # No default config - all params come from task_config
     )
+    # Memory cleanup task to prevent leaks from stale cache entries
+    cron_scheduler.register_system_task(
+        "memory_cleanup",
+        lambda **kwargs: run_memory_cleanup(db_manager, state_monitor, device_managers, **kwargs),
+        {},
+    )
     logger.info("Cron scheduler initialized with system tasks")
 
     # Connect orchestrator's verifier to state monitor for unified polling
@@ -172,15 +179,17 @@ async def lifespan(app: FastAPI):
             "device_timeout_seconds": new_config.get("monitoring.device_timeout_seconds", 5),
         }
 
-        # Update state monitor intervals
+        # Update state monitor intervals (thread-safe via properties)
         state_monitor.interval = monitoring_config["poll_interval_seconds"]
         state_monitor.fast_interval = monitoring_config["fast_poll_interval_seconds"]
         state_monitor.batch_size = monitoring_config["batch_size"]
         state_monitor.device_timeout = monitoring_config["device_timeout_seconds"]
 
-        # Broadcast config change to SSE clients
-        import asyncio
-        asyncio.create_task(sse_broadcaster.send_config_change(monitoring_config))
+        # Broadcast config change to SSE clients (use tracked task)
+        state_monitor._create_background_task(
+            sse_broadcaster.send_config_change(monitoring_config),
+            name="sse_config_change"
+        )
 
     config.start_watching(callback=on_config_change)
     logger.info("Configuration hot-reload enabled with SSE broadcast")
@@ -202,14 +211,22 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down MuTech Control Service...")
 
+    # Cancel all active verifications first
+    cancelled = await orchestrator.command_verifier.cancel_all_verifications()
+    if cancelled:
+        logger.info(f"Cancelled {cancelled} active verifications")
+
     # Stop cron scheduler
     await cron_scheduler.stop()
 
     # Stop service health monitoring
     await service_monitor.stop()
 
-    # Stop state monitoring
+    # Stop state monitoring (this also cancels background tasks)
     await state_monitor.stop()
+
+    # Stop SSE broadcaster
+    await sse_broadcaster.stop()
 
     config.stop_watching()
 

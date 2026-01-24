@@ -71,6 +71,10 @@ class CronScheduler:
         self._running = False
         self._task: Optional[asyncio.Task] = None
 
+        # Lock to prevent duplicate job execution
+        self._executing_jobs: set[UUID] = set()
+        self._job_lock = asyncio.Lock()
+
         # System task registry - maps task_name to (function, default_config)
         self._system_tasks: Dict[str, tuple[SystemTaskFunc, dict]] = {}
 
@@ -185,11 +189,24 @@ class CronScheduler:
                 )
                 continue
 
+            # Skip if already executing (prevents race condition with slow jobs)
+            async with self._job_lock:
+                if job.id in self._executing_jobs:
+                    logger.debug(
+                        "Skipping job - already executing",
+                        job=job.name,
+                    )
+                    continue
+                self._executing_jobs.add(job.id)
+
             try:
                 await self._execute_job(job)
             except Exception as e:
                 logger.error("Error executing job", job=job.name, error=str(e))
                 await self._record_failure(job.id, str(e))
+            finally:
+                async with self._job_lock:
+                    self._executing_jobs.discard(job.id)
 
     async def _execute_job(self, job: ScheduledJob) -> None:
         """Execute a single job."""
@@ -381,6 +398,12 @@ class CronScheduler:
                 return False, error
 
         except asyncio.TimeoutError:
+            # Kill the subprocess to prevent zombie processes
+            try:
+                proc.kill()
+                await proc.wait()
+            except (ProcessLookupError, OSError):
+                pass  # Process already terminated or OS error during cleanup
             return False, "Command timeout"
         except Exception as e:
             return False, str(e)
@@ -537,6 +560,12 @@ class CronScheduler:
                 "task_name": "lamp_hours_check",
                 "cron_expression": "0 4 * * *",  # Daily at 4 AM
                 "task_config": {"chunk_size": 10, "delay_between_chunks": 2.0},
+            },
+            {
+                "name": "Memory Cleanup",
+                "task_name": "memory_cleanup",
+                "cron_expression": "0 * * * *",  # Every hour at :00
+                "task_config": {},
             },
         ]
 

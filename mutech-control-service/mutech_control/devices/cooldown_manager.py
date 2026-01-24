@@ -117,6 +117,45 @@ class CooldownManager:
             return sum(1 for next_allowed in self._cooldowns.values()
                       if next_allowed > current_time)
 
+    def cleanup_expired(self) -> int:
+        """
+        Remove expired cooldown entries to prevent memory leaks.
+
+        Should be called periodically to clean up entries for
+        devices that are no longer in cooldown.
+
+        Returns:
+            Number of entries removed
+        """
+        with self._lock:
+            current_time = time.time()
+            expired = [
+                device_id for device_id, next_allowed in self._cooldowns.items()
+                if next_allowed <= current_time
+            ]
+            for device_id in expired:
+                del self._cooldowns[device_id]
+            return len(expired)
+
+    def cleanup_devices(self, valid_device_ids: set[UUID]) -> int:
+        """
+        Remove cooldown entries for devices that no longer exist.
+
+        Args:
+            valid_device_ids: Set of device UUIDs that still exist
+
+        Returns:
+            Number of entries removed
+        """
+        with self._lock:
+            stale = [
+                device_id for device_id in self._cooldowns.keys()
+                if device_id not in valid_device_ids
+            ]
+            for device_id in stale:
+                del self._cooldowns[device_id]
+            return len(stale)
+
     def check_cooldown(self, device_id: UUID, current_state: int) -> DeviceResult | None:
         """
         Check cooldown and return error result if device is in cooldown.
