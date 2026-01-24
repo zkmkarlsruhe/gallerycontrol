@@ -91,13 +91,14 @@ class UDPConnection:
         except OSError as e:
             raise ANELSocketError(f"Failed to bind receive socket: {e}")
 
-    async def send_command(self, message: str, host: str) -> None:
+    async def send_command(self, message: str, host: str, timeout: float = 5.0) -> None:
         """
         Send UDP command to device (fire-and-forget).
 
         Args:
             message: Command string to send
             host: Device IP address
+            timeout: Send timeout in seconds (prevents blocking on full buffer)
         """
         if self._is_shutdown:
             raise ANELSocketError("Connection is shutdown")
@@ -108,10 +109,14 @@ class UDPConnection:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             data = message.encode("utf-8")
-            await loop.run_in_executor(
-                None, sock.sendto, data, (host, self.send_port)
+            # Wrap in timeout to prevent blocking if send buffer is full
+            await asyncio.wait_for(
+                loop.run_in_executor(None, sock.sendto, data, (host, self.send_port)),
+                timeout=timeout,
             )
             logger.debug(f"Sent command to {host}:{self.send_port}")
+        except asyncio.TimeoutError:
+            raise ANELTimeoutError(f"Send timeout", device_ip=host)
         finally:
             sock.close()
 

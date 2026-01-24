@@ -3,7 +3,6 @@
 import asyncio
 import hashlib
 import socket
-from typing import Dict
 
 from mutech_control.devices.base import (
     ConnectionResult,
@@ -24,7 +23,6 @@ class PJLinkManager(DeviceManager):
     def __init__(self, config: dict):
         self.config = config
         self.cooldown_manager = CooldownManager()
-        self._connections: Dict[str, object] = {}  # IP -> projector connection pool
 
     async def _send_command(self, host: str, port: int, command: str, password: str | None = None) -> str:
         """
