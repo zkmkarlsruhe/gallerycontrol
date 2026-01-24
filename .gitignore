@@ -69,6 +69,12 @@ node_modules/
 .claude/
 .mcp.json
 
+# Generated reports
+reports/
+
+# Docker image archives
+*.tar.gz
+
 # Agentbox state (session data, not for version control)
 .agentbox/claude/projects/
 .agentbox/claude/file-history/
