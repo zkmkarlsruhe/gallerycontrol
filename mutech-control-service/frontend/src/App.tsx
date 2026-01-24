@@ -91,7 +91,7 @@ function App() {
   const [serviceHealth, setServiceHealth] = useState<ServiceHealth[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editMode, setEditMode] = useState(true);
+  const [editMode, setEditMode] = useState(false);
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [newExhibitionName, setNewExhibitionName] = useState('');
