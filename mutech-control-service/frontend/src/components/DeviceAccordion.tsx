@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import type { Device } from '../types';
+import { useState, useEffect } from 'react';
+import type { Device, Artwork, ProtectionStatus } from '../types';
 import { ConfirmButton } from './ui/ConfirmButton';
 import { useDevicePollProgress } from '../context/PollStatusContext';
 import { useDeviceInfo } from '../hooks/useDeviceInfo';
 import { formatDeviceDisplayName } from '../utils/deviceDisplay';
 import { portUtils } from '../utils/portUtils';
+
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 type DeviceState = -1 | 0 | 1 | 2 | 3;
 
@@ -55,6 +57,7 @@ function buildDeviceUrl(host: string, deviceType: string): string | null {
 
 interface DeviceAccordionProps {
   device: Device;
+  artwork: Artwork;
   isOpen: boolean;
   editMode?: boolean;
   pendingState?: 'on' | 'off';
@@ -201,6 +204,125 @@ function DeviceInfoPanel({ info, loading, error, deviceType, cachedAt, isStale }
   );
 }
 
+/** Format seconds to human-readable time */
+function formatSeconds(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins < 60) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  const remainingMins = mins % 60;
+  return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
+}
+
+/** Protection status panel for artwork */
+function ProtectionStatusPanel({ artwork, isOpen }: { artwork: Artwork; isOpen: boolean }) {
+  const [status, setStatus] = useState<ProtectionStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Check if artwork has protection configured
+  const hasProtection = Boolean(
+    artwork.protection_config?.time_slices &&
+    artwork.protection_config.time_slices.length > 0
+  );
+
+  useEffect(() => {
+    if (!isOpen || !hasProtection) return;
+
+    const fetchStatus = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`${API_BASE}/api/state/artworks/${artwork.id}/protection-status`);
+        if (response.ok) {
+          const data = await response.json();
+          setStatus(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch protection status:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStatus();
+    // Refresh every 10 seconds when open
+    const interval = setInterval(fetchStatus, 10000);
+    return () => clearInterval(interval);
+  }, [artwork.id, isOpen, hasProtection]);
+
+  if (!hasProtection) return null;
+  if (!isOpen) return null;
+
+  if (loading && !status) {
+    return (
+      <div className="protection-status-panel">
+        <span className="text-muted"><i className="bi bi-arrow-repeat spin"></i> Loading protection status...</span>
+      </div>
+    );
+  }
+
+  if (!status?.state) return null;
+
+  const { state } = status;
+
+  return (
+    <div className="protection-status-panel">
+      <div className="protection-header">
+        <i className="bi bi-shield-check"></i>
+        <span>Protection Status</span>
+        <span className={`protection-gate ${status.accepting_triggers ? 'active' : 'inactive'}`}>
+          {status.accepting_triggers ? '⚡ Accepting triggers' : '○ Not accepting'}
+        </span>
+      </div>
+
+      {/* Time slice budgets */}
+      {state.time_slices && state.time_slices.length > 0 && (
+        <div className="protection-budgets">
+          {state.time_slices.map((slice) => {
+            const usedPercent = Math.min(100, (slice.used / slice.max) * 100);
+            const remainingMins = Math.floor(slice.remaining / 60);
+            return (
+              <div key={slice.window} className="budget-row">
+                <span className="budget-label">{slice.window}m window:</span>
+                <div className="budget-bar-container">
+                  <div
+                    className={`budget-bar ${usedPercent > 80 ? 'warning' : ''} ${usedPercent >= 100 ? 'depleted' : ''}`}
+                    style={{ width: `${100 - usedPercent}%` }}
+                  />
+                </div>
+                <span className="budget-value">{remainingMins}m left</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Current session info */}
+      <div className="protection-session">
+        {state.is_running ? (
+          <span className="session-running">
+            <i className="bi bi-play-circle-fill"></i> Running: {formatSeconds(state.runtime_seconds)}
+          </span>
+        ) : state.cooldown_active ? (
+          <span className="session-cooldown">
+            <i className="bi bi-hourglass-split"></i> Cooldown: {formatSeconds(state.cooldown_remaining)} remaining
+          </span>
+        ) : (
+          <span className="session-idle">
+            <i className="bi bi-pause-circle"></i> Idle
+          </span>
+        )}
+
+        {!state.can_start && state.block_reason && (
+          <span className="session-blocked">
+            <i className="bi bi-x-circle"></i> {state.block_reason}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Clickable host link with copy button */
 function HostLink({ device }: { device: Device }) {
   const [copied, setCopied] = useState(false);
@@ -251,7 +373,7 @@ function HostLink({ device }: { device: Device }) {
   );
 }
 
-export function DeviceAccordion({ device, isOpen, editMode, pendingState, onControl, onAction, onEdit, onDelete }: DeviceAccordionProps) {
+export function DeviceAccordion({ device, artwork, isOpen, editMode, pendingState, onControl, onAction, onEdit, onDelete }: DeviceAccordionProps) {
   // Use SSE-driven progress from context, with API data as fallback
   const { progress, isVerifying, secondsRemaining } = useDevicePollProgress(device.id, device.poll_status);
   const isFastPolling = device.poll_status?.is_fast_polling || isVerifying;
@@ -326,6 +448,8 @@ export function DeviceAccordion({ device, isOpen, editMode, pendingState, onCont
           isStale={isStale}
         />
       )}
+      {/* Protection status - shown when open and artwork has protection */}
+      <ProtectionStatusPanel artwork={artwork} isOpen={isOpen} />
       {/* Shell command details */}
       {device.device_type === 'shell' && device.config?.commands && (
         <div className="shell-commands-info">

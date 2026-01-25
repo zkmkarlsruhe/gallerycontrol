@@ -901,6 +901,137 @@ body {
   margin-right: 0.25rem;
 }
 
+/* Protection Status Panel */
+.protection-status-panel {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 4px;
+  border-left: 3px solid #ffc107;
+  font-size: 0.75rem;
+  color: #e0e0e0;
+}
+
+.protection-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.protection-header i {
+  color: #ffc107;
+}
+
+.protection-gate {
+  margin-left: auto;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.protection-gate.active {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+}
+
+.protection-gate.inactive {
+  background: rgba(108, 117, 125, 0.3);
+  color: #adb5bd;
+}
+
+.protection-budgets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.budget-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.budget-label {
+  min-width: 75px;
+  color: #adb5bd;
+}
+
+.budget-bar-container {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.budget-bar {
+  height: 100%;
+  background: #28a745;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.budget-bar.warning {
+  background: #ffc107;
+}
+
+.budget-bar.depleted {
+  background: #dc3545;
+}
+
+.budget-value {
+  min-width: 50px;
+  text-align: right;
+  color: #e0e0e0;
+}
+
+.protection-session {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.protection-session span {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.session-running {
+  color: #28a745;
+}
+
+.session-running i {
+  color: #28a745;
+}
+
+.session-cooldown {
+  color: #ffc107;
+}
+
+.session-cooldown i {
+  color: #ffc107;
+}
+
+.session-idle {
+  color: #6c757d;
+}
+
+.session-blocked {
+  color: #dc3545;
+}
+
+.session-blocked i {
+  color: #dc3545;
+}
+
 /* Host link with copy button */
 .host-link-container {
   display: inline-flex;

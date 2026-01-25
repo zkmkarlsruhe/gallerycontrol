@@ -342,6 +342,7 @@ export function ArtworkRow({
         <DeviceAccordion
           key={`accordion-${device.id}`}
           device={device}
+          artwork={artwork}
           isOpen={expandedDevice === device.id}
           editMode={editMode}
           pendingState={pendingStates.get(device.id)}
