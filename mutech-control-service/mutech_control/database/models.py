@@ -55,6 +55,7 @@ class Artwork(Base):
     name = Column(String(255), nullable=False)
     enabled = Column(Boolean, default=True, nullable=False)
     protection_config = Column(JSON, nullable=True)  # Protection rules for overuse prevention
+    accepting_triggers = Column(Boolean, default=False, nullable=False)  # Gate for fast-lane API
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

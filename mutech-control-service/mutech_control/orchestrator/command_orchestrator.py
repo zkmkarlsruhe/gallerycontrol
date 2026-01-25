@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 
 from mutech_control.database.models import Artwork, CommandLog, Device, Exhibition
@@ -79,7 +79,7 @@ class CommandOrchestrator:
         target_type: Literal["exhibition", "artwork", "device"],
         target_id: str,
         command: Literal["on", "off"],
-        source: Literal["web", "fast"],
+        source: Literal["web", "fast", "scheduler"],
     ) -> dict:
         """
         Main entry point for control commands.
@@ -164,6 +164,13 @@ class CommandOrchestrator:
             successful = sum(1 for r in results if r.get("success"))
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
+            # Update accepting_triggers gate for web/scheduler commands (not device-level)
+            # Device-level = maintenance mode, doesn't change gate
+            if successful > 0 and source in ("web", "scheduler") and target_type != "device":
+                await self._update_accepting_triggers(
+                    target_type, target_id, accepting=(command == "on")
+                )
+
             # Notify protection service of state changes
             if successful > 0 and self._protection_service:
                 artwork_id = await self._get_artwork_id_for_target(target_type, target_id)
@@ -217,6 +224,57 @@ class CommandOrchestrator:
                 return row[0] if row else None
         # Exhibition-level commands don't trigger protection (too broad)
         return None
+
+    async def _update_accepting_triggers(
+        self, target_type: str, target_id: str, accepting: bool
+    ) -> None:
+        """Update accepting_triggers flag for artworks.
+
+        Sets the flag based on target type:
+        - artwork: Update single artwork
+        - exhibition: Update all artworks in exhibition
+        - all: Update all artworks
+
+        Device-level targets do NOT update this flag (maintenance mode).
+        """
+        if target_type == "device":
+            # Maintenance mode - don't change gate
+            return
+
+        try:
+            async with self.db_manager.session() as session:
+                if target_type == "artwork":
+                    stmt = (
+                        update(Artwork)
+                        .where(Artwork.id == UUID(target_id))
+                        .values(accepting_triggers=accepting)
+                    )
+                elif target_type == "exhibition":
+                    stmt = (
+                        update(Artwork)
+                        .where(Artwork.exhibition_id == UUID(target_id))
+                        .values(accepting_triggers=accepting)
+                    )
+                elif target_type == "all":
+                    stmt = update(Artwork).values(accepting_triggers=accepting)
+                else:
+                    return
+
+                result = await session.execute(stmt)
+                logger.info(
+                    "Updated accepting_triggers",
+                    target_type=target_type,
+                    target_id=target_id[:8] if target_id else "all",
+                    accepting=accepting,
+                    rows_affected=result.rowcount,
+                )
+
+        except Exception as e:
+            logger.error(
+                "Failed to update accepting_triggers",
+                target_type=target_type,
+                error=str(e),
+            )
 
     async def _resolve_target(
         self, target_type: str, target_id: str

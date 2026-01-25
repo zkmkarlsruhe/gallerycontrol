@@ -113,6 +113,7 @@ class ArtworkState(BaseModel):
     name: str
     enabled: bool
     effective_enabled: bool  # Considers parent exhibition enabled status
+    accepting_triggers: bool  # Gate for fast-lane API triggers
     devices: List[DeviceState]
 
     class Config:
@@ -234,6 +235,7 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
                         "name": aw.name,
                         "enabled": aw.enabled,
                         "effective_enabled": aw.enabled and ex.enabled,
+                        "accepting_triggers": aw.accepting_triggers,
                         "devices": [
                             _build_device_state(
                                 dev,
@@ -283,6 +285,7 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
                     "name": aw.name,
                     "enabled": aw.enabled,
                     "effective_enabled": aw.enabled and exhibition.enabled,
+                    "accepting_triggers": aw.accepting_triggers,
                     "devices": [
                         _build_device_state(
                             dev,
@@ -658,10 +661,11 @@ async def check_service_now(request: Request, service_id: str):
 
 
 @router.get("/artworks/{artwork_id}/protection-status")
-async def get_protection_status(request: Request, artwork_id: str):
+async def get_protection_status(request: Request, artwork_id: str, session=Depends(get_session)):
     """Get protection status for an artwork.
 
     Returns the protection configuration and current state including:
+    - accepting_triggers: Whether artwork accepts fast-lane API triggers
     - Whether protection is enabled
     - Current runtime if running
     - Cooldown status
@@ -671,13 +675,29 @@ async def get_protection_status(request: Request, artwork_id: str):
     Returns {"protected": false} if artwork has no protection config.
     """
     try:
+        # Get artwork to include accepting_triggers
+        stmt = select(Artwork).where(Artwork.id == UUID(artwork_id))
+        result = await session.execute(stmt)
+        artwork = result.scalar_one_or_none()
+
+        if not artwork:
+            raise HTTPException(status_code=404, detail="Artwork not found")
+
         protection_service = getattr(request.app.state, "protection_service", None)
         if not protection_service:
-            return {"protected": False, "message": "Protection service not initialized"}
+            return {
+                "accepting_triggers": artwork.accepting_triggers,
+                "protected": False,
+                "message": "Protection service not initialized",
+            }
 
         status = await protection_service.get_protection_status(UUID(artwork_id))
+        # Add accepting_triggers to response
+        status["accepting_triggers"] = artwork.accepting_triggers
         return status
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting protection status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
