@@ -502,8 +502,9 @@ class ProtectionService:
                 artwork_id=str(artwork_id)[:8],
             )
 
-        # Broadcast forced stop event
+        # Broadcast forced stop event and updated status
         await self._broadcast_forced_off(artwork_id, reason)
+        await self._broadcast_status(artwork_id)
 
     async def _broadcast_status(self, artwork_id: UUID) -> None:
         """Broadcast protection status update via SSE."""
