@@ -173,3 +173,20 @@ class SSEBroadcaster:
             "reason": reason,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
+
+    async def send_accepting_triggers_change(
+        self,
+        artwork_id: str,
+        accepting: bool,
+    ):
+        """Broadcast accepting_triggers gate change event.
+
+        Sent when artwork's accepting_triggers flag changes (ON/OFF via web/scheduler).
+        """
+        logger.info(f"Broadcasting accepting_triggers change for artwork {artwork_id}: {accepting}")
+        await self.broadcast({
+            "type": "accepting_triggers_change",
+            "artwork_id": artwork_id,
+            "accepting_triggers": accepting,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })

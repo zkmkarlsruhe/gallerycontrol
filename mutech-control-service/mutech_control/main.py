@@ -168,6 +168,10 @@ async def lifespan(app: FastAPI):
     orchestrator.set_protection_service(protection_service)
     logger.info("Protection service connected to orchestrator")
 
+    # Connect SSE broadcaster to orchestrator for real-time gate updates
+    orchestrator.set_sse_broadcaster(sse_broadcaster)
+    logger.info("SSE broadcaster connected to orchestrator")
+
     # Store in app state
     app.state.db_manager = db_manager
     app.state.device_managers = device_managers

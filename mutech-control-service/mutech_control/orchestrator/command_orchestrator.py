@@ -34,6 +34,7 @@ class CommandOrchestrator:
         self._asset_service: Optional["AssetService"] = None
         self._scheduler: Optional["CronScheduler"] = None
         self._protection_service: Optional["ProtectionService"] = None
+        self._sse_broadcaster = None
 
         orchestrator_config = config.get("orchestrator", {})
 
@@ -65,6 +66,10 @@ class CommandOrchestrator:
     def set_protection_service(self, protection_service: "ProtectionService") -> None:
         """Set protection service reference for artwork overuse prevention."""
         self._protection_service = protection_service
+
+    def set_sse_broadcaster(self, sse_broadcaster) -> None:
+        """Set SSE broadcaster reference for real-time updates."""
+        self._sse_broadcaster = sse_broadcaster
 
     def _on_verification_done(self, task: asyncio.Task) -> None:
         """Callback for verification task completion - logs any errors."""
@@ -261,13 +266,39 @@ class CommandOrchestrator:
                     return
 
                 result = await session.execute(stmt)
+                affected_count = result.rowcount
                 logger.info(
                     "Updated accepting_triggers",
                     target_type=target_type,
                     target_id=target_id[:8] if target_id else "all",
                     accepting=accepting,
-                    rows_affected=result.rowcount,
+                    rows_affected=affected_count,
                 )
+
+                # Broadcast SSE events for affected artworks
+                if self._sse_broadcaster and affected_count > 0:
+                    if target_type == "artwork":
+                        await self._sse_broadcaster.send_accepting_triggers_change(
+                            target_id, accepting
+                        )
+                    elif target_type == "exhibition":
+                        # Get all artwork IDs in exhibition
+                        artwork_stmt = select(Artwork.id).where(
+                            Artwork.exhibition_id == UUID(target_id)
+                        )
+                        artwork_result = await session.execute(artwork_stmt)
+                        for row in artwork_result:
+                            await self._sse_broadcaster.send_accepting_triggers_change(
+                                str(row[0]), accepting
+                            )
+                    elif target_type == "all":
+                        # Get all artwork IDs
+                        artwork_stmt = select(Artwork.id)
+                        artwork_result = await session.execute(artwork_stmt)
+                        for row in artwork_result:
+                            await self._sse_broadcaster.send_accepting_triggers_change(
+                                str(row[0]), accepting
+                            )
 
         except Exception as e:
             logger.error(
