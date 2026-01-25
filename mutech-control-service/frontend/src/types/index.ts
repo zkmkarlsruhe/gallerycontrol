@@ -39,6 +39,7 @@ export interface Artwork {
   name: string;
   enabled: boolean;
   effective_enabled: boolean;
+  accepting_triggers: boolean; // Gate for fast-lane API triggers
   devices: Device[];
   protection_config?: ProtectionConfig | null;
 }
@@ -218,6 +219,7 @@ export interface ProtectionTimeSliceStatus {
 }
 
 export interface ProtectionStatus {
+  accepting_triggers: boolean; // Gate for fast-lane API triggers
   protected: boolean;
   config?: ProtectionConfig;
   state?: {

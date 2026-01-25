@@ -43,6 +43,14 @@ function getDeviceStateClass(state: number): string {
   }
 }
 
+// Check if artwork has time slice protection enabled
+function hasTimeSliceProtection(artwork: Artwork): boolean {
+  return Boolean(
+    artwork.protection_config?.time_slices &&
+    artwork.protection_config.time_slices.length > 0
+  );
+}
+
 export function ArtworkRow({
   artwork,
   isAlternate,
@@ -83,6 +91,16 @@ export function ArtworkRow({
                 <a className="api-link" href={`/api/control/artwork/${artwork.id}/on`}>#</a>
                 {isDisabled && <span className="disabled-badge">DISABLED</span>}
                 {artwork.name}
+                {hasTimeSliceProtection(artwork) && (
+                  <span
+                    className={`timeslice-indicator ${artwork.accepting_triggers ? 'active' : 'inactive'}`}
+                    title={artwork.accepting_triggers
+                      ? 'Time slice active - accepting external triggers'
+                      : 'Time slice configured - not accepting triggers (artwork off)'}
+                  >
+                    <i className={`bi ${artwork.accepting_triggers ? 'bi-lightning-charge-fill' : 'bi-lightning-charge'}`}></i>
+                  </span>
+                )}
               </div>
               <div className="artwork-controls">
                 <button className="btn btn-add btn-sm me-2" onClick={onAddDevice}>+ Device</button>
@@ -169,6 +187,16 @@ export function ArtworkRow({
                 <div className="artwork-name-inline">
                   {isDisabled && <span className="disabled-badge">DISABLED</span>}
                   {artwork.name}
+                  {hasTimeSliceProtection(artwork) && (
+                    <span
+                      className={`timeslice-indicator ${artwork.accepting_triggers ? 'active' : 'inactive'}`}
+                      title={artwork.accepting_triggers
+                        ? 'Time slice active - accepting external triggers'
+                        : 'Time slice configured - not accepting triggers (artwork off)'}
+                    >
+                      <i className={`bi ${artwork.accepting_triggers ? 'bi-lightning-charge-fill' : 'bi-lightning-charge'}`}></i>
+                    </span>
+                  )}
                 </div>
                 <div className="artwork-devices-inline">
                   {automationDevices.map(device => (
@@ -224,6 +252,16 @@ export function ArtworkRow({
                     <div className="artwork-name-inline">
                       {isDisabled && <span className="disabled-badge">DISABLED</span>}
                       {artwork.name}
+                      {hasTimeSliceProtection(artwork) && (
+                        <span
+                          className={`timeslice-indicator ${artwork.accepting_triggers ? 'active' : 'inactive'}`}
+                          title={artwork.accepting_triggers
+                            ? 'Time slice active - accepting external triggers'
+                            : 'Time slice configured - not accepting triggers (artwork off)'}
+                        >
+                          <i className={`bi ${artwork.accepting_triggers ? 'bi-lightning-charge-fill' : 'bi-lightning-charge'}`}></i>
+                        </span>
+                      )}
                     </div>
                   </>
                 ) : (
@@ -279,6 +317,16 @@ export function ArtworkRow({
                 <div className="artwork-name-inline">
                   {isDisabled && <span className="disabled-badge">DISABLED</span>}
                   {artwork.name}
+                  {hasTimeSliceProtection(artwork) && (
+                    <span
+                      className={`timeslice-indicator ${artwork.accepting_triggers ? 'active' : 'inactive'}`}
+                      title={artwork.accepting_triggers
+                        ? 'Time slice active - accepting external triggers'
+                        : 'Time slice configured - not accepting triggers (artwork off)'}
+                    >
+                      <i className={`bi ${artwork.accepting_triggers ? 'bi-lightning-charge-fill' : 'bi-lightning-charge'}`}></i>
+                    </span>
+                  )}
                 </div>
                 <div className="artwork-devices-inline">
                   <span className="no-devices-label">No devices</span>
