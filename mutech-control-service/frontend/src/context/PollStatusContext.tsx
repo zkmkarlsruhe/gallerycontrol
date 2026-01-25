@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useRef, useCallback, type ReactNode } from 'react';
+import type { ProtectionStatus } from '../types';
 
 // Types for SSE events
 interface DevicePollStatus {
@@ -16,8 +17,15 @@ interface MonitoringConfig {
   device_timeout_seconds: number;
 }
 
+// Protection status update from SSE
+interface ArtworkProtectionStatus {
+  status: ProtectionStatus;
+  lastUpdated: Date;
+}
+
 interface PollStatusContextType {
   deviceStatus: Map<string, DevicePollStatus>;
+  protectionStatus: Map<string, ArtworkProtectionStatus>;
   config: MonitoringConfig | null;
   connected: boolean;
   clientCount: number;
@@ -32,6 +40,7 @@ const defaultConfig: MonitoringConfig = {
 
 const PollStatusContext = createContext<PollStatusContextType>({
   deviceStatus: new Map(),
+  protectionStatus: new Map(),
   config: defaultConfig,
   connected: false,
   clientCount: 0,
@@ -39,6 +48,7 @@ const PollStatusContext = createContext<PollStatusContextType>({
 
 export function PollStatusProvider({ children }: { children: ReactNode }) {
   const [deviceStatus, setDeviceStatus] = useState<Map<string, DevicePollStatus>>(new Map());
+  const [protectionStatus, setProtectionStatus] = useState<Map<string, ArtworkProtectionStatus>>(new Map());
   const [config, setConfig] = useState<MonitoringConfig | null>(defaultConfig);
   const [connected, setConnected] = useState(false);
   const [clientCount, setClientCount] = useState(0);
@@ -115,6 +125,42 @@ export function PollStatusProvider({ children }: { children: ReactNode }) {
         case 'heartbeat':
           setClientCount(data.client_count || 0);
           break;
+
+        case 'protection_status':
+          // Full protection status update for an artwork
+          setProtectionStatus(prev => {
+            const next = new Map(prev);
+            next.set(data.artwork_id, {
+              status: data.status,
+              lastUpdated: new Date(data.timestamp),
+            });
+            return next;
+          });
+          break;
+
+        case 'accepting_triggers_change':
+          // Update just the accepting_triggers field
+          setProtectionStatus(prev => {
+            const next = new Map(prev);
+            const existing = prev.get(data.artwork_id);
+            if (existing) {
+              next.set(data.artwork_id, {
+                ...existing,
+                status: {
+                  ...existing.status,
+                  accepting_triggers: data.accepting_triggers,
+                },
+                lastUpdated: new Date(data.timestamp),
+              });
+            }
+            return next;
+          });
+          break;
+
+        case 'protection_forced_off':
+          // Log forced off events (could show toast notification)
+          console.warn(`Protection forced off for artwork ${data.artwork_id}: ${data.reason}`);
+          break;
       }
     } catch (e) {
       console.error('Error parsing SSE event:', e);
@@ -163,7 +209,7 @@ export function PollStatusProvider({ children }: { children: ReactNode }) {
   }, [connect]);
 
   return (
-    <PollStatusContext.Provider value={{ deviceStatus, config, connected, clientCount }}>
+    <PollStatusContext.Provider value={{ deviceStatus, protectionStatus, config, connected, clientCount }}>
       {children}
     </PollStatusContext.Provider>
   );
@@ -224,4 +270,17 @@ export function useDevicePollProgress(deviceId: string, fallbackPollStatus?: { l
   }, [deviceId, status?.lastPollAt, pollInterval, fallbackPollStatus?.last_polled_at]);
 
   return { progress, isVerifying, pollInterval, secondsRemaining };
+}
+
+// Hook for getting protection status for a specific artwork
+export function useProtectionStatus(artworkId: string): {
+  status: ProtectionStatus | null;
+  lastUpdated: Date | null;
+} {
+  const { protectionStatus } = usePollStatus();
+  const entry = protectionStatus.get(artworkId);
+  return {
+    status: entry?.status || null,
+    lastUpdated: entry?.lastUpdated || null,
+  };
 }

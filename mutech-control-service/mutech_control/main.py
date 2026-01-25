@@ -168,6 +168,10 @@ async def lifespan(app: FastAPI):
     orchestrator.set_protection_service(protection_service)
     logger.info("Protection service connected to orchestrator")
 
+    # Connect orchestrator to protection service for auto-OFF on budget/runtime exceeded
+    protection_service.set_orchestrator(orchestrator)
+    logger.info("Orchestrator connected to protection service")
+
     # Connect SSE broadcaster to orchestrator for real-time gate updates
     orchestrator.set_sse_broadcaster(sse_broadcaster)
     logger.info("SSE broadcaster connected to orchestrator")

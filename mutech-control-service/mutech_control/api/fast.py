@@ -58,9 +58,7 @@ async def fast_control_artwork(
 
         if not artwork.accepting_triggers:
             logger.warning(
-                "Fast lane blocked - artwork not accepting triggers",
-                artwork_id=artwork_id[:8],
-                artwork_name=artwork.name,
+                f"Fast lane blocked - artwork not accepting triggers: {artwork.name} ({artwork_id[:8]})"
             )
             raise HTTPException(
                 status_code=403,

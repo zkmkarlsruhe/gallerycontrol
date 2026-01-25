@@ -332,10 +332,10 @@ export function useApi() {
   const getProtectionStatus = useCallback(async (artworkId: string): Promise<ProtectionStatus> => {
     try {
       const response = await fetch(`${API_BASE}/api/state/artworks/${artworkId}/protection-status`);
-      if (!response.ok) return { protected: false };
+      if (!response.ok) return { protected: false, accepting_triggers: false };
       return response.json();
     } catch {
-      return { protected: false };
+      return { protected: false, accepting_triggers: false };
     }
   }, []);
 

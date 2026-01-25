@@ -18,6 +18,7 @@ from mutech_control.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from mutech_control.database.connection import DatabaseManager
+    from mutech_control.orchestrator.command_orchestrator import CommandOrchestrator
     from mutech_control.services.sse_broadcaster import SSEBroadcaster
 
 logger = get_logger(__name__)
@@ -53,6 +54,9 @@ class ProtectionService:
         self._states: Dict[UUID, dict] = {}  # artwork_id -> state dict
         self._configs: Dict[UUID, dict] = {}  # artwork_id -> protection config
 
+        # Orchestrator for sending OFF commands
+        self._orchestrator: Optional["CommandOrchestrator"] = None
+
         # Enforcement loop
         self._enforcement_task: Optional[asyncio.Task] = None
         self._running = False
@@ -61,6 +65,10 @@ class ProtectionService:
         self._enforcement_interval = self.config.get(
             "protection_enforcement_interval_seconds", 5
         )
+
+    def set_orchestrator(self, orchestrator: "CommandOrchestrator") -> None:
+        """Set the orchestrator for sending OFF commands during force stop."""
+        self._orchestrator = orchestrator
 
     async def start(self) -> None:
         """Start the protection service and load state from database."""
@@ -390,7 +398,7 @@ class ProtectionService:
                 logger.error("Error in protection enforcement loop", error=str(e))
 
     async def _check_all_runtimes(self) -> None:
-        """Check all running artworks for max_runtime violations."""
+        """Check all running artworks for max_runtime and budget violations."""
         now = datetime.utcnow()
 
         for artwork_id, state in list(self._states.items()):
@@ -398,20 +406,46 @@ class ProtectionService:
                 continue
 
             config = self._configs.get(artwork_id, {})
-            max_runtime = config.get("max_runtime")
-            if not max_runtime:
-                continue
-
             started_at = state.get("started_at")
             if not started_at:
                 continue
 
             runtime = (now - started_at).total_seconds()
-            if runtime >= max_runtime:
+
+            # Check max_runtime limit
+            max_runtime = config.get("max_runtime")
+            if max_runtime and runtime >= max_runtime:
                 await self._force_stop(artwork_id, "max_runtime_exceeded")
+                continue
+
+            # Check time slice budget exhaustion
+            # Calculate what the budget would be if we stopped now
+            time_slices = config.get("time_slices", [])
+            for ts in time_slices:
+                window = ts.get("window")
+                max_minutes = ts.get("max", 0)
+                if not window:
+                    continue
+
+                max_seconds = max_minutes * 60
+                used, _ = self._get_time_slice_budget(artwork_id, window)
+                projected_used = used + int(runtime)
+
+                if projected_used >= max_seconds:
+                    await self._force_stop(
+                        artwork_id,
+                        f"budget_exhausted_{window}m_window"
+                    )
+                    break  # Already stopping, no need to check other windows
 
     async def _force_stop(self, artwork_id: UUID, reason: str) -> None:
-        """Force stop an artwork and enter cooldown."""
+        """Force stop an artwork and enter cooldown.
+
+        This method:
+        1. Updates internal tracking state
+        2. Sends actual OFF commands to devices via orchestrator
+        3. Broadcasts SSE event for UI updates
+        """
         config = self._configs.get(artwork_id, {})
         state = self._states.get(artwork_id, {})
         cooldown_seconds = config.get("cooldown", 0)
@@ -439,6 +473,34 @@ class ProtectionService:
 
         # Persist state
         await self._persist_state(artwork_id, state)
+
+        # Send actual OFF commands to devices via orchestrator
+        if self._orchestrator:
+            try:
+                result = await self._orchestrator.execute_control_command(
+                    target_type="artwork",
+                    target_id=str(artwork_id),
+                    command="off",
+                    source="protection",
+                )
+                logger.info(
+                    "Protection auto-OFF completed",
+                    artwork_id=str(artwork_id)[:8],
+                    reason=reason,
+                    devices_targeted=result.get("devices_targeted", 0),
+                    devices_successful=result.get("devices_successful", 0),
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to send protection auto-OFF",
+                    artwork_id=str(artwork_id)[:8],
+                    error=str(e),
+                )
+        else:
+            logger.warning(
+                "No orchestrator connected - cannot send auto-OFF commands",
+                artwork_id=str(artwork_id)[:8],
+            )
 
         # Broadcast forced stop event
         await self._broadcast_forced_off(artwork_id, reason)

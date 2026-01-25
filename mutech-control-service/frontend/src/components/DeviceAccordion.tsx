@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Device, Artwork, ProtectionStatus } from '../types';
 import { ConfirmButton } from './ui/ConfirmButton';
-import { useDevicePollProgress } from '../context/PollStatusContext';
+import { useDevicePollProgress, useProtectionStatus } from '../context/PollStatusContext';
 import { useDeviceInfo } from '../hooks/useDeviceInfo';
 import { formatDeviceDisplayName } from '../utils/deviceDisplay';
 import { portUtils } from '../utils/portUtils';
@@ -217,8 +217,14 @@ function formatSeconds(seconds: number): string {
 
 /** Protection status panel for artwork */
 function ProtectionStatusPanel({ artwork, isOpen }: { artwork: Artwork; isOpen: boolean }) {
-  const [status, setStatus] = useState<ProtectionStatus | null>(null);
+  const [fetchedStatus, setFetchedStatus] = useState<ProtectionStatus | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Get real-time SSE updates for protection status
+  const { status: sseStatus } = useProtectionStatus(artwork.id);
+
+  // Use SSE status when available, fallback to fetched status
+  const status = sseStatus || fetchedStatus;
 
   // Check if artwork has protection configured
   const hasProtection = Boolean(
@@ -230,12 +236,17 @@ function ProtectionStatusPanel({ artwork, isOpen }: { artwork: Artwork; isOpen: 
     if (!isOpen || !hasProtection) return;
 
     const fetchStatus = async () => {
+      // Skip fetch if we already have SSE data
+      if (sseStatus) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         const response = await fetch(`${API_BASE}/api/state/artworks/${artwork.id}/protection-status`);
         if (response.ok) {
           const data = await response.json();
-          setStatus(data);
+          setFetchedStatus(data);
         }
       } catch (err) {
         console.error('Failed to fetch protection status:', err);
@@ -245,10 +256,10 @@ function ProtectionStatusPanel({ artwork, isOpen }: { artwork: Artwork; isOpen: 
     };
 
     fetchStatus();
-    // Refresh every 10 seconds when open
-    const interval = setInterval(fetchStatus, 10000);
+    // Reduce polling to 30 seconds - SSE handles real-time updates
+    const interval = setInterval(fetchStatus, 30000);
     return () => clearInterval(interval);
-  }, [artwork.id, isOpen, hasProtection]);
+  }, [artwork.id, isOpen, hasProtection, sseStatus]);
 
   if (!hasProtection) return null;
   if (!isOpen) return null;
