@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from mutech_control.api import admin, assets, control, debug, fast, state
+from mutech_control.api import admin, assets, control, debug, fast, satellite, state
 from mutech_control.config import get_config
 from mutech_control.database.connection import get_db_manager
 from mutech_control.devices.anel_client import ANELClient
@@ -29,8 +29,10 @@ from mutech_control.scheduler.tasks import (
     run_log_cleanup,
     run_memory_cleanup,
 )
+from mutech_control.devices.satellite_router import SatelliteRouter
 from mutech_control.services.asset_service import AssetService
 from mutech_control.services.protection_service import ProtectionService
+from mutech_control.services.satellite_manager import SatelliteManager
 from mutech_control.services.sse_broadcaster import SSEBroadcaster
 
 # Configure logging
@@ -101,6 +103,14 @@ async def lifespan(app: FastAPI):
         db_manager, sse_broadcaster=sse_broadcaster, config=orchestrator_config
     )
     logger.info("Protection service initialized")
+
+    # Initialize satellite manager for WebSocket relay connections
+    satellite_manager = SatelliteManager(db_manager, sse_broadcaster=sse_broadcaster)
+    logger.info("Satellite manager initialized")
+
+    # Initialize satellite router for command routing through satellites
+    satellite_router = SatelliteRouter(satellite_manager, device_managers)
+    logger.info("Satellite router initialized")
 
     # Initialize service health monitor for external services (runners, etc.)
     services_config = config.get("services", {})
@@ -176,6 +186,10 @@ async def lifespan(app: FastAPI):
     orchestrator.set_sse_broadcaster(sse_broadcaster)
     logger.info("SSE broadcaster connected to orchestrator")
 
+    # Connect satellite router to orchestrator for satellite command routing
+    orchestrator.set_satellite_router(satellite_router)
+    logger.info("Satellite router connected to orchestrator")
+
     # Store in app state
     app.state.db_manager = db_manager
     app.state.device_managers = device_managers
@@ -186,6 +200,7 @@ async def lifespan(app: FastAPI):
     app.state.cron_scheduler = cron_scheduler
     app.state.service_monitor = service_monitor
     app.state.protection_service = protection_service
+    app.state.satellite_manager = satellite_manager
 
     # Start config watching (hot-reload) with SSE broadcast
     def on_config_change(loader):
@@ -299,6 +314,7 @@ app.include_router(state.router)
 app.include_router(admin.router)
 app.include_router(debug.router)
 app.include_router(assets.router)
+app.include_router(satellite.router)
 
 # Mount static files directory if it exists
 static_dir = Path(__file__).parent.parent / "static"

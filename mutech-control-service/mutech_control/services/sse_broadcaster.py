@@ -190,3 +190,35 @@ class SSEBroadcaster:
             "accepting_triggers": accepting,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
+
+    async def send_satellite_pending_count(self, count: int):
+        """Broadcast pending satellite count change.
+
+        Sent when satellites are added/removed from pending queue.
+        """
+        await self.broadcast({
+            "type": "satellite_pending_count",
+            "count": count,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+
+    async def send_satellite_status(
+        self,
+        satellite_id: str,
+        name: str,
+        is_connected: bool,
+    ):
+        """Broadcast satellite connection status change.
+
+        Sent when a satellite connects or disconnects.
+        """
+        logger.info(
+            f"Broadcasting satellite status: {name} ({'connected' if is_connected else 'disconnected'})"
+        )
+        await self.broadcast({
+            "type": "satellite_status",
+            "satellite_id": satellite_id,
+            "name": name,
+            "is_connected": is_connected,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })

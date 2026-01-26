@@ -1,9 +1,11 @@
 /**
- * Modal for editing exhibition properties including schedules feature toggle.
+ * Modal for editing exhibition properties including schedules feature toggle
+ * and satellite relay assignment.
  */
 
 import { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
+import type { Satellite } from '../../types';
 
 interface EditExhibitionModalProps {
   isOpen: boolean;
@@ -12,11 +14,12 @@ interface EditExhibitionModalProps {
     name: string;
     enabled: boolean;
     schedules_enabled: boolean;
+    satellite_id: string | null;
   } | null;
   onClose: () => void;
   onSave: (
     id: string,
-    data: { name: string; enabled: boolean; schedules_enabled: boolean }
+    data: { name: string; enabled: boolean; schedules_enabled: boolean; satellite_id: string | null }
   ) => Promise<void>;
 }
 
@@ -29,13 +32,34 @@ export function EditExhibitionModal({
   const [name, setName] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
+  const [satelliteId, setSatelliteId] = useState<string | null>(null);
+  const [satellites, setSatellites] = useState<Satellite[]>([]);
+  const [loadingSatellites, setLoadingSatellites] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Load satellites when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setLoadingSatellites(true);
+      fetch('/api/admin/satellites')
+        .then((res) => res.json())
+        .then((data) => {
+          setSatellites(data.filter((s: Satellite) => s.status === 'approved'));
+        })
+        .catch((err) => {
+          console.error('Failed to load satellites:', err);
+          setSatellites([]);
+        })
+        .finally(() => setLoadingSatellites(false));
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (exhibition) {
       setName(exhibition.name);
       setEnabled(exhibition.enabled);
       setSchedulesEnabled(exhibition.schedules_enabled);
+      setSatelliteId(exhibition.satellite_id);
     }
   }, [exhibition]);
 
@@ -49,12 +73,15 @@ export function EditExhibitionModal({
         name: name.trim(),
         enabled,
         schedules_enabled: schedulesEnabled,
+        satellite_id: satelliteId,
       });
       onClose();
     } finally {
       setSaving(false);
     }
   };
+
+  const selectedSatellite = satellites.find((s) => s.id === satelliteId);
 
   return (
     <Modal
@@ -133,6 +160,36 @@ export function EditExhibitionModal({
             When enabled, shows the calendar button and allows scheduled on/off actions
           </div>
         </div>
+      </div>
+
+      {/* Satellite Section */}
+      <div className="mb-3">
+        <label className="form-label" htmlFor="exhibition-satellite">
+          <strong>Satellite Relay</strong>
+        </label>
+        <select
+          id="exhibition-satellite"
+          className="form-select"
+          value={satelliteId || ''}
+          onChange={(e) => setSatelliteId(e.target.value || null)}
+          disabled={loadingSatellites}
+        >
+          <option value="">No satellite (direct connection)</option>
+          {satellites.map((sat) => (
+            <option key={sat.id} value={sat.id}>
+              {sat.name} {sat.is_connected ? '(online)' : '(offline)'}
+            </option>
+          ))}
+        </select>
+        <div className="small text-muted mt-1">
+          Assign a satellite relay to route commands for devices in this exhibition
+        </div>
+        {selectedSatellite && !selectedSatellite.is_connected && (
+          <div className="alert alert-warning mt-2 py-2 small">
+            <i className="bi bi-exclamation-triangle me-1"></i>
+            Selected satellite is currently offline. Commands will fail until it reconnects.
+          </div>
+        )}
       </div>
     </Modal>
   );

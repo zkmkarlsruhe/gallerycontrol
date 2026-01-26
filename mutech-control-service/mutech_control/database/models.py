@@ -27,6 +27,35 @@ class Base(DeclarativeBase):
     pass
 
 
+class Satellite(Base):
+    """Satellite relay for devices in NATed/closed networks."""
+
+    __tablename__ = "satellites"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name = Column(String(255), nullable=False)
+    api_key_hash = Column(String(64), nullable=False, unique=True)  # SHA-256
+    status = Column(String(20), default="pending", nullable=False)  # pending/approved/offline
+    hostname = Column(String(255), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    last_seen_at = Column(DateTime, nullable=True)
+    version = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    exhibitions = relationship("Exhibition", back_populates="satellite")
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_satellites_api_key_hash", "api_key_hash"),
+        Index("idx_satellites_status", "status"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Satellite(id={self.id}, name='{self.name}', status='{self.status}')>"
+
+
 class Exhibition(Base):
     """Exhibition model."""
 
@@ -36,11 +65,20 @@ class Exhibition(Base):
     name = Column(String(255), nullable=False)
     enabled = Column(Boolean, default=True, nullable=False)
     schedules_enabled = Column(Boolean, default=False, nullable=False)  # Enable schedules feature
+    satellite_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("satellites.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     # Relationships
     artworks = relationship("Artwork", back_populates="exhibition", cascade="all, delete-orphan")
+    satellite = relationship("Satellite", back_populates="exhibitions")
+
+    # Indexes
+    __table_args__ = (Index("idx_exhibitions_satellite", "satellite_id"),)
 
     def __repr__(self) -> str:
         return f"<Exhibition(id={self.id}, name='{self.name}', enabled={self.enabled})>"
@@ -95,6 +133,7 @@ class Device(Base):
     enabled = Column(Boolean, default=True, nullable=False)
     automation_enabled = Column(Boolean, default=True, nullable=False)
     schedules_enabled = Column(Boolean, default=False, nullable=False)  # Enable schedules feature
+    use_satellite = Column(Boolean, default=False, nullable=False)  # Route via exhibition satellite
 
     # Configuration (device-specific JSON)
     config = Column(JSON, default=dict, nullable=False)

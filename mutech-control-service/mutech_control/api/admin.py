@@ -19,6 +19,7 @@ from mutech_control.database.models import (
     Credential,
     Device,
     Exhibition,
+    Satellite,
     ScheduledJob,
     ScheduledJobLog,
     ShellTemplate,
@@ -44,6 +45,7 @@ class ExhibitionUpdate(BaseModel):
     name: str | None = None
     enabled: bool | None = None
     schedules_enabled: bool | None = None
+    satellite_id: str | None = None  # Assigned satellite relay
 
 
 class ArtworkCreate(BaseModel):
@@ -105,7 +107,16 @@ class DeviceUpdate(BaseModel):
     enabled: bool | None = None
     automation_enabled: bool | None = None
     schedules_enabled: bool | None = None
+    use_satellite: bool | None = None  # Route via exhibition satellite
     config: Dict[str, Any] | None = None
+
+
+# Satellite models
+class SatelliteApprove(BaseModel):
+    """Satellite approval request."""
+
+    api_key_hash: str
+    name: str
 
 
 # Exhibition endpoints
@@ -193,7 +204,17 @@ async def update_exhibition(
 ):
     """Update an exhibition."""
     try:
-        values = {k: v for k, v in exhibition.dict().items() if v is not None}
+        values = {}
+        for key, value in exhibition.dict().items():
+            if value is not None:
+                if key == "satellite_id":
+                    # Convert satellite_id to UUID, or None to clear it
+                    values[key] = UUID(value) if value else None
+                else:
+                    values[key] = value
+            elif key == "satellite_id" and exhibition.satellite_id == "":
+                # Allow clearing satellite_id with empty string
+                values[key] = None
 
         if not values:
             raise HTTPException(status_code=400, detail="No fields to update")
@@ -215,6 +236,7 @@ async def update_exhibition(
             "name": updated.name,
             "enabled": updated.enabled,
             "schedules_enabled": updated.schedules_enabled,
+            "satellite_id": str(updated.satellite_id) if updated.satellite_id else None,
         }
 
     except HTTPException:
@@ -2436,4 +2458,105 @@ async def get_cron_scheduler_status(request: Request):
         return await cron_scheduler.get_status()
     except Exception as e:
         logger.error(f"Error getting cron scheduler status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Satellite endpoints
+@router.get("/satellites")
+async def list_satellites(request: Request):
+    """List all satellites with connection status."""
+    satellite_manager = getattr(request.app.state, "satellite_manager", None)
+    if not satellite_manager:
+        raise HTTPException(status_code=503, detail="Satellite manager not available")
+
+    try:
+        return await satellite_manager.get_all_satellites()
+    except Exception as e:
+        logger.error(f"Error listing satellites: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/satellites/pending")
+async def list_pending_satellites(request: Request):
+    """List satellites pending approval."""
+    satellite_manager = getattr(request.app.state, "satellite_manager", None)
+    if not satellite_manager:
+        raise HTTPException(status_code=503, detail="Satellite manager not available")
+
+    try:
+        return satellite_manager.get_pending_satellites()
+    except Exception as e:
+        logger.error(f"Error listing pending satellites: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/satellites/pending/count")
+async def get_pending_satellites_count(request: Request):
+    """Get count of satellites pending approval."""
+    satellite_manager = getattr(request.app.state, "satellite_manager", None)
+    if not satellite_manager:
+        return {"count": 0}
+
+    try:
+        pending = satellite_manager.get_pending_satellites()
+        return {"count": len(pending)}
+    except Exception as e:
+        logger.error(f"Error getting pending satellites count: {e}")
+        return {"count": 0}
+
+
+@router.post("/satellites/approve")
+async def approve_satellite(data: SatelliteApprove, request: Request):
+    """Approve a pending satellite."""
+    satellite_manager = getattr(request.app.state, "satellite_manager", None)
+    if not satellite_manager:
+        raise HTTPException(status_code=503, detail="Satellite manager not available")
+
+    try:
+        result = await satellite_manager.approve_satellite(data.api_key_hash, data.name)
+        if not result:
+            raise HTTPException(status_code=404, detail="Pending satellite not found")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error approving satellite: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/satellites/reject")
+async def reject_satellite(api_key_hash: str, request: Request):
+    """Reject a pending satellite."""
+    satellite_manager = getattr(request.app.state, "satellite_manager", None)
+    if not satellite_manager:
+        raise HTTPException(status_code=503, detail="Satellite manager not available")
+
+    try:
+        result = await satellite_manager.reject_satellite(api_key_hash)
+        if not result:
+            raise HTTPException(status_code=404, detail="Pending satellite not found")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error rejecting satellite: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/satellites/{satellite_id}")
+async def revoke_satellite(satellite_id: str, request: Request):
+    """Revoke an approved satellite."""
+    satellite_manager = getattr(request.app.state, "satellite_manager", None)
+    if not satellite_manager:
+        raise HTTPException(status_code=503, detail="Satellite manager not available")
+
+    try:
+        result = await satellite_manager.revoke_satellite(UUID(satellite_id))
+        if not result:
+            raise HTTPException(status_code=404, detail="Satellite not found")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error revoking satellite: {e}")
         raise HTTPException(status_code=500, detail=str(e))

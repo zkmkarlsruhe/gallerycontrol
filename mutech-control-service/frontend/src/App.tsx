@@ -814,6 +814,14 @@ function App() {
         templates={templates}
         onSaveAsTemplate={handleSaveDeviceAsTemplate}
         existingDevices={existingDevices}
+        satelliteName={
+          // Find satellite name for this device's exhibition
+          editDeviceData
+            ? exhibitions
+                .find(e => e.artworks.some(a => a.devices.some(d => d.id === editDeviceData.id)))
+                ?.satellite?.name ?? null
+            : null
+        }
       />
 
       <ShellTemplatesModal

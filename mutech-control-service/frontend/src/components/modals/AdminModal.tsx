@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Modal } from '../ui/Modal';
+import type { Satellite, PendingSatellite } from '../../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
@@ -60,6 +61,88 @@ export function AdminModal({ isOpen, onClose, showToast }: AdminModalProps) {
   const [triggeringTask, setTriggeringTask] = useState<string | null>(null);
   const [resettingTask, setResettingTask] = useState<string | null>(null);
 
+  // Satellite state
+  const [satellites, setSatellites] = useState<Satellite[]>([]);
+  const [pendingSatellites, setPendingSatellites] = useState<PendingSatellite[]>([]);
+  const [approvingHash, setApprovingHash] = useState<string | null>(null);
+  const [approvalName, setApprovalName] = useState('');
+  const [rejectingHash, setRejectingHash] = useState<string | null>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  const fetchSatellites = useCallback(async () => {
+    try {
+      const [satellitesRes, pendingRes] = await Promise.all([
+        fetch(`${API_BASE}/api/admin/satellites`),
+        fetch(`${API_BASE}/api/admin/satellites/pending`),
+      ]);
+      if (satellitesRes.ok) {
+        setSatellites(await satellitesRes.json());
+      }
+      if (pendingRes.ok) {
+        setPendingSatellites(await pendingRes.json());
+      }
+    } catch (err) {
+      console.error('Failed to fetch satellites:', err);
+    }
+  }, []);
+
+  const handleApproveSatellite = async (apiKeyHash: string, name: string) => {
+    if (!name.trim()) {
+      showToast('Please enter a name for the satellite', 'danger');
+      return;
+    }
+    setApprovingHash(apiKeyHash);
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/satellites/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key_hash: apiKeyHash, name: name.trim() }),
+      });
+      if (!response.ok) throw new Error('Failed to approve satellite');
+      showToast(`Satellite "${name}" approved`, 'success');
+      setApprovalName('');
+      fetchSatellites();
+    } catch (err) {
+      showToast('Failed to approve satellite', 'danger');
+    } finally {
+      setApprovingHash(null);
+    }
+  };
+
+  const handleRejectSatellite = async (apiKeyHash: string) => {
+    setRejectingHash(apiKeyHash);
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/satellites/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key_hash: apiKeyHash }),
+      });
+      if (!response.ok) throw new Error('Failed to reject satellite');
+      showToast('Satellite rejected', 'success');
+      fetchSatellites();
+    } catch (err) {
+      showToast('Failed to reject satellite', 'danger');
+    } finally {
+      setRejectingHash(null);
+    }
+  };
+
+  const handleRevokeSatellite = async (id: string, name: string) => {
+    setRevokingId(id);
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/satellites/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to revoke satellite');
+      showToast(`Satellite "${name}" revoked`, 'success');
+      fetchSatellites();
+    } catch (err) {
+      showToast('Failed to revoke satellite', 'danger');
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
   const fetchStatus = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE}/api/admin/scheduler/status`);
@@ -74,13 +157,16 @@ export function AdminModal({ isOpen, onClose, showToast }: AdminModalProps) {
   useEffect(() => {
     if (isOpen) {
       setLoading(true);
-      fetchStatus().finally(() => setLoading(false));
+      Promise.all([fetchStatus(), fetchSatellites()]).finally(() => setLoading(false));
 
       // Auto-refresh every 5 seconds while open
-      const interval = setInterval(fetchStatus, 5000);
+      const interval = setInterval(() => {
+        fetchStatus();
+        fetchSatellites();
+      }, 5000);
       return () => clearInterval(interval);
     }
-  }, [isOpen, fetchStatus]);
+  }, [isOpen, fetchStatus, fetchSatellites]);
 
   const handleTriggerAll = async () => {
     setTriggeringAll(true);
@@ -155,6 +241,115 @@ export function AdminModal({ isOpen, onClose, showToast }: AdminModalProps) {
       }
     >
       <div className="admin-modal">
+        {/* Satellites Section */}
+        <div className="admin-section mb-4">
+          <h6 className="admin-section-title">
+            <i className="bi bi-broadcast me-2"></i>
+            Satellites
+            {pendingSatellites.length > 0 && (
+              <span className="badge bg-warning text-dark ms-2">{pendingSatellites.length} pending</span>
+            )}
+          </h6>
+
+          {/* Pending Satellites */}
+          {pendingSatellites.length > 0 && (
+            <div className="mb-3">
+              <small className="text-muted d-block mb-2">Pending Approval</small>
+              {pendingSatellites.map((pending) => (
+                <div key={pending.api_key_hash} className="admin-task-card border-warning">
+                  <div className="d-flex align-items-center justify-content-between mb-2">
+                    <div>
+                      <strong>{pending.hostname || 'Unknown'}</strong>
+                      <small className="text-muted ms-2">v{pending.version}</small>
+                    </div>
+                    <span className="badge bg-warning text-dark">Pending</span>
+                  </div>
+                  <div className="d-flex gap-2 align-items-center">
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      placeholder="Enter satellite name..."
+                      value={approvingHash === pending.api_key_hash ? approvalName : ''}
+                      onChange={(e) => {
+                        setApprovingHash(pending.api_key_hash);
+                        setApprovalName(e.target.value);
+                      }}
+                      onFocus={() => setApprovingHash(pending.api_key_hash)}
+                    />
+                    <button
+                      className="btn btn-success btn-sm"
+                      onClick={() => handleApproveSatellite(pending.api_key_hash, approvalName)}
+                      disabled={approvingHash === pending.api_key_hash && !approvalName.trim()}
+                    >
+                      <i className="bi bi-check-lg"></i>
+                    </button>
+                    <button
+                      className="btn btn-outline-danger btn-sm"
+                      onClick={() => handleRejectSatellite(pending.api_key_hash)}
+                      disabled={rejectingHash === pending.api_key_hash}
+                    >
+                      {rejectingHash === pending.api_key_hash ? (
+                        <span className="spinner-border spinner-border-sm"></span>
+                      ) : (
+                        <i className="bi bi-x-lg"></i>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Approved Satellites */}
+          {satellites.length > 0 ? (
+            <div>
+              <small className="text-muted d-block mb-2">Approved Satellites</small>
+              {satellites.map((satellite) => (
+                <div key={satellite.id} className="admin-task-card">
+                  <div className="d-flex align-items-center justify-content-between">
+                    <div>
+                      <strong>{satellite.name}</strong>
+                      <small className="text-muted ms-2">({satellite.hostname})</small>
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                      <span className={`badge ${satellite.is_connected ? 'bg-success' : 'bg-secondary'}`}>
+                        {satellite.is_connected ? 'Connected' : 'Offline'}
+                      </span>
+                      <button
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={() => handleRevokeSatellite(satellite.id, satellite.name)}
+                        disabled={revokingId === satellite.id}
+                        title="Revoke satellite"
+                      >
+                        {revokingId === satellite.id ? (
+                          <span className="spinner-border spinner-border-sm"></span>
+                        ) : (
+                          <i className="bi bi-trash"></i>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="admin-task-details mt-2">
+                    <div className="admin-task-detail">
+                      <span className="text-muted">Version:</span>
+                      <span>{satellite.version || 'Unknown'}</span>
+                    </div>
+                    <div className="admin-task-detail">
+                      <span className="text-muted">Last seen:</span>
+                      <span>{satellite.last_seen_at ? formatTimeAgo(satellite.last_seen_at) : 'Never'}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : pendingSatellites.length === 0 ? (
+            <div className="text-muted text-center py-3">
+              <i className="bi bi-broadcast me-2"></i>
+              No satellites configured
+            </div>
+          ) : null}
+        </div>
+
         {/* Trigger All Section */}
         <div className="admin-section">
           <h6 className="admin-section-title">

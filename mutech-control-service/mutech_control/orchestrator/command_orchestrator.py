@@ -15,6 +15,7 @@ from mutech_control.orchestrator.command_verifier import CommandVerifier
 from mutech_control.utils.logging import get_logger, set_request_id
 
 if TYPE_CHECKING:
+    from mutech_control.devices.satellite_router import SatelliteRouter
     from mutech_control.monitoring.state_monitor import StateMonitor
     from mutech_control.scheduler.cron_scheduler import CronScheduler
     from mutech_control.services.asset_service import AssetService
@@ -34,6 +35,7 @@ class CommandOrchestrator:
         self._asset_service: Optional["AssetService"] = None
         self._scheduler: Optional["CronScheduler"] = None
         self._protection_service: Optional["ProtectionService"] = None
+        self._satellite_router: Optional["SatelliteRouter"] = None
         self._sse_broadcaster = None
 
         orchestrator_config = config.get("orchestrator", {})
@@ -70,6 +72,10 @@ class CommandOrchestrator:
     def set_sse_broadcaster(self, sse_broadcaster) -> None:
         """Set SSE broadcaster reference for real-time updates."""
         self._sse_broadcaster = sse_broadcaster
+
+    def set_satellite_router(self, satellite_router: "SatelliteRouter") -> None:
+        """Set satellite router reference for routing commands through satellites."""
+        self._satellite_router = satellite_router
 
     def _on_verification_done(self, task: asyncio.Task) -> None:
         """Callback for verification task completion - logs any errors."""
@@ -532,24 +538,45 @@ class CommandOrchestrator:
         self, device: Device, command: str, source: str
     ) -> dict:
         """Execute command on single device."""
-        manager = self.device_managers.get(device.device_type)
-
-        if not manager:
-            error = f"No manager available for device type {device.device_type}"
-            logger.error(error)
-            return {
-                "device_id": str(device.id),
-                "device_name": device.name,
-                "device_type": device.device_type,
-                "success": False,
-                "error": error,
-            }
-
         try:
             state_before = device.state
 
-            # Execute command
-            result = await manager.set_power(device, command == "on")
+            # Check if device should be routed through satellite
+            if self._satellite_router:
+                satellite_id = self._satellite_router.should_route_via_satellite(device)
+                if satellite_id:
+                    # Route through satellite
+                    result = await self._satellite_router.route_command(
+                        device, command, satellite_id
+                    )
+                else:
+                    # Direct execution
+                    manager = self.device_managers.get(device.device_type)
+                    if not manager:
+                        error = f"No manager available for device type {device.device_type}"
+                        logger.error(error)
+                        return {
+                            "device_id": str(device.id),
+                            "device_name": device.name,
+                            "device_type": device.device_type,
+                            "success": False,
+                            "error": error,
+                        }
+                    result = await manager.set_power(device, command == "on")
+            else:
+                # No satellite router configured - direct execution
+                manager = self.device_managers.get(device.device_type)
+                if not manager:
+                    error = f"No manager available for device type {device.device_type}"
+                    logger.error(error)
+                    return {
+                        "device_id": str(device.id),
+                        "device_name": device.name,
+                        "device_type": device.device_type,
+                        "success": False,
+                        "error": error,
+                    }
+                result = await manager.set_power(device, command == "on")
 
             # Update database state if successful
             if result.success:

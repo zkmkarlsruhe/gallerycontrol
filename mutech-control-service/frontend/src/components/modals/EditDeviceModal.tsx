@@ -17,6 +17,7 @@ interface EditDeviceModalProps {
   templates?: ShellTemplate[];
   onSaveAsTemplate?: (deviceId: string, name: string) => Promise<void>;
   existingDevices?: Device[];
+  satelliteName?: string | null; // Name of exhibition's satellite (if assigned)
 }
 
 export function EditDeviceModal({
@@ -29,17 +30,20 @@ export function EditDeviceModal({
   templates = [],
   onSaveAsTemplate,
   existingDevices = [],
+  satelliteName = null,
 }: EditDeviceModalProps) {
   const [saving, setSaving] = useState(false);
   const [showTemplatePrompt, setShowTemplatePrompt] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [schedulesEnabled, setSchedulesEnabled] = useState(device?.schedules_enabled ?? false);
+  const [useSatellite, setUseSatellite] = useState(device?.use_satellite ?? false);
 
-  // Sync schedulesEnabled when device changes
+  // Sync state when device changes
   useEffect(() => {
     if (device) {
       setSchedulesEnabled(device.schedules_enabled ?? false);
+      setUseSatellite(device.use_satellite ?? false);
     }
   }, [device]);
 
@@ -71,8 +75,9 @@ export function EditDeviceModal({
     try {
       // Build payload using shared helper (don't include device_type for updates)
       const data = buildDevicePayload(deviceType, slices, false);
-      // Add schedules_enabled flag
+      // Add feature flags
       data.schedules_enabled = schedulesEnabled;
+      data.use_satellite = useSatellite;
       await onSave(device.id, data);
       onClose();
     } finally {
@@ -188,6 +193,25 @@ export function EditDeviceModal({
             Shows the calendar button to configure scheduled on/off actions
           </div>
         </div>
+
+        {/* Satellite routing - only show if exhibition has satellite assigned */}
+        {satelliteName && (
+          <div className="form-check mt-3">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="device-use-satellite"
+              checked={useSatellite}
+              onChange={(e) => setUseSatellite(e.target.checked)}
+            />
+            <label className="form-check-label" htmlFor="device-use-satellite">
+              Route via Satellite ({satelliteName})
+            </label>
+            <div className="small text-muted">
+              Commands will be sent through the satellite relay instead of direct connection
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Template Name Prompt */}

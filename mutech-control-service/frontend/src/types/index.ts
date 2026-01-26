@@ -25,6 +25,7 @@ export interface Device {
   effective_enabled: boolean;
   automation_enabled: boolean; // false = manual device, needs inline buttons
   schedules_enabled: boolean; // Enable schedules feature
+  use_satellite: boolean; // Route commands through exhibition satellite
   last_checked_at: string | null;
   next_check_allowed_at: string | null;
   poll_status: PollStatus | null;
@@ -47,11 +48,19 @@ export interface Artwork {
   protection_config?: ProtectionConfig | null;
 }
 
+export interface SatelliteInfo {
+  id: string;
+  name: string;
+  is_connected: boolean;
+}
+
 export interface Exhibition {
   id: string;
   name: string;
   enabled: boolean;
   schedules_enabled: boolean; // Enable schedules feature
+  satellite_id: string | null; // Assigned satellite relay
+  satellite: SatelliteInfo | null; // Satellite info with connection status
   artworks: Artwork[];
 }
 
@@ -252,4 +261,27 @@ export interface ServiceHealth {
   response_time_ms: number | null;
   affects_device_types: string[];
   consecutive_failures: number;
+}
+
+// Satellite Types
+
+export type SatelliteStatus = 'pending' | 'approved' | 'offline';
+
+export interface Satellite {
+  id: string;
+  name: string;
+  status: SatelliteStatus;
+  hostname: string | null;
+  version: string | null;
+  is_connected: boolean;
+  approved_at: string | null;
+  last_seen_at: string | null;
+  created_at: string;
+}
+
+export interface PendingSatellite {
+  api_key_hash: string;
+  hostname: string | null;
+  version: string | null;
+  connected_at: string;
 }

@@ -82,6 +82,7 @@ export interface DevicePayload {
   enabled: boolean;
   automation_enabled: boolean;
   schedules_enabled?: boolean; // Only for update
+  use_satellite?: boolean; // Route via exhibition satellite
   config: Record<string, any>;
 }
 

@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from mutech_control.config import get_config
 from mutech_control.database.connection import get_session
-from mutech_control.database.models import Artwork, Device, Exhibition, LampHoursLog
+from mutech_control.database.models import Artwork, Device, Exhibition, LampHoursLog, Satellite
 from mutech_control.devices.base import STATE_NAMES, state_to_name
 
 logger = logging.getLogger(__name__)
@@ -124,6 +124,14 @@ class ArtworkState(BaseModel):
         from_attributes = True
 
 
+class SatelliteInfo(BaseModel):
+    """Satellite info for exhibition state."""
+
+    id: str
+    name: str
+    is_connected: bool
+
+
 class ExhibitionState(BaseModel):
     """Exhibition state with artworks and devices."""
 
@@ -132,6 +140,7 @@ class ExhibitionState(BaseModel):
     enabled: bool
     effective_enabled: bool  # For exhibitions, same as enabled
     schedules_enabled: bool = False  # Enable schedules feature
+    satellite: SatelliteInfo | None = None  # Assigned satellite info
     artworks: List[ArtworkState]
 
     class Config:
@@ -212,6 +221,22 @@ def _build_device_state(
     }
 
 
+def _get_satellite_info(exhibition, satellite_manager) -> dict | None:
+    """Build satellite info for an exhibition if one is assigned."""
+    if not exhibition.satellite_id or not exhibition.satellite:
+        return None
+
+    is_connected = False
+    if satellite_manager:
+        is_connected = satellite_manager.is_connected(exhibition.satellite_id)
+
+    return {
+        "id": str(exhibition.satellite.id),
+        "name": exhibition.satellite.name,
+        "is_connected": is_connected,
+    }
+
+
 @router.get("/exhibitions", response_model=List[ExhibitionState])
 async def list_all_exhibitions(request: Request, session=Depends(get_session)):
     """List all exhibitions with full state tree."""
@@ -219,7 +244,8 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
         stmt = (
             select(Exhibition)
             .options(
-                selectinload(Exhibition.artworks).selectinload(Artwork.devices)
+                selectinload(Exhibition.artworks).selectinload(Artwork.devices),
+                selectinload(Exhibition.satellite),
             )
             .order_by(Exhibition.name)
         )
@@ -231,6 +257,9 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
 
         # Get protection service for config lookup
         protection_service = getattr(request.app.state, "protection_service", None)
+
+        # Get satellite manager for connection status
+        satellite_manager = getattr(request.app.state, "satellite_manager", None)
 
         def get_protection_config(artwork_id, db_config):
             """Get protection config from service (YAML files) or fall back to DB."""
@@ -247,6 +276,7 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
                 "enabled": ex.enabled,
                 "effective_enabled": ex.enabled,
                 "schedules_enabled": ex.schedules_enabled,
+                "satellite": _get_satellite_info(ex, satellite_manager),
                 "artworks": [
                     {
                         "id": str(aw.id),
@@ -286,7 +316,8 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
             select(Exhibition)
             .where(Exhibition.id == UUID(exhibition_id))
             .options(
-                selectinload(Exhibition.artworks).selectinload(Artwork.devices)
+                selectinload(Exhibition.artworks).selectinload(Artwork.devices),
+                selectinload(Exhibition.satellite),
             )
         )
         result = await session.execute(stmt)
@@ -297,6 +328,9 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
 
         # Get protection service for config lookup
         protection_service = getattr(request.app.state, "protection_service", None)
+
+        # Get satellite manager for connection status
+        satellite_manager = getattr(request.app.state, "satellite_manager", None)
 
         def get_protection_config(artwork_id, db_config):
             """Get protection config from service (YAML files) or fall back to DB."""
@@ -312,6 +346,7 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
             "enabled": exhibition.enabled,
             "effective_enabled": exhibition.enabled,
             "schedules_enabled": exhibition.schedules_enabled,
+            "satellite": _get_satellite_info(exhibition, satellite_manager),
             "artworks": [
                 {
                     "id": str(aw.id),
