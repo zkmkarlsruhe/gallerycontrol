@@ -23,7 +23,7 @@ from croniter import croniter
 from sqlalchemy import and_, select, update
 from sqlalchemy.orm import selectinload
 
-from mutech_control.database.models import Device, ScheduledJob, ScheduledJobLog
+from mutech_control.database.models import Artwork, Device, Exhibition, ScheduledJob, ScheduledJobLog
 from mutech_control.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -312,6 +312,17 @@ class CronScheduler:
                 return False, f"No target_id specified for {target_type} job"
             target_id = str(job.target_id)
 
+            # Check if schedules are enabled for the target
+            schedules_enabled = await self._check_schedules_enabled(target_type, job.target_id)
+            if not schedules_enabled:
+                logger.debug(
+                    "Skipping job - schedules disabled for target",
+                    job=job.name,
+                    target_type=target_type,
+                    target_id=target_id,
+                )
+                return True, None  # Return success to not trigger failure tracking
+
         if action_type in ("on", "off"):
             # Use orchestrator for ON/OFF commands
             result = await self.orchestrator.execute_control_command(
@@ -407,6 +418,32 @@ class CronScheduler:
             return False, "Command timeout"
         except Exception as e:
             return False, str(e)
+
+    async def _check_schedules_enabled(
+        self, target_type: str, target_id: UUID
+    ) -> bool:
+        """Check if schedules are enabled for the target artwork/exhibition.
+
+        Args:
+            target_type: 'artwork' or 'exhibition'
+            target_id: UUID of the target
+
+        Returns:
+            True if schedules are enabled, False otherwise
+        """
+        async with self.db_manager.session() as session:
+            if target_type == "artwork":
+                stmt = select(Artwork.schedules_enabled).where(Artwork.id == target_id)
+            elif target_type == "exhibition":
+                stmt = select(Exhibition.schedules_enabled).where(Exhibition.id == target_id)
+            else:
+                return True  # Unknown type, allow execution
+
+            result = await session.execute(stmt)
+            enabled = result.scalar_one_or_none()
+
+            # If not found, assume disabled (safe default)
+            return enabled if enabled is not None else False
 
     async def _record_execution(
         self,

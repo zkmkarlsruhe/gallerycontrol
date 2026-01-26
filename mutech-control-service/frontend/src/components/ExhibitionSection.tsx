@@ -1,4 +1,4 @@
-import type { Exhibition, Device } from '../types';
+import type { Exhibition, Device, Artwork } from '../types';
 import { ArtworkRow } from './ArtworkRow';
 import { ConfirmButton } from './ui/ConfirmButton';
 import { TouchSafeButton } from './ui/TouchSafeButton';
@@ -17,12 +17,20 @@ interface ExhibitionSectionProps {
   onEditExhibition?: (exhibition: Exhibition) => void;
   onDeleteExhibition?: (exhibitionId: string, exhibitionName: string) => void;
   onDeleteArtwork?: (artworkId: string, artworkName: string) => void;
-  onEditArtwork?: (artwork: { id: string; name: string; enabled: boolean }) => void;
+  onEditArtwork?: (artwork: {
+    id: string;
+    name: string;
+    enabled: boolean;
+    timeslice_enabled: boolean;
+    schedules_enabled: boolean;
+    protection_config?: import('../types').ProtectionConfig | null;
+  }) => void;
   onAddDevice?: (artworkId: string) => void;
   onEditDevice?: (device: Device) => void;
   onDeleteDevice?: (deviceId: string, deviceName: string) => void;
   onViewDeviceLogs?: (deviceId: string) => void;
   onOpenSchedules?: (id: string, type: 'exhibition' | 'artwork' | 'device', name: string) => void;
+  onEditProtection?: (artwork: Artwork) => void;
 }
 
 export function ExhibitionSection({
@@ -45,6 +53,7 @@ export function ExhibitionSection({
   onDeleteDevice,
   onViewDeviceLogs,
   onOpenSchedules,
+  onEditProtection,
 }: ExhibitionSectionProps) {
   const isDisabled = !exhibition.enabled;
   const visibleArtworks = (editMode ? exhibition.artworks : exhibition.artworks.filter(a => a.enabled))
@@ -66,13 +75,15 @@ export function ExhibitionSection({
           {editMode && (
             <>
               <button className="btn btn-add btn-sm me-2" onClick={onAddArtwork}>+ Artwork</button>
-              <button
-                className="btn btn-schedule btn-sm me-2"
-                onClick={() => onOpenSchedules?.(exhibition.id, 'exhibition', exhibition.name)}
-                title="Manage schedules"
-              >
-                <i className="bi bi-calendar-event"></i>
-              </button>
+              {exhibition.schedules_enabled && (
+                <button
+                  className="btn btn-schedule btn-sm me-2"
+                  onClick={() => onOpenSchedules?.(exhibition.id, 'exhibition', exhibition.name)}
+                  title="Manage schedules"
+                >
+                  <i className="bi bi-calendar-event"></i>
+                </button>
+              )}
               <div className="btn-group me-2">
                 <button className="btn btn-edit btn-sm" onClick={() => onEditExhibition?.(exhibition)} title="Edit"><i className="bi bi-pencil"></i></button>
                 <ConfirmButton className="btn btn-delete btn-sm" onConfirm={() => onDeleteExhibition?.(exhibition.id, exhibition.name)} confirmText="Sure?" title="Delete"><i className="bi bi-trash"></i></ConfirmButton>
@@ -111,11 +122,19 @@ export function ExhibitionSection({
             onDeviceAction={onDeviceAction}
             onAddDevice={onAddDevice ? () => onAddDevice(artwork.id) : undefined}
             onDeleteArtwork={onDeleteArtwork}
-            onEditArtwork={onEditArtwork ? () => onEditArtwork({ id: artwork.id, name: artwork.name, enabled: artwork.enabled }) : undefined}
+            onEditArtwork={onEditArtwork ? () => onEditArtwork({
+              id: artwork.id,
+              name: artwork.name,
+              enabled: artwork.enabled,
+              timeslice_enabled: artwork.timeslice_enabled,
+              schedules_enabled: artwork.schedules_enabled,
+              protection_config: artwork.protection_config,
+            }) : undefined}
             onEditDevice={onEditDevice}
             onDeleteDevice={onDeleteDevice}
             onViewDeviceLogs={onViewDeviceLogs}
             onOpenSchedules={onOpenSchedules}
+            onEditProtection={onEditProtection}
           />
         ))}
       </div>

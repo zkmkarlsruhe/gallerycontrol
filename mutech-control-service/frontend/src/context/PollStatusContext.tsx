@@ -158,7 +158,8 @@ export function PollStatusProvider({ children }: { children: ReactNode }) {
           break;
 
         case 'protection_forced_off':
-          // Log forced off events (could show toast notification)
+          // Log forced off events - the backend sends a follow-up protection_status
+          // event with the full updated state, so we just log here
           console.warn(`Protection forced off for artwork ${data.artwork_id}: ${data.reason}`);
           break;
       }
