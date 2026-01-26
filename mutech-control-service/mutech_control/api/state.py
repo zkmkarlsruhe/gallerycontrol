@@ -93,6 +93,7 @@ class DeviceState(BaseModel):
     enabled: bool
     effective_enabled: bool  # Considers parent artwork/exhibition enabled status
     automation_enabled: bool
+    schedules_enabled: bool = False  # Enable schedules feature
     last_checked_at: str | None
     next_check_allowed_at: str | None
     poll_status: DevicePollStatus | None = None
@@ -114,6 +115,9 @@ class ArtworkState(BaseModel):
     enabled: bool
     effective_enabled: bool  # Considers parent exhibition enabled status
     accepting_triggers: bool  # Gate for fast-lane API triggers
+    protection_config: dict | None = None  # Time slice protection configuration
+    timeslice_enabled: bool = False  # Enable time slice protection feature
+    schedules_enabled: bool = False  # Enable schedules feature
     devices: List[DeviceState]
 
     class Config:
@@ -127,6 +131,7 @@ class ExhibitionState(BaseModel):
     name: str
     enabled: bool
     effective_enabled: bool  # For exhibitions, same as enabled
+    schedules_enabled: bool = False  # Enable schedules feature
     artworks: List[ArtworkState]
 
     class Config:
@@ -195,6 +200,7 @@ def _build_device_state(
         "enabled": device.enabled,
         "effective_enabled": effective_enabled,
         "automation_enabled": device.automation_enabled,
+        "schedules_enabled": device.schedules_enabled,
         "last_checked_at": device.last_checked_at.isoformat() if device.last_checked_at else None,
         "next_check_allowed_at": device.next_check_allowed_at.isoformat() if device.next_check_allowed_at else None,
         "poll_status": _get_poll_status(request, str(device.id)),
@@ -223,12 +229,24 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
         # Get lamp hours for all assets in one query
         lamp_hours_map = await _get_lamp_hours_map(session)
 
+        # Get protection service for config lookup
+        protection_service = getattr(request.app.state, "protection_service", None)
+
+        def get_protection_config(artwork_id, db_config):
+            """Get protection config from service (YAML files) or fall back to DB."""
+            if protection_service:
+                config = protection_service.get_config(artwork_id)
+                if config:
+                    return config
+            return db_config
+
         return [
             {
                 "id": str(ex.id),
                 "name": ex.name,
                 "enabled": ex.enabled,
                 "effective_enabled": ex.enabled,
+                "schedules_enabled": ex.schedules_enabled,
                 "artworks": [
                     {
                         "id": str(aw.id),
@@ -236,6 +254,9 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
                         "enabled": aw.enabled,
                         "effective_enabled": aw.enabled and ex.enabled,
                         "accepting_triggers": aw.accepting_triggers,
+                        "protection_config": get_protection_config(aw.id, aw.protection_config),
+                        "timeslice_enabled": aw.timeslice_enabled,
+                        "schedules_enabled": aw.schedules_enabled,
                         "devices": [
                             _build_device_state(
                                 dev,
@@ -274,11 +295,23 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
         if not exhibition:
             raise HTTPException(status_code=404, detail="Exhibition not found")
 
+        # Get protection service for config lookup
+        protection_service = getattr(request.app.state, "protection_service", None)
+
+        def get_protection_config(artwork_id, db_config):
+            """Get protection config from service (YAML files) or fall back to DB."""
+            if protection_service:
+                config = protection_service.get_config(artwork_id)
+                if config:
+                    return config
+            return db_config
+
         return {
             "id": str(exhibition.id),
             "name": exhibition.name,
             "enabled": exhibition.enabled,
             "effective_enabled": exhibition.enabled,
+            "schedules_enabled": exhibition.schedules_enabled,
             "artworks": [
                 {
                     "id": str(aw.id),
@@ -286,6 +319,9 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
                     "enabled": aw.enabled,
                     "effective_enabled": aw.enabled and exhibition.enabled,
                     "accepting_triggers": aw.accepting_triggers,
+                    "protection_config": get_protection_config(aw.id, aw.protection_config),
+                    "timeslice_enabled": aw.timeslice_enabled,
+                    "schedules_enabled": aw.schedules_enabled,
                     "devices": [
                         _build_device_state(
                             dev,

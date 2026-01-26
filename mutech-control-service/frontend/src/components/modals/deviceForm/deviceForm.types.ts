@@ -81,6 +81,7 @@ export interface DevicePayload {
   port?: number;
   enabled: boolean;
   automation_enabled: boolean;
+  schedules_enabled?: boolean; // Only for update
   config: Record<string, any>;
 }
 
@@ -122,7 +123,7 @@ export const defaultShellData: ShellFormData = {
   off_pattern: '',
   on_cmd: '',
   off_cmd: '',
-  actions: [{ name: '', cmd: '' }],
+  actions: [],
   enabled: true,
 };
 

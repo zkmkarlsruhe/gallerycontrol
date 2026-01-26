@@ -24,6 +24,7 @@ export interface Device {
   enabled: boolean;
   effective_enabled: boolean;
   automation_enabled: boolean; // false = manual device, needs inline buttons
+  schedules_enabled: boolean; // Enable schedules feature
   last_checked_at: string | null;
   next_check_allowed_at: string | null;
   poll_status: PollStatus | null;
@@ -40,6 +41,8 @@ export interface Artwork {
   enabled: boolean;
   effective_enabled: boolean;
   accepting_triggers: boolean; // Gate for fast-lane API triggers
+  timeslice_enabled: boolean; // Enable time slice protection feature
+  schedules_enabled: boolean; // Enable schedules feature
   devices: Device[];
   protection_config?: ProtectionConfig | null;
 }
@@ -48,6 +51,7 @@ export interface Exhibition {
   id: string;
   name: string;
   enabled: boolean;
+  schedules_enabled: boolean; // Enable schedules feature
   artworks: Artwork[];
 }
 

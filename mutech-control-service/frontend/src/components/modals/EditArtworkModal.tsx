@@ -1,11 +1,9 @@
 /**
- * Modal for editing artwork properties including protection rules.
+ * Modal for editing artwork properties.
  */
 
 import { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
-import { ProtectionConfigForm } from '../forms/ProtectionConfigForm';
-import type { ProtectionConfig } from '../../types';
 
 interface EditArtworkModalProps {
   isOpen: boolean;
@@ -13,12 +11,18 @@ interface EditArtworkModalProps {
     id: string;
     name: string;
     enabled: boolean;
-    protection_config?: ProtectionConfig | null;
+    timeslice_enabled: boolean;
+    schedules_enabled: boolean;
   } | null;
   onClose: () => void;
   onSave: (
     id: string,
-    data: { name: string; enabled: boolean; protection_config?: ProtectionConfig | null }
+    data: {
+      name: string;
+      enabled: boolean;
+      timeslice_enabled: boolean;
+      schedules_enabled: boolean;
+    }
   ) => Promise<void>;
 }
 
@@ -30,18 +34,16 @@ export function EditArtworkModal({
 }: EditArtworkModalProps) {
   const [name, setName] = useState('');
   const [enabled, setEnabled] = useState(true);
-  const [protectionConfig, setProtectionConfig] = useState<ProtectionConfig | null>(
-    null
-  );
+  const [timesliceEnabled, setTimesliceEnabled] = useState(false);
+  const [schedulesEnabled, setSchedulesEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showProtection, setShowProtection] = useState(false);
 
   useEffect(() => {
     if (artwork) {
       setName(artwork.name);
       setEnabled(artwork.enabled);
-      setProtectionConfig(artwork.protection_config || null);
-      setShowProtection(!!artwork.protection_config);
+      setTimesliceEnabled(artwork.timeslice_enabled);
+      setSchedulesEnabled(artwork.schedules_enabled);
     }
   }, [artwork]);
 
@@ -54,7 +56,8 @@ export function EditArtworkModal({
       await onSave(artwork.id, {
         name: name.trim(),
         enabled,
-        protection_config: protectionConfig,
+        timeslice_enabled: timesliceEnabled,
+        schedules_enabled: schedulesEnabled,
       });
       onClose();
     } finally {
@@ -122,40 +125,42 @@ export function EditArtworkModal({
         </div>
       </div>
 
-      {/* Protection Rules Section */}
+      {/* Settings Section */}
       <hr />
       <div className="mb-3">
-        <button
-          type="button"
-          className="btn btn-link p-0 text-decoration-none d-flex align-items-center gap-2"
-          onClick={() => setShowProtection(!showProtection)}
-        >
-          <span
-            style={{
-              transition: 'transform 0.2s',
-              transform: showProtection ? 'rotate(90deg)' : 'rotate(0deg)',
-            }}
-          >
-            &#9654;
-          </span>
-          <strong>Protection Rules</strong>
-          {protectionConfig && (
-            <span className="badge bg-info ms-2">Active</span>
-          )}
-        </button>
-        <div className="small text-muted">
-          Configure runtime limits to prevent overuse
+        <label className="form-label d-block mb-2"><strong>Settings</strong></label>
+        <div className="form-check mb-2">
+          <input
+            className="form-check-input"
+            type="checkbox"
+            id="artwork-timeslice-enabled"
+            checked={timesliceEnabled}
+            onChange={(e) => setTimesliceEnabled(e.target.checked)}
+          />
+          <label className="form-check-label" htmlFor="artwork-timeslice-enabled">
+            Enable Time Slice Protection
+          </label>
+          <div className="small text-muted">
+            Shows the shield button to configure time-based runtime limits
+          </div>
+        </div>
+        <div className="form-check">
+          <input
+            className="form-check-input"
+            type="checkbox"
+            id="artwork-schedules-enabled"
+            checked={schedulesEnabled}
+            onChange={(e) => setSchedulesEnabled(e.target.checked)}
+          />
+          <label className="form-check-label" htmlFor="artwork-schedules-enabled">
+            Enable Schedules
+          </label>
+          <div className="small text-muted">
+            When enabled, shows the calendar button and allows scheduled on/off actions
+          </div>
         </div>
       </div>
 
-      {showProtection && (
-        <div className="protection-section p-3 bg-light rounded">
-          <ProtectionConfigForm
-            value={protectionConfig}
-            onChange={setProtectionConfig}
-          />
-        </div>
-      )}
     </Modal>
   );
 }

@@ -22,6 +22,7 @@ interface ArtworkRowProps {
   onDeleteDevice?: (deviceId: string, deviceName: string) => void;
   onViewDeviceLogs?: (deviceId: string) => void;
   onOpenSchedules?: (id: string, type: 'exhibition' | 'artwork' | 'device', name: string) => void;
+  onEditProtection?: (artwork: Artwork) => void;
 }
 
 function getDeviceStateLabel(state: number): string {
@@ -46,6 +47,7 @@ function getDeviceStateClass(state: number): string {
 // Check if artwork has time slice protection enabled
 function hasTimeSliceProtection(artwork: Artwork): boolean {
   return Boolean(
+    artwork.timeslice_enabled &&
     artwork.protection_config?.time_slices &&
     artwork.protection_config.time_slices.length > 0
   );
@@ -68,6 +70,7 @@ export function ArtworkRow({
   onDeleteDevice,
   onViewDeviceLogs,
   onOpenSchedules,
+  onEditProtection,
 }: ArtworkRowProps) {
   const isDisabled = !artwork.enabled;
 
@@ -104,13 +107,24 @@ export function ArtworkRow({
               </div>
               <div className="artwork-controls">
                 <button className="btn btn-add btn-sm me-2" onClick={onAddDevice}>+ Device</button>
-                <button
-                  className="btn btn-schedule btn-sm me-2"
-                  onClick={() => onOpenSchedules?.(artwork.id, 'artwork', artwork.name)}
-                  title="Manage schedules"
-                >
-                  <i className="bi bi-calendar-event"></i>
-                </button>
+                {artwork.schedules_enabled && (
+                  <button
+                    className="btn btn-schedule btn-sm me-2"
+                    onClick={() => onOpenSchedules?.(artwork.id, 'artwork', artwork.name)}
+                    title="Manage schedules"
+                  >
+                    <i className="bi bi-calendar-event"></i>
+                  </button>
+                )}
+                {artwork.timeslice_enabled && (
+                  <button
+                    className={`btn btn-sm me-2 ${hasTimeSliceProtection(artwork) ? 'btn-warning' : 'btn-outline-secondary'}`}
+                    onClick={() => onEditProtection?.(artwork)}
+                    title="Protection settings (time slices)"
+                  >
+                    <i className="bi bi-shield-lock"></i>
+                  </button>
+                )}
                 <div className="btn-group me-2">
                   <button className="btn btn-edit btn-sm" onClick={onEditArtwork} title="Edit"><i className="bi bi-pencil"></i></button>
                   <ConfirmButton className="btn btn-delete btn-sm" onConfirm={() => onDeleteArtwork?.(artwork.id, artwork.name)} confirmText="Sure?" title="Delete"><i className="bi bi-trash"></i></ConfirmButton>
@@ -147,13 +161,15 @@ export function ArtworkRow({
                     >
                       <i className="bi bi-journal-text"></i>
                     </button>
-                    <button
-                      className="btn btn-schedule btn-sm"
-                      onClick={() => onOpenSchedules?.(device.id, 'device', device.name)}
-                      title="Manage schedules"
-                    >
-                      <i className="bi bi-calendar-event"></i>
-                    </button>
+                    {device.schedules_enabled && (
+                      <button
+                        className="btn btn-schedule btn-sm"
+                        onClick={() => onOpenSchedules?.(device.id, 'device', device.name)}
+                        title="Manage schedules"
+                      >
+                        <i className="bi bi-calendar-event"></i>
+                      </button>
+                    )}
                     <div className="btn-group">
                       <button className="btn btn-edit btn-sm" onClick={() => onEditDevice?.(device)} title="Edit"><i className="bi bi-pencil"></i></button>
                       <ConfirmButton className="btn btn-delete btn-sm" onConfirm={() => onDeleteDevice?.(device.id, device.name)} confirmText="Delete?" title="Delete"><i className="bi bi-trash"></i></ConfirmButton>

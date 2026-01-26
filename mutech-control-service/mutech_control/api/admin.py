@@ -43,6 +43,7 @@ class ExhibitionUpdate(BaseModel):
 
     name: str | None = None
     enabled: bool | None = None
+    schedules_enabled: bool | None = None
 
 
 class ArtworkCreate(BaseModel):
@@ -77,6 +78,8 @@ class ArtworkUpdate(BaseModel):
     enabled: bool | None = None
     exhibition_id: str | None = None
     protection_config: ProtectionConfig | Dict[str, Any] | None = None
+    timeslice_enabled: bool | None = None
+    schedules_enabled: bool | None = None
 
 
 class DeviceCreate(BaseModel):
@@ -101,6 +104,7 @@ class DeviceUpdate(BaseModel):
     port: int | None = None
     enabled: bool | None = None
     automation_enabled: bool | None = None
+    schedules_enabled: bool | None = None
     config: Dict[str, Any] | None = None
 
 
@@ -210,6 +214,7 @@ async def update_exhibition(
             "id": str(updated.id),
             "name": updated.name,
             "enabled": updated.enabled,
+            "schedules_enabled": updated.schedules_enabled,
         }
 
     except HTTPException:
@@ -420,6 +425,8 @@ async def update_artwork(
             "exhibition_id": str(updated.exhibition_id),
             "enabled": updated.enabled,
             "protection_config": updated.protection_config,
+            "timeslice_enabled": updated.timeslice_enabled,
+            "schedules_enabled": updated.schedules_enabled,
         }
 
     except HTTPException:

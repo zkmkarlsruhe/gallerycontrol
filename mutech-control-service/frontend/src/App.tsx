@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApi } from './hooks/useApi';
-import type { Exhibition, Credential, Device, ShellTemplate, ServiceHealth } from './types';
+import type { Exhibition, Credential, Device, ShellTemplate, ServiceHealth, Artwork, ProtectionConfig } from './types';
 import {
   Header,
   Toast,
@@ -23,6 +23,7 @@ import {
 import { EmailInventoryModal } from './components/modals/EmailInventoryModal';
 import { AdminModal } from './components/modals/AdminModal';
 import { ScheduleManagerModal } from './components/modals/ScheduleManagerModal';
+import { ProtectionConfigModal } from './components/modals/ProtectionConfigModal';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './App.css';
@@ -53,6 +54,32 @@ interface ScheduleModalContext {
 
 // View state type - which page/view is currently active
 type ViewType = 'main' | 'timeline' | 'assets' | 'logs';
+
+// Parse URL hash to get view and edit mode
+function parseHash(): { view: ViewType; editMode: boolean } {
+  const hash = window.location.hash.slice(1).toLowerCase(); // Remove # and lowercase
+  switch (hash) {
+    case 'edit':
+      return { view: 'main', editMode: true };
+    case 'timeline':
+      return { view: 'timeline', editMode: false };
+    case 'assets':
+      return { view: 'assets', editMode: false };
+    case 'logs':
+      return { view: 'logs', editMode: false };
+    default:
+      return { view: 'main', editMode: false };
+  }
+}
+
+// Build URL hash from view and edit mode
+function buildHash(view: ViewType, editMode: boolean): string {
+  if (view === 'main' && editMode) return '#edit';
+  if (view === 'timeline') return '#timeline';
+  if (view === 'assets') return '#assets';
+  if (view === 'logs') return '#logs';
+  return '';
+}
 
 function App() {
   const {
@@ -91,7 +118,7 @@ function App() {
   const [serviceHealth, setServiceHealth] = useState<ServiceHealth[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editMode, setEditMode] = useState(false);
+  const [editMode, setEditMode] = useState(() => parseHash().editMode);
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [newExhibitionName, setNewExhibitionName] = useState('');
@@ -104,18 +131,26 @@ function App() {
   const [showAdminModal, setShowAdminModal] = useState(false);
 
   // View state - which page/view is currently active
-  const [currentView, setCurrentView] = useState<ViewType>('main');
+  const [currentView, setCurrentView] = useState<ViewType>(() => parseHash().view);
   const [logFilterDeviceId, setLogFilterDeviceId] = useState<string | null>(null);
 
   // Pending state changes (deviceId -> target state)
   const [pendingStates, setPendingStates] = useState<Map<string, 'on' | 'off'>>(new Map());
 
   const [editExhibitionData, setEditExhibitionData] = useState<Exhibition | null>(null);
-  const [editArtworkData, setEditArtworkData] = useState<{ id: string; name: string; enabled: boolean } | null>(null);
+  const [editArtworkData, setEditArtworkData] = useState<{
+    id: string;
+    name: string;
+    enabled: boolean;
+    timeslice_enabled: boolean;
+    schedules_enabled: boolean;
+    protection_config?: ProtectionConfig | null;
+  } | null>(null);
   const [editDeviceData, setEditDeviceData] = useState<Device | null>(null);
   const [addArtworkContext, setAddArtworkContext] = useState<AddArtworkContext | null>(null);
   const [addDeviceContext, setAddDeviceContext] = useState<AddDeviceContext | null>(null);
   const [scheduleModalContext, setScheduleModalContext] = useState<ScheduleModalContext | null>(null);
+  const [protectionArtwork, setProtectionArtwork] = useState<Artwork | null>(null);
 
   // Extract all devices for debug filter dropdown and timeline
   const allDevices = useMemo(() => {
@@ -153,15 +188,23 @@ function App() {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  const openLogViewer = useCallback((deviceId?: string | null) => {
-    setLogFilterDeviceId(deviceId || null);
-    setCurrentView('logs');
+  // Navigation with browser history support
+  const navigateTo = useCallback((view: ViewType, edit: boolean = false) => {
+    const newHash = buildHash(view, edit);
+    window.history.pushState(null, '', newHash || window.location.pathname);
+    setCurrentView(view);
+    setEditMode(edit);
   }, []);
 
+  const openLogViewer = useCallback((deviceId?: string | null) => {
+    setLogFilterDeviceId(deviceId || null);
+    navigateTo('logs');
+  }, [navigateTo]);
+
   const closeLogViewer = useCallback(() => {
-    setCurrentView('main');
+    navigateTo('main');
     setLogFilterDeviceId(null);
-  }, []);
+  }, [navigateTo]);
 
   const loadData = useCallback(async () => {
     try {
@@ -210,6 +253,25 @@ function App() {
       clearInterval(healthInterval);
     };
   }, [loadData, loadCredentials, loadTemplates, loadServiceHealth]);
+
+  // Sync URL hash with view/edit mode
+  useEffect(() => {
+    const newHash = buildHash(currentView, editMode);
+    if (window.location.hash !== newHash) {
+      window.history.replaceState(null, '', newHash || window.location.pathname);
+    }
+  }, [currentView, editMode]);
+
+  // Handle browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const { view, editMode: newEditMode } = parseHash();
+      setCurrentView(view);
+      setEditMode(newEditMode);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Clear pending states when device states match targets AND not in fast polling
   useEffect(() => {
@@ -417,7 +479,10 @@ function App() {
   };
 
   // Update handlers
-  const handleUpdateExhibition = async (id: string, data: { name: string; enabled: boolean }) => {
+  const handleUpdateExhibition = async (
+    id: string,
+    data: { name: string; enabled: boolean; schedules_enabled: boolean }
+  ) => {
     try {
       await updateExhibition(id, data);
       showToast(`Exhibition "${data.name}" updated`, 'success');
@@ -427,13 +492,32 @@ function App() {
     }
   };
 
-  const handleUpdateArtwork = async (id: string, data: { name: string; enabled: boolean }) => {
+  const handleUpdateArtwork = async (
+    id: string,
+    data: {
+      name: string;
+      enabled: boolean;
+      timeslice_enabled: boolean;
+      schedules_enabled: boolean;
+      protection_config?: ProtectionConfig | null;
+    }
+  ) => {
     try {
       await updateArtwork(id, data);
       showToast(`Artwork "${data.name}" updated`, 'success');
       loadData();
     } catch {
       showToast('Failed to update artwork', 'danger');
+    }
+  };
+
+  const handleUpdateProtectionConfig = async (artworkId: string, config: ProtectionConfig | null) => {
+    try {
+      await updateArtwork(artworkId, { protection_config: config });
+      showToast(config ? 'Protection config updated' : 'Protection config removed', 'success');
+      loadData();
+    } catch {
+      showToast('Failed to update protection config', 'danger');
     }
   };
 
@@ -563,14 +647,14 @@ function App() {
       {/* Header */}
       <Header
         editMode={editMode}
-        onEditModeChange={setEditMode}
+        onEditModeChange={(edit) => navigateTo('main', edit)}
         onOpenCredentials={() => setShowCredentialsModal(true)}
         onOpenShellLibrary={() => setShowShellTemplatesModal(true)}
         onOpenEmailInventory={() => setShowEmailInventoryModal(true)}
         onOpenAdmin={() => setShowAdminModal(true)}
         onOpenLogs={() => openLogViewer()}
-        onOpenTimeline={() => setCurrentView('timeline')}
-        onOpenAssets={() => setCurrentView('assets')}
+        onOpenTimeline={() => navigateTo('timeline')}
+        onOpenAssets={() => navigateTo('assets')}
         showingLogs={currentView === 'logs'}
         showingTimeline={currentView === 'timeline'}
         showingAssets={currentView === 'assets'}
@@ -632,6 +716,7 @@ function App() {
               onDeleteDevice={handleDeleteDevice}
               onViewDeviceLogs={openLogViewer}
               onOpenSchedules={handleOpenSchedules}
+              onEditProtection={setProtectionArtwork}
             />
           ))}
         </div>
@@ -640,7 +725,7 @@ function App() {
       {/* State Timeline View */}
       {currentView === 'timeline' && (
         <StateTimelinePage
-          onClose={() => setCurrentView('main')}
+          onClose={() => navigateTo('main')}
           devices={allDevices}
         />
       )}
@@ -648,7 +733,7 @@ function App() {
       {/* Asset Browser View */}
       {currentView === 'assets' && (
         <AssetBrowserPage
-          onClose={() => setCurrentView('main')}
+          onClose={() => navigateTo('main')}
         />
       )}
 
@@ -768,6 +853,13 @@ function App() {
           showToast={showToast}
         />
       )}
+
+      <ProtectionConfigModal
+        isOpen={protectionArtwork !== null}
+        artwork={protectionArtwork}
+        onClose={() => setProtectionArtwork(null)}
+        onSave={handleUpdateProtectionConfig}
+      />
     </div>
   );
 }

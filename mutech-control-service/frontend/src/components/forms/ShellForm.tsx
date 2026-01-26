@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Credential, ShellTemplate } from '../../types';
 
 interface ShellAction {
@@ -37,11 +37,35 @@ interface TestResult {
   commandLabel: string;
 }
 
+// Check if ON/OFF section has any content
+function hasOnOffContent(data: ShellFormData): boolean {
+  return !!(data.on_cmd || data.off_cmd);
+}
+
+// Check if actions section has any content
+function hasActionsContent(data: ShellFormData): boolean {
+  return data.actions.some(a => a.name || a.cmd);
+}
+
 export function ShellForm({ data, onChange, credentials = [], templates = [] }: ShellFormProps) {
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testingCommand, setTestingCommand] = useState<string | null>(null);
   const [outputExpanded, setOutputExpanded] = useState(true);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+
+  // Accordion states - auto-open if there's content
+  const [onOffExpanded, setOnOffExpanded] = useState(hasOnOffContent(data));
+  const [actionsExpanded, setActionsExpanded] = useState(hasActionsContent(data));
+
+  // Auto-expand when content is added (e.g., from template)
+  useEffect(() => {
+    if (hasOnOffContent(data) && !onOffExpanded) {
+      setOnOffExpanded(true);
+    }
+    if (hasActionsContent(data) && !actionsExpanded) {
+      setActionsExpanded(true);
+    }
+  }, [data.on_cmd, data.off_cmd, data.actions]);
 
   const update = (field: keyof ShellFormData, value: string | boolean | ShellAction[]) => {
     onChange({ ...data, [field]: value });
@@ -62,7 +86,7 @@ export function ShellForm({ data, onChange, credentials = [], templates = [] }: 
       off_pattern: template.status_off_pattern || '',
       on_cmd: template.on_command || '',
       off_cmd: template.off_command || '',
-      actions: template.actions?.length ? template.actions : [{ name: '', cmd: '' }],
+      actions: template.actions?.length ? template.actions : [],
       automation_enabled: hasOnOff, // Enable automation only if has ON/OFF
     });
     setSelectedTemplateId('');
@@ -275,103 +299,135 @@ export function ShellForm({ data, onChange, credentials = [], templates = [] }: 
         </div>
       </div>
 
-      {/* ON/OFF Commands - Optional */}
+      {/* ON/OFF Commands - Optional Accordion */}
       <div className="form-section">
-        <div className="section-title">
-          <i className="bi bi-power me-1"></i> ON/OFF Control <span className="badge bg-secondary ms-2">Optional</span>
-        </div>
-        <small className="text-muted d-block mb-3">
-          Add ON and OFF commands to enable power control and automation. Leave empty for action-only devices.
-        </small>
-
-        <div className="command-input-group">
-          <label className="form-label">
-            <strong>ON Command</strong>
-          </label>
-          <div className="input-group mb-2">
-            <input
-              type="text"
-              className="form-control"
-              placeholder="systemctl start myapp (optional)"
-              value={data.on_cmd}
-              onChange={(e) => update('on_cmd', e.target.value)}
-            />
-            <TestButton command={data.on_cmd} label="ON" />
-          </div>
-          <small className="form-text text-muted">Command to turn device ON</small>
+        <div
+          className="section-title d-flex justify-content-between align-items-center"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setOnOffExpanded(!onOffExpanded)}
+        >
+          <span>
+            <i className={`bi bi-chevron-${onOffExpanded ? 'down' : 'right'} me-2`}></i>
+            <i className="bi bi-power me-1"></i> ON/OFF Control
+            <span className="badge bg-secondary ms-2">Optional</span>
+            {hasOnOffContent(data) && <span className="badge bg-info ms-2">Configured</span>}
+          </span>
         </div>
 
-        <div className="command-input-group">
-          <label className="form-label">
-            <strong>OFF Command</strong>
-          </label>
-          <div className="input-group mb-2">
-            <input
-              type="text"
-              className="form-control"
-              placeholder="systemctl stop myapp (optional)"
-              value={data.off_cmd}
-              onChange={(e) => update('off_cmd', e.target.value)}
-            />
-            <TestButton command={data.off_cmd} label="OFF" />
-          </div>
-          <small className="form-text text-muted">Command to turn device OFF</small>
-        </div>
+        {onOffExpanded && (
+          <div className="mt-3">
+            <small className="text-muted d-block mb-3">
+              Add ON and OFF commands to enable power control and automation. Leave empty for action-only devices.
+            </small>
 
-        {/* Show warning if only one of ON/OFF is set */}
-        {((data.on_cmd && !data.off_cmd) || (!data.on_cmd && data.off_cmd)) && (
-          <div className="alert alert-warning py-2 mt-2">
-            <i className="bi bi-exclamation-triangle me-1"></i>
-            Both ON and OFF commands are required for automation. Add both or leave both empty.
-          </div>
-        )}
-      </div>
-
-      {/* Custom Actions - Optional */}
-      <div className="form-section">
-        <div className="section-title">
-          <i className="bi bi-lightning me-1"></i> Custom Actions <span className="badge bg-secondary ms-2">Optional</span>
-        </div>
-        <small className="text-muted d-block mb-3">
-          Add custom action buttons (e.g., Restart, Reboot, Check Logs). These appear alongside ON/OFF buttons.
-        </small>
-
-        <div id="custom-commands-container">
-          {data.actions.map((action, index) => (
-            <div key={index} className="command-input-group">
-              <button
-                type="button"
-                className="btn btn-sm btn-delete remove-btn"
-                onClick={() => removeAction(index)}
-                title="Remove action"
-              >
-                <i className="bi bi-x"></i>
-              </button>
-              <label className="form-label"><strong>Action {index + 1}</strong></label>
-              <input
-                type="text"
-                className="form-control mb-2"
-                placeholder="Button label (e.g. Restart Service)"
-                value={action.name}
-                onChange={(e) => updateAction(index, 'name', e.target.value)}
-              />
+            <div className="command-input-group">
+              <label className="form-label">
+                <strong>ON Command</strong>
+              </label>
               <div className="input-group mb-2">
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Command to execute"
-                  value={action.cmd}
-                  onChange={(e) => updateAction(index, 'cmd', e.target.value)}
+                  placeholder="systemctl start myapp (optional)"
+                  value={data.on_cmd}
+                  onChange={(e) => update('on_cmd', e.target.value)}
                 />
-                <TestButton command={action.cmd} label={action.name || `Action ${index + 1}`} />
+                <TestButton command={data.on_cmd} label="ON" />
               </div>
+              <small className="form-text text-muted">Command to turn device ON</small>
             </div>
-          ))}
+
+            <div className="command-input-group">
+              <label className="form-label">
+                <strong>OFF Command</strong>
+              </label>
+              <div className="input-group mb-2">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="systemctl stop myapp (optional)"
+                  value={data.off_cmd}
+                  onChange={(e) => update('off_cmd', e.target.value)}
+                />
+                <TestButton command={data.off_cmd} label="OFF" />
+              </div>
+              <small className="form-text text-muted">Command to turn device OFF</small>
+            </div>
+
+            {/* Show warning if only one of ON/OFF is set */}
+            {((data.on_cmd && !data.off_cmd) || (!data.on_cmd && data.off_cmd)) && (
+              <div className="alert alert-warning py-2 mt-2">
+                <i className="bi bi-exclamation-triangle me-1"></i>
+                Both ON and OFF commands are required for automation. Add both or leave both empty.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Custom Actions - Optional Accordion */}
+      <div className="form-section">
+        <div
+          className="section-title d-flex justify-content-between align-items-center"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setActionsExpanded(!actionsExpanded)}
+        >
+          <span>
+            <i className={`bi bi-chevron-${actionsExpanded ? 'down' : 'right'} me-2`}></i>
+            <i className="bi bi-lightning me-1"></i> Custom Actions
+            <span className="badge bg-secondary ms-2">Optional</span>
+            {hasActionsContent(data) && (
+              <span className="badge bg-info ms-2">
+                {data.actions.filter(a => a.name || a.cmd).length} action{data.actions.filter(a => a.name || a.cmd).length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </span>
         </div>
 
-        <button type="button" className="btn btn-add btn-sm" onClick={addAction}>
-          <i className="bi bi-plus-circle"></i> Add Action
-        </button>
+        {actionsExpanded && (
+          <div className="mt-3">
+            <small className="text-muted d-block mb-3">
+              Add custom action buttons (e.g., Restart, Reboot, Check Logs). These appear alongside ON/OFF buttons.
+            </small>
+
+            <div id="custom-commands-container">
+              {data.actions.map((action, index) => (
+                <div key={index} className="command-input-group">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-delete remove-btn"
+                    onClick={() => removeAction(index)}
+                    title="Remove action"
+                  >
+                    <i className="bi bi-x"></i>
+                  </button>
+                  <label className="form-label"><strong>Action {index + 1}</strong></label>
+                  <input
+                    type="text"
+                    className="form-control mb-2"
+                    placeholder="Button label (e.g. Restart Service)"
+                    value={action.name}
+                    onChange={(e) => updateAction(index, 'name', e.target.value)}
+                  />
+                  <div className="input-group mb-2">
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Command to execute"
+                      value={action.cmd}
+                      onChange={(e) => updateAction(index, 'cmd', e.target.value)}
+                    />
+                    <TestButton command={action.cmd} label={action.name || `Action ${index + 1}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button type="button" className="btn btn-add btn-sm" onClick={addAction}>
+              <i className="bi bi-plus-circle"></i> Add Action
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Test Output Panel */}
@@ -494,6 +550,6 @@ export const defaultShellData: ShellFormData = {
   off_pattern: '',
   on_cmd: '',
   off_cmd: '',
-  actions: [{ name: '', cmd: '' }],
+  actions: [],
   enabled: true,
 };

@@ -213,7 +213,7 @@ function hydrateShellData(device: Device): ShellFormData {
     off_pattern: commands.status?.offPattern || '',
     on_cmd: commands.on?.cmd || '',
     off_cmd: commands.off?.cmd || '',
-    actions: customActions.length > 0 ? customActions : [{ name: '', cmd: '' }],
+    actions: customActions,
     enabled: device.enabled,
   };
 }

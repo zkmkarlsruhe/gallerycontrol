@@ -35,6 +35,7 @@ class Exhibition(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name = Column(String(255), nullable=False)
     enabled = Column(Boolean, default=True, nullable=False)
+    schedules_enabled = Column(Boolean, default=False, nullable=False)  # Enable schedules feature
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -56,6 +57,8 @@ class Artwork(Base):
     enabled = Column(Boolean, default=True, nullable=False)
     protection_config = Column(JSON, nullable=True)  # Protection rules for overuse prevention
     accepting_triggers = Column(Boolean, default=False, nullable=False)  # Gate for fast-lane API
+    timeslice_enabled = Column(Boolean, default=False, nullable=False)  # Enable time slice protection
+    schedules_enabled = Column(Boolean, default=False, nullable=False)  # Enable schedules feature
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -91,6 +94,7 @@ class Device(Base):
     # Control flags
     enabled = Column(Boolean, default=True, nullable=False)
     automation_enabled = Column(Boolean, default=True, nullable=False)
+    schedules_enabled = Column(Boolean, default=False, nullable=False)  # Enable schedules feature
 
     # Configuration (device-specific JSON)
     config = Column(JSON, default=dict, nullable=False)

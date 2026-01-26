@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Device, Credential, ShellTemplate } from '../../types';
 import { Modal } from '../ui/Modal';
 import { PJLinkForm } from '../forms/PJLinkForm';
@@ -34,6 +34,14 @@ export function EditDeviceModal({
   const [showTemplatePrompt, setShowTemplatePrompt] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [schedulesEnabled, setSchedulesEnabled] = useState(device?.schedules_enabled ?? false);
+
+  // Sync schedulesEnabled when device changes
+  useEffect(() => {
+    if (device) {
+      setSchedulesEnabled(device.schedules_enabled ?? false);
+    }
+  }, [device]);
 
   // Use shared form state hook
   const {
@@ -63,6 +71,8 @@ export function EditDeviceModal({
     try {
       // Build payload using shared helper (don't include device_type for updates)
       const data = buildDevicePayload(deviceType, slices, false);
+      // Add schedules_enabled flag
+      data.schedules_enabled = schedulesEnabled;
       await onSave(device.id, data);
       onClose();
     } finally {
@@ -159,6 +169,26 @@ export function EditDeviceModal({
       {deviceType === 'netio' && <NetioForm data={netioData} onChange={setNetioData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={netioUsedPorts} />}
       {deviceType === 'anel' && <AnelForm data={anelData} onChange={setAnelData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={anelUsedPorts} />}
       {deviceType === 'shell' && <ShellForm data={shellData} onChange={setShellData} credentials={credentials} templates={templates} />}
+
+      {/* Settings Section */}
+      <div className="form-section">
+        <div className="section-title">Settings</div>
+        <div className="form-check">
+          <input
+            className="form-check-input"
+            type="checkbox"
+            id="device-schedules-enabled"
+            checked={schedulesEnabled}
+            onChange={(e) => setSchedulesEnabled(e.target.checked)}
+          />
+          <label className="form-check-label" htmlFor="device-schedules-enabled">
+            Enable Schedules
+          </label>
+          <div className="small text-muted">
+            Shows the calendar button to configure scheduled on/off actions
+          </div>
+        </div>
+      </div>
 
       {/* Template Name Prompt */}
       {showTemplatePrompt && (
