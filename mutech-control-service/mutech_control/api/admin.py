@@ -378,6 +378,7 @@ async def update_artwork(
     try:
         values = {}
         protection_updated = False
+        timeslice_updated = False
 
         for key, value in artwork.dict().items():
             if value is not None:
@@ -390,6 +391,9 @@ async def update_artwork(
                         _validate_protection_config(value)
                         values[key] = value
                         protection_updated = True
+                elif key == "timeslice_enabled":
+                    values[key] = value
+                    timeslice_updated = True
                 else:
                     values[key] = value
 
@@ -413,11 +417,16 @@ async def update_artwork(
         if not updated:
             raise HTTPException(status_code=404, detail="Artwork not found")
 
-        # Reload protection config in protection service if updated
-        if protection_updated:
+        # Reload protection config in protection service if protection-related fields updated
+        # Pass the new values directly to avoid transaction isolation issues
+        if protection_updated or timeslice_updated:
             protection_service = getattr(request.app.state, "protection_service", None)
             if protection_service:
-                await protection_service.reload_config(UUID(artwork_id))
+                await protection_service.reload_config(
+                    UUID(artwork_id),
+                    protection_config=updated.protection_config,
+                    timeslice_enabled=updated.timeslice_enabled,
+                )
 
         return {
             "id": str(updated.id),

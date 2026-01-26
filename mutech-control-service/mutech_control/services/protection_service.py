@@ -53,6 +53,7 @@ class ProtectionService:
         # In-memory state for fast checks
         self._states: Dict[UUID, dict] = {}  # artwork_id -> state dict
         self._configs: Dict[UUID, dict] = {}  # artwork_id -> protection config
+        self._enabled_artworks: set[UUID] = set()  # artworks with timeslice_enabled=True
 
         # Orchestrator for sending OFF commands
         self._orchestrator: Optional["CommandOrchestrator"] = None
@@ -69,6 +70,10 @@ class ProtectionService:
     def set_orchestrator(self, orchestrator: "CommandOrchestrator") -> None:
         """Set the orchestrator for sending OFF commands during force stop."""
         self._orchestrator = orchestrator
+
+    def get_config(self, artwork_id: UUID) -> dict | None:
+        """Get protection config for an artwork (from YAML/DB loaded configs)."""
+        return self._configs.get(artwork_id)
 
     async def start(self) -> None:
         """Start the protection service and load state from database."""
@@ -108,6 +113,10 @@ class ProtectionService:
 
             for artwork in artworks:
                 self._configs[artwork.id] = artwork.protection_config
+
+                # Track enabled status
+                if artwork.timeslice_enabled:
+                    self._enabled_artworks.add(artwork.id)
 
                 if artwork.protection_state:
                     state = artwork.protection_state
@@ -263,6 +272,10 @@ class ProtectionService:
         Returns:
             (allowed, reason) - reason is None if allowed, otherwise explains why blocked
         """
+        # Check if timeslice feature is enabled for this artwork
+        if artwork_id not in self._enabled_artworks:
+            return (True, None)  # Feature disabled, always allowed
+
         # Check if artwork has protection config
         if artwork_id not in self._configs:
             return (True, None)  # No protection, always allowed
@@ -402,6 +415,10 @@ class ProtectionService:
         now = datetime.utcnow()
 
         for artwork_id, state in list(self._states.items()):
+            # Skip artworks where timeslice feature is disabled
+            if artwork_id not in self._enabled_artworks:
+                continue
+
             if not state.get("is_running"):
                 continue
 
@@ -582,36 +599,79 @@ class ProtectionService:
             },
         }
 
-    async def reload_config(self, artwork_id: UUID) -> None:
-        """Reload protection config for an artwork from database."""
+    async def reload_config(
+        self,
+        artwork_id: UUID,
+        protection_config: Optional[dict] = None,
+        timeslice_enabled: Optional[bool] = None,
+    ) -> None:
+        """Reload protection config for an artwork.
+
+        Args:
+            artwork_id: The artwork UUID
+            protection_config: If provided, use this config directly (avoids DB read).
+                              Pass empty dict {} or None to remove protection.
+            timeslice_enabled: If provided, use this value directly.
+
+        When called without config/enabled args, reads from database.
+        When called WITH config/enabled args, uses provided values directly
+        (useful when called from within a transaction that hasn't committed yet).
+        """
+        # If config provided directly, use it (avoids transaction isolation issues)
+        if protection_config is not None or timeslice_enabled is not None:
+            await self._apply_config(artwork_id, protection_config, timeslice_enabled)
+            return
+
+        # Otherwise, read from database
         async with self.db_manager.session() as session:
             stmt = select(Artwork).where(Artwork.id == artwork_id)
             result = await session.execute(stmt)
             artwork = result.scalar_one_or_none()
 
-            if artwork and artwork.protection_config:
-                self._configs[artwork_id] = artwork.protection_config
-                if artwork_id not in self._states:
-                    self._states[artwork_id] = {
-                        "is_running": False,
-                        "started_at": None,
-                        "cooldown_until": None,
-                        "time_slice_usage": {},
-                        "last_window_reset": {},
-                    }
-                logger.info(
-                    "Reloaded protection config",
-                    artwork_id=str(artwork_id)[:8],
+            if artwork:
+                await self._apply_config(
+                    artwork_id, artwork.protection_config, artwork.timeslice_enabled
                 )
-            elif artwork_id in self._configs:
-                # Protection was removed
-                del self._configs[artwork_id]
-                if artwork_id in self._states:
-                    del self._states[artwork_id]
-                logger.info(
-                    "Removed protection config",
-                    artwork_id=str(artwork_id)[:8],
-                )
+
+    async def _apply_config(
+        self,
+        artwork_id: UUID,
+        protection_config: Optional[dict],
+        timeslice_enabled: Optional[bool],
+    ) -> None:
+        """Apply protection config to in-memory state."""
+        if protection_config:
+            self._configs[artwork_id] = protection_config
+
+            # Update enabled status
+            if timeslice_enabled:
+                self._enabled_artworks.add(artwork_id)
+            else:
+                self._enabled_artworks.discard(artwork_id)
+
+            if artwork_id not in self._states:
+                self._states[artwork_id] = {
+                    "is_running": False,
+                    "started_at": None,
+                    "cooldown_until": None,
+                    "time_slice_usage": {},
+                    "last_window_reset": {},
+                }
+            logger.info(
+                "Reloaded protection config",
+                artwork_id=str(artwork_id)[:8],
+                timeslice_enabled=timeslice_enabled,
+            )
+        elif artwork_id in self._configs:
+            # Protection was removed
+            del self._configs[artwork_id]
+            self._enabled_artworks.discard(artwork_id)
+            if artwork_id in self._states:
+                del self._states[artwork_id]
+            logger.info(
+                "Removed protection config",
+                artwork_id=str(artwork_id)[:8],
+            )
 
     def is_protected(self, artwork_id: UUID) -> bool:
         """Check if an artwork has protection enabled."""
