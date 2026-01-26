@@ -139,7 +139,7 @@ class CommandOrchestrator:
                 return {"success": True, "devices_targeted": 0, "results": [], "request_id": request_id}
 
             # 2. Filter devices based on enabled flags
-            devices = self._filter_devices(devices, command)
+            devices = self._filter_devices(devices, command, source)
 
             logger.info("Devices resolved and filtered",
                        total_devices=len(devices),
@@ -158,11 +158,11 @@ class CommandOrchestrator:
                                source=source)
 
             # 4. Execute command based on source and command type
-            if source == "web":
+            if source in ("web", "scheduler"):
                 if command == "on":
-                    results = await self._execute_on_with_verification(devices)
+                    results = await self._execute_on_with_verification(devices, source)
                 else:
-                    results = await self._execute_off_with_verification(devices)
+                    results = await self._execute_off_with_verification(devices, source)
             else:  # fast lane
                 results = await self._execute_fast(devices, command)
 
@@ -382,8 +382,18 @@ class CommandOrchestrator:
                 return False
         return True
 
-    def _filter_devices(self, devices: List[Device], command: str) -> List[Device]:
-        """Filter devices based on enabled flags (including parent inheritance)."""
+    def _filter_devices(
+        self, devices: List[Device], command: str, source: str = "web"
+    ) -> List[Device]:
+        """Filter devices based on enabled flags (including parent inheritance).
+
+        Args:
+            devices: List of devices to filter
+            command: Command being executed (on/off)
+            source: Command source (web/fast/scheduler). Scheduler bypasses
+                   automation_enabled check since schedules should work
+                   independently - use device.enabled to disable scheduling.
+        """
         filtered = []
 
         for device in devices:
@@ -393,7 +403,9 @@ class CommandOrchestrator:
                 continue
 
             # Skip devices with automation disabled (requires manual control)
-            if not device.automation_enabled and command in ["on", "off"]:
+            # Scheduler bypasses this - schedules work on enabled devices regardless
+            # of automation_enabled flag. Use device.enabled to disable scheduling.
+            if source != "scheduler" and not device.automation_enabled and command in ["on", "off"]:
                 logger.debug(
                     f"Skipping device with automation disabled: {device.name}"
                 )
@@ -403,7 +415,9 @@ class CommandOrchestrator:
 
         return filtered
 
-    async def _execute_on_with_verification(self, devices: List[Device]) -> List[dict]:
+    async def _execute_on_with_verification(
+        self, devices: List[Device], source: str = "web"
+    ) -> List[dict]:
         """Execute ON commands with stagger, then verify."""
         orchestrator_config = self.config.get("orchestrator", {})
         stagger_delay = orchestrator_config.get("on_stagger_delay_seconds", 1.0)
@@ -413,7 +427,7 @@ class CommandOrchestrator:
         for device in devices:
             # Limit concurrent ON operations
             async with self._on_semaphore:
-                result = await self._execute_single_device(device, "on", "web")
+                result = await self._execute_single_device(device, "on", source)
                 results.append(result)
 
                 # Stagger delay between devices
@@ -438,14 +452,14 @@ class CommandOrchestrator:
         return results
 
     async def _execute_off_with_verification(
-        self, devices: List[Device]
+        self, devices: List[Device], source: str = "web"
     ) -> List[dict]:
         """Execute OFF commands with concurrency limit, then verify."""
 
         async def execute_with_semaphore(device: Device) -> dict:
             """Execute single OFF command with semaphore protection."""
             async with self._off_semaphore:
-                return await self._execute_single_device(device, "off", "web")
+                return await self._execute_single_device(device, "off", source)
 
         # Execute with concurrency limit
         tasks = [execute_with_semaphore(device) for device in devices]
