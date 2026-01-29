@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from mutech_control.api import admin, assets, control, debug, fast, satellite, state
+from mutech_control.api import admin, assets, control, debug, fast, satellite, sensor, state
 from mutech_control.config import get_config
 from mutech_control.database.connection import get_db_manager
 from mutech_control.devices.anel_client import ANELClient
@@ -310,6 +310,7 @@ app.add_middleware(
 # Include API routers
 app.include_router(control.router)
 app.include_router(fast.router)
+app.include_router(sensor.router)
 app.include_router(state.router)
 app.include_router(admin.router)
 app.include_router(debug.router)

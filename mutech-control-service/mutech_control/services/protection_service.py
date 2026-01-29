@@ -1,19 +1,26 @@
 """Artwork protection service - prevents overuse of artworks.
 
-Implements two protection mechanisms:
+Implements protection mechanisms for sensor-triggered artworks:
 1. Time Slice Windows - Budget-based limits (e.g., max 7 min per 15-min chunk)
 2. Runtime + Cooldown - Session limits (e.g., max 2:30 continuous, then 2 min rest)
+3. Sensor Integration - Handle external sensor ON/OFF signals with proper gate checks
+
+Hierarchy:
+1. Web UI / Scheduler (KING) -> Controls opening hours, sets accepting_triggers
+2. Protection Service -> Manages runtime WHILE open for business
+3. Sensor (Lidar) -> Triggers within allowed bounds
 """
 
 import asyncio
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 
 from mutech_control.database.models import Artwork, ArtworkProtectionState
+from mutech_control.utils.duration import format_duration, parse_duration
 from mutech_control.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -24,14 +31,97 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def validate_protection_config(config: dict) -> List[str]:
+    """Validate protection config for logical consistency.
+
+    Returns list of error messages (empty if valid).
+    """
+    errors = []
+
+    if not config:
+        return errors
+
+    # Parse durations
+    try:
+        slice_budget = _get_slice_budget_seconds(config)
+        max_runtime = parse_duration(config.get("max_runtime", 0))
+        min_runtime = parse_duration(config.get("min_runtime", 0))
+        force_completion = config.get("force_completion", False)
+
+        if min_runtime > slice_budget > 0:
+            errors.append(
+                f"min_runtime ({format_duration(min_runtime)}) exceeds slice_budget "
+                f"({format_duration(slice_budget)}) - artwork can never start"
+            )
+
+        if min_runtime > max_runtime > 0:
+            errors.append(
+                f"min_runtime ({format_duration(min_runtime)}) exceeds max_runtime "
+                f"({format_duration(max_runtime)}) - contradiction"
+            )
+
+        if force_completion and max_runtime > slice_budget > 0:
+            errors.append(
+                f"force_completion with max_runtime ({format_duration(max_runtime)}) > "
+                f"slice_budget ({format_duration(slice_budget)}) - will always exceed budget"
+            )
+
+        if force_completion and max_runtime <= 0:
+            errors.append("force_completion requires max_runtime > 0")
+
+    except ValueError as e:
+        errors.append(f"Invalid duration format: {e}")
+
+    return errors
+
+
+def _get_slice_budget_seconds(config: dict) -> int:
+    """Get slice budget in seconds from config (supports both formats)."""
+    # New format: slice_budget as duration string
+    if "slice_budget" in config:
+        return parse_duration(config["slice_budget"])
+
+    # Legacy format: time_slices array
+    time_slices = config.get("time_slices", [])
+    if time_slices:
+        # Return first slice's max (in minutes -> seconds)
+        return time_slices[0].get("max", 0) * 60
+
+    return 0
+
+
+def _get_slice_window_minutes(config: dict) -> int:
+    """Get slice window in minutes from config (supports both formats)."""
+    # New format: slice_window as duration string
+    if "slice_window" in config:
+        return parse_duration(config["slice_window"]) // 60
+
+    # Legacy format: time_slices array
+    time_slices = config.get("time_slices", [])
+    if time_slices:
+        return time_slices[0].get("window", 15)
+
+    return 15  # Default 15 minutes
+
+
 class ProtectionService:
     """Manages artwork protection rules and state.
 
     Protection config schema (on Artwork.protection_config):
+        New simplified format:
+        {
+            "slice_window": "15m",       # Time window duration
+            "slice_budget": "7m",        # Max runtime per window
+            "max_runtime": "2m30s",      # Max continuous runtime
+            "min_runtime": "30s",        # Min runtime per activation
+            "cooldown": "2m",            # Rest time after forced stop
+            "force_completion": false,   # Ignore OFF until max_runtime
+        }
+
+        Legacy format (still supported):
         {
             "time_slices": [
                 {"window": 15, "max": 7},   # max 7 min per 15-min chunk
-                {"window": 60, "max": 20},  # max 20 min per hour
             ],
             "max_runtime": 150,        # seconds continuous runtime
             "cooldown": 120,           # seconds forced rest after max_runtime
@@ -55,6 +145,9 @@ class ProtectionService:
         self._configs: Dict[UUID, dict] = {}  # artwork_id -> protection config
         self._enabled_artworks: set[UUID] = set()  # artworks with timeslice_enabled=True
 
+        # Per-artwork locks to prevent race conditions
+        self._artwork_locks: Dict[UUID, asyncio.Lock] = {}
+
         # Orchestrator for sending OFF commands
         self._orchestrator: Optional["CommandOrchestrator"] = None
 
@@ -66,6 +159,12 @@ class ProtectionService:
         self._enforcement_interval = self.config.get(
             "protection_enforcement_interval_seconds", 5
         )
+
+    def _get_artwork_lock(self, artwork_id: UUID) -> asyncio.Lock:
+        """Get or create lock for artwork to prevent race conditions."""
+        if artwork_id not in self._artwork_locks:
+            self._artwork_locks[artwork_id] = asyncio.Lock()
+        return self._artwork_locks[artwork_id]
 
     def set_orchestrator(self, orchestrator: "CommandOrchestrator") -> None:
         """Set the orchestrator for sending OFF commands during force stop."""
@@ -126,6 +225,7 @@ class ProtectionService:
                         "cooldown_until": state.cooldown_until,
                         "time_slice_usage": state.time_slice_usage or {},
                         "last_window_reset": state.last_window_reset or {},
+                        "desired_state": getattr(state, "desired_state", "off") or "off",
                     }
                 else:
                     # Initialize default state
@@ -135,6 +235,7 @@ class ProtectionService:
                         "cooldown_until": None,
                         "time_slice_usage": {},
                         "last_window_reset": {},
+                        "desired_state": "off",
                     }
 
     async def _persist_all_states(self) -> None:
@@ -164,6 +265,7 @@ class ProtectionService:
                             cooldown_until=state["cooldown_until"],
                             time_slice_usage=state["time_slice_usage"],
                             last_window_reset=state["last_window_reset"],
+                            desired_state=state.get("desired_state", "off"),
                             updated_at=datetime.utcnow(),
                         )
                     )
@@ -177,6 +279,7 @@ class ProtectionService:
                         cooldown_until=state["cooldown_until"],
                         time_slice_usage=state["time_slice_usage"],
                         last_window_reset=state["last_window_reset"],
+                        desired_state=state.get("desired_state", "off"),
                     )
                     session.add(new_state)
 
@@ -198,14 +301,8 @@ class ProtectionService:
         config = self._configs.get(artwork_id, {})
         state = self._states.get(artwork_id, {})
 
-        # Find the time slice config
-        time_slices = config.get("time_slices", [])
-        max_seconds = 0
-        for ts in time_slices:
-            if ts.get("window") == window_minutes:
-                max_seconds = ts.get("max", 0) * 60  # Convert minutes to seconds
-                break
-
+        # Get max budget based on config format
+        max_seconds = _get_slice_budget_seconds(config)
         if max_seconds == 0:
             return (0, 0)
 
@@ -223,6 +320,11 @@ class ProtectionService:
             if last_reset_dt < window_start:
                 # Window has rolled over, reset usage
                 used_seconds = 0
+                # Update state immediately to persist the reset
+                usage[window_key] = 0
+                last_reset[window_key] = window_start.isoformat()
+                state["time_slice_usage"] = usage
+                state["last_window_reset"] = last_reset
 
         return (used_seconds, max_seconds)
 
@@ -249,20 +351,31 @@ class ProtectionService:
         Returns the smallest remaining budget in seconds.
         """
         config = self._configs.get(artwork_id, {})
-        time_slices = config.get("time_slices", [])
 
-        if not time_slices:
+        # Get window minutes (supports both formats)
+        window_minutes = _get_slice_window_minutes(config)
+        if window_minutes <= 0:
             return float("inf")  # No limits
 
-        min_remaining = float("inf")
-        for ts in time_slices:
-            window = ts.get("window")
-            if window:
-                used, max_sec = self._get_time_slice_budget(artwork_id, window)
-                remaining = max_sec - used
-                min_remaining = min(min_remaining, remaining)
+        used, max_sec = self._get_time_slice_budget(artwork_id, window_minutes)
+        if max_sec == 0:
+            return float("inf")  # No limits
 
-        return min_remaining if min_remaining != float("inf") else float("inf")
+        return max(0, max_sec - used)
+
+    def _get_current_runtime(self, state: dict) -> int:
+        """Get current runtime in seconds if running, else 0."""
+        if not state.get("is_running") or not state.get("started_at"):
+            return 0
+        return int((datetime.utcnow() - state["started_at"]).total_seconds())
+
+    def _get_min_runtime(self, config: dict) -> int:
+        """Get min_runtime in seconds (supports both formats)."""
+        # New format
+        if "min_runtime" in config:
+            return parse_duration(config["min_runtime"])
+        # Legacy format: min_budget_to_start was used similarly
+        return parse_duration(config.get("min_budget_to_start", 0))
 
     async def check_can_start(
         self, artwork_id: UUID
@@ -287,27 +400,241 @@ class ProtectionService:
         cooldown_until = state.get("cooldown_until")
         if cooldown_until and datetime.utcnow() < cooldown_until:
             remaining = (cooldown_until - datetime.utcnow()).total_seconds()
-            return (False, f"Cooldown active ({int(remaining)}s remaining)")
+            return (False, f"Cooldown active ({format_duration(remaining)} remaining)")
 
         # Check time slice budgets
         min_budget = self._get_min_budget_across_slices(artwork_id)
-        min_budget_to_start = config.get("min_budget_to_start", 0)
+        min_runtime = self._get_min_runtime(config)
         force_completion = config.get("force_completion", False)
 
         if force_completion:
             # In force_completion mode, need enough budget for full max_runtime
-            max_runtime = config.get("max_runtime", 0)
+            max_runtime = parse_duration(config.get("max_runtime", 0))
             need = max_runtime
         else:
-            need = min_budget_to_start
+            need = min_runtime
 
         if min_budget < need:
-            return (False, f"Insufficient budget ({int(min_budget)}s < {int(need)}s required)")
+            return (
+                False,
+                f"Insufficient budget ({format_duration(min_budget)} < {format_duration(need)} required)",
+            )
 
         return (True, None)
 
-    async def notify_started(self, artwork_id: UUID) -> None:
-        """Notify that an artwork has started running."""
+    async def handle_sensor_signal(
+        self,
+        artwork_id: UUID,
+        desired_state: Literal["on", "off"],
+    ) -> Tuple[bool, Optional[str]]:
+        """Handle sensor ON/OFF signal.
+
+        This is the main entry point for external sensor triggers (lidar, motion, etc.).
+        The sensor handles visitor detection and debouncing; this service handles
+        budget tracking, runtime limits, and device control.
+
+        IMPORTANT: Does NOT update state directly for ON/OFF execution.
+        Delegates to orchestrator, state updated via notify_* callbacks.
+
+        Args:
+            artwork_id: The artwork UUID
+            desired_state: "on" or "off"
+
+        Returns:
+            (success, reason_if_blocked)
+        """
+        async with self._get_artwork_lock(artwork_id):
+            return await self._handle_sensor_signal_locked(artwork_id, desired_state)
+
+    async def _handle_sensor_signal_locked(
+        self,
+        artwork_id: UUID,
+        desired_state: Literal["on", "off"],
+    ) -> Tuple[bool, Optional[str]]:
+        """Handle sensor signal with lock held."""
+        # Check if timeslice feature is enabled
+        if artwork_id not in self._enabled_artworks:
+            return (False, "Protection not enabled for this artwork")
+
+        if artwork_id not in self._configs:
+            return (False, "No protection config for this artwork")
+
+        config = self._configs[artwork_id]
+        state = self._states.get(artwork_id, {})
+
+        # Always update desired_state (intent tracking)
+        state["desired_state"] = desired_state
+        self._states[artwork_id] = state
+
+        if desired_state == "on":
+            return await self._handle_sensor_on(artwork_id, config, state)
+        else:
+            return await self._handle_sensor_off(artwork_id, config, state)
+
+    async def _handle_sensor_on(
+        self,
+        artwork_id: UUID,
+        config: dict,
+        state: dict,
+    ) -> Tuple[bool, Optional[str]]:
+        """Handle sensor ON signal."""
+        # If already running, nothing to do
+        if state.get("is_running"):
+            return (True, None)
+
+        # Check if artwork is accepting triggers (gate from web/scheduler)
+        accepting = await self._is_accepting_triggers(artwork_id)
+        if not accepting:
+            return (False, "Artwork not accepting triggers")
+
+        # Check cooldown
+        cooldown_until = state.get("cooldown_until")
+        if cooldown_until and datetime.utcnow() < cooldown_until:
+            remaining = (cooldown_until - datetime.utcnow()).total_seconds()
+            return (False, f"Cooldown active ({format_duration(remaining)} remaining)")
+
+        # Check budget >= min_runtime
+        min_budget = self._get_min_budget_across_slices(artwork_id)
+        min_runtime = self._get_min_runtime(config)
+        force_completion = config.get("force_completion", False)
+
+        if force_completion:
+            # Need enough for full max_runtime
+            max_runtime = parse_duration(config.get("max_runtime", 0))
+            need = max_runtime
+        else:
+            need = min_runtime
+
+        if min_budget < need:
+            return (
+                False,
+                f"Insufficient budget ({format_duration(min_budget)} < {format_duration(need)} required)",
+            )
+
+        # Execute via orchestrator
+        if not self._orchestrator:
+            logger.warning(
+                "No orchestrator connected - cannot execute sensor ON",
+                artwork_id=str(artwork_id)[:8],
+            )
+            return (False, "No orchestrator connected")
+
+        try:
+            result = await self._orchestrator.execute_control_command(
+                target_type="artwork",
+                target_id=str(artwork_id),
+                command="on",
+                source="sensor",
+            )
+
+            if result.get("success") and result.get("devices_successful", 0) > 0:
+                logger.info(
+                    "Sensor ON executed successfully",
+                    artwork_id=str(artwork_id)[:8],
+                    devices_successful=result.get("devices_successful", 0),
+                )
+                return (True, None)
+            elif result.get("blocked"):
+                return (False, result.get("reason", "Blocked by protection"))
+            else:
+                return (False, result.get("error", "Command failed"))
+
+        except Exception as e:
+            logger.error(
+                "Failed to execute sensor ON",
+                artwork_id=str(artwork_id)[:8],
+                error=str(e),
+            )
+            return (False, f"Execution error: {str(e)}")
+
+    async def _handle_sensor_off(
+        self,
+        artwork_id: UUID,
+        config: dict,
+        state: dict,
+    ) -> Tuple[bool, Optional[str]]:
+        """Handle sensor OFF signal.
+
+        OFF signals are always allowed even when accepting_triggers=False
+        (we don't want to trap devices ON).
+        """
+        # If not running, nothing to do
+        if not state.get("is_running"):
+            return (True, None)
+
+        # Check force_completion mode
+        if config.get("force_completion", False):
+            max_runtime = parse_duration(config.get("max_runtime", 0))
+            current_runtime = self._get_current_runtime(state)
+            if current_runtime < max_runtime:
+                return (False, f"force_completion active ({format_duration(max_runtime - current_runtime)} remaining)")
+
+        # Check min_runtime
+        min_runtime = self._get_min_runtime(config)
+        current_runtime = self._get_current_runtime(state)
+        if current_runtime < min_runtime:
+            remaining = min_runtime - current_runtime
+            return (False, f"min_runtime not reached ({format_duration(remaining)} remaining)")
+
+        # Execute via orchestrator
+        if not self._orchestrator:
+            logger.warning(
+                "No orchestrator connected - cannot execute sensor OFF",
+                artwork_id=str(artwork_id)[:8],
+            )
+            return (False, "No orchestrator connected")
+
+        try:
+            result = await self._orchestrator.execute_control_command(
+                target_type="artwork",
+                target_id=str(artwork_id),
+                command="off",
+                source="sensor",
+            )
+
+            if result.get("success") and result.get("devices_successful", 0) > 0:
+                logger.info(
+                    "Sensor OFF executed successfully",
+                    artwork_id=str(artwork_id)[:8],
+                    devices_successful=result.get("devices_successful", 0),
+                )
+                return (True, None)
+            else:
+                return (False, result.get("error", "Command failed"))
+
+        except Exception as e:
+            logger.error(
+                "Failed to execute sensor OFF",
+                artwork_id=str(artwork_id)[:8],
+                error=str(e),
+            )
+            return (False, f"Execution error: {str(e)}")
+
+    async def _is_accepting_triggers(self, artwork_id: UUID) -> bool:
+        """Check if artwork is accepting triggers (gate from web/scheduler)."""
+        try:
+            async with self.db_manager.session() as session:
+                stmt = select(Artwork.accepting_triggers).where(Artwork.id == artwork_id)
+                result = await session.execute(stmt)
+                row = result.first()
+                return row[0] if row else False
+        except Exception as e:
+            logger.error(
+                "Failed to check accepting_triggers",
+                artwork_id=str(artwork_id)[:8],
+                error=str(e),
+            )
+            return False
+
+    async def notify_started(self, artwork_id: UUID, source: str = "unknown") -> None:
+        """Notify that an artwork has started running.
+
+        Called by orchestrator after successful ON command.
+
+        Args:
+            artwork_id: The artwork UUID
+            source: Command source (web, fast, scheduler, sensor, protection)
+        """
         if artwork_id not in self._configs:
             return
 
@@ -319,22 +646,35 @@ class ProtectionService:
                 "cooldown_until": None,
                 "time_slice_usage": {},
                 "last_window_reset": {},
+                "desired_state": "off",
             }
 
         state = self._states[artwork_id]
         state["is_running"] = True
         state["started_at"] = now
 
+        # For sensor source, desired_state should already be "on" from handle_sensor_signal
+        # For other sources, we don't update desired_state (it tracks sensor intent only)
+
         logger.info(
             "Artwork started running (protected)",
             artwork_id=str(artwork_id)[:8],
+            source=source,
         )
 
         # Broadcast status update
         await self._broadcast_status(artwork_id)
 
-    async def notify_stopped(self, artwork_id: UUID) -> None:
-        """Notify that an artwork has stopped running."""
+    async def notify_stopped(self, artwork_id: UUID, source: str = "unknown") -> None:
+        """Notify that an artwork has stopped running.
+
+        Called by orchestrator after successful OFF command.
+        Cooldown is ONLY applied on forced stop (protection source).
+
+        Args:
+            artwork_id: The artwork UUID
+            source: Command source (web, fast, scheduler, sensor, protection)
+        """
         if artwork_id not in self._configs:
             return
 
@@ -344,6 +684,7 @@ class ProtectionService:
 
         # Calculate runtime and update budgets
         started_at = state.get("started_at")
+        runtime_seconds = 0
         if started_at:
             runtime_seconds = (datetime.utcnow() - started_at).total_seconds()
             await self._update_time_slice_usage(artwork_id, int(runtime_seconds))
@@ -351,10 +692,25 @@ class ProtectionService:
         state["is_running"] = False
         state["started_at"] = None
 
+        # Cooldown ONLY on forced stop (protection source)
+        config = self._configs.get(artwork_id, {})
+        if source == "protection":
+            cooldown_seconds = parse_duration(config.get("cooldown", 0))
+            if cooldown_seconds > 0:
+                state["cooldown_until"] = datetime.utcnow() + timedelta(
+                    seconds=cooldown_seconds
+                )
+                logger.info(
+                    "Cooldown started after forced stop",
+                    artwork_id=str(artwork_id)[:8],
+                    cooldown_seconds=cooldown_seconds,
+                )
+
         logger.info(
             "Artwork stopped running (protected)",
             artwork_id=str(artwork_id)[:8],
-            runtime_seconds=int(runtime_seconds) if started_at else 0,
+            runtime_seconds=int(runtime_seconds),
+            source=source,
         )
 
         # Persist state on stop
@@ -369,42 +725,39 @@ class ProtectionService:
         """Update time slice usage after a run."""
         config = self._configs.get(artwork_id, {})
         state = self._states.get(artwork_id, {})
-        time_slices = config.get("time_slices", [])
+
+        window_minutes = _get_slice_window_minutes(config)
+        if window_minutes <= 0:
+            return
 
         usage = state.get("time_slice_usage", {})
         last_reset = state.get("last_window_reset", {})
-        now = datetime.utcnow()
+        window_key = str(window_minutes)
+        window_start = self._get_window_start(window_minutes)
 
-        for ts in time_slices:
-            window = ts.get("window")
-            if not window:
-                continue
+        # Check if window has rolled over
+        last_reset_str = last_reset.get(window_key)
+        if last_reset_str:
+            last_reset_dt = datetime.fromisoformat(last_reset_str)
+            if last_reset_dt < window_start:
+                # Reset usage for new window
+                usage[window_key] = 0
 
-            window_key = str(window)
-            window_start = self._get_window_start(window)
-
-            # Check if window has rolled over
-            last_reset_str = last_reset.get(window_key)
-            if last_reset_str:
-                last_reset_dt = datetime.fromisoformat(last_reset_str)
-                if last_reset_dt < window_start:
-                    # Reset usage for new window
-                    usage[window_key] = 0
-
-            # Add runtime to usage
-            current_usage = usage.get(window_key, 0)
-            usage[window_key] = current_usage + runtime_seconds
-            last_reset[window_key] = window_start.isoformat()
+        # Add runtime to usage
+        current_usage = usage.get(window_key, 0)
+        usage[window_key] = current_usage + runtime_seconds
+        last_reset[window_key] = window_start.isoformat()
 
         state["time_slice_usage"] = usage
         state["last_window_reset"] = last_reset
 
     async def _enforcement_loop(self) -> None:
-        """Background loop to enforce max_runtime limits."""
+        """Background loop to enforce max_runtime limits and check cooldown expiry."""
         while self._running:
             try:
                 await asyncio.sleep(self._enforcement_interval)
                 await self._check_all_runtimes()
+                await self._check_cooldown_expiry()
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -430,30 +783,105 @@ class ProtectionService:
             runtime = (now - started_at).total_seconds()
 
             # Check max_runtime limit
-            max_runtime = config.get("max_runtime")
-            if max_runtime and runtime >= max_runtime:
+            max_runtime = parse_duration(config.get("max_runtime", 0))
+            if max_runtime > 0 and runtime >= max_runtime:
                 await self._force_stop(artwork_id, "max_runtime_exceeded")
                 continue
 
             # Check time slice budget exhaustion
-            # Calculate what the budget would be if we stopped now
-            time_slices = config.get("time_slices", [])
-            for ts in time_slices:
-                window = ts.get("window")
-                max_minutes = ts.get("max", 0)
-                if not window:
-                    continue
+            window_minutes = _get_slice_window_minutes(config)
+            max_seconds = _get_slice_budget_seconds(config)
 
-                max_seconds = max_minutes * 60
-                used, _ = self._get_time_slice_budget(artwork_id, window)
+            if window_minutes > 0 and max_seconds > 0:
+                used, _ = self._get_time_slice_budget(artwork_id, window_minutes)
                 projected_used = used + int(runtime)
 
                 if projected_used >= max_seconds:
                     await self._force_stop(
                         artwork_id,
-                        f"budget_exhausted_{window}m_window"
+                        f"budget_exhausted_{window_minutes}m_window"
                     )
-                    break  # Already stopping, no need to check other windows
+
+    async def _check_cooldown_expiry(self) -> None:
+        """Check for cooldown expiry and auto-resume if desired_state is "on"."""
+        now = datetime.utcnow()
+
+        for artwork_id, state in list(self._states.items()):
+            if artwork_id not in self._enabled_artworks:
+                continue
+
+            cooldown_until = state.get("cooldown_until")
+            if not cooldown_until or now < cooldown_until:
+                continue
+
+            # Cooldown expired - clear it
+            state["cooldown_until"] = None
+            logger.info(
+                "Cooldown expired",
+                artwork_id=str(artwork_id)[:8],
+            )
+
+            # Check if sensor still wants "on" and we should auto-resume
+            if state.get("desired_state") == "on":
+                # Check if still accepting triggers
+                accepting = await self._is_accepting_triggers(artwork_id)
+                if accepting:
+                    # Check if we can turn on
+                    allowed, reason = await self.check_can_start(artwork_id)
+                    if allowed:
+                        logger.info(
+                            "Auto-resuming after cooldown (desired_state=on)",
+                            artwork_id=str(artwork_id)[:8],
+                        )
+                        # Use lock to prevent race with incoming sensor signal
+                        async with self._get_artwork_lock(artwork_id):
+                            await self._turn_on_via_orchestrator(artwork_id)
+                    else:
+                        logger.info(
+                            "Cannot auto-resume after cooldown",
+                            artwork_id=str(artwork_id)[:8],
+                            reason=reason,
+                        )
+
+            await self._persist_state(artwork_id, state)
+            await self._broadcast_status(artwork_id)
+
+    async def _turn_on_via_orchestrator(self, artwork_id: UUID) -> None:
+        """Turn on artwork via orchestrator (for auto-resume)."""
+        if not self._orchestrator:
+            logger.warning(
+                "No orchestrator connected - cannot auto-resume",
+                artwork_id=str(artwork_id)[:8],
+            )
+            return
+
+        try:
+            result = await self._orchestrator.execute_control_command(
+                target_type="artwork",
+                target_id=str(artwork_id),
+                command="on",
+                source="sensor",  # Auto-resume acts like sensor
+            )
+
+            if result.get("success") and result.get("devices_successful", 0) > 0:
+                logger.info(
+                    "Auto-resume ON executed successfully",
+                    artwork_id=str(artwork_id)[:8],
+                    devices_successful=result.get("devices_successful", 0),
+                )
+            else:
+                logger.warning(
+                    "Auto-resume ON failed",
+                    artwork_id=str(artwork_id)[:8],
+                    error=result.get("error"),
+                )
+
+        except Exception as e:
+            logger.error(
+                "Failed to auto-resume",
+                artwork_id=str(artwork_id)[:8],
+                error=str(e),
+            )
 
     async def _force_stop(self, artwork_id: UUID, reason: str) -> None:
         """Force stop an artwork and enter cooldown.
@@ -462,10 +890,12 @@ class ProtectionService:
         1. Updates internal tracking state
         2. Sends actual OFF commands to devices via orchestrator
         3. Broadcasts SSE event for UI updates
+
+        Cooldown is handled in notify_stopped() when source="protection".
         """
         config = self._configs.get(artwork_id, {})
         state = self._states.get(artwork_id, {})
-        cooldown_seconds = config.get("cooldown", 0)
+        cooldown_seconds = parse_duration(config.get("cooldown", 0))
 
         # Calculate runtime for budget update
         started_at = state.get("started_at")
@@ -473,7 +903,7 @@ class ProtectionService:
             runtime_seconds = (datetime.utcnow() - started_at).total_seconds()
             await self._update_time_slice_usage(artwork_id, int(runtime_seconds))
 
-        # Update state
+        # Update state (cooldown will be set in notify_stopped via source="protection")
         state["is_running"] = False
         state["started_at"] = None
         if cooldown_seconds > 0:
@@ -540,7 +970,8 @@ class ProtectionService:
 
     async def get_protection_status(self, artwork_id: UUID) -> dict:
         """Get current protection status for an artwork."""
-        if artwork_id not in self._configs:
+        # Check if protection is enabled (both config exists AND timeslice_enabled)
+        if artwork_id not in self._configs or artwork_id not in self._enabled_artworks:
             return {"protected": False}
 
         config = self._configs[artwork_id]
@@ -561,20 +992,25 @@ class ProtectionService:
             cooldown_remaining = int((cooldown_until - now).total_seconds())
 
         # Build time slice info
-        time_slices_info = []
-        for ts in config.get("time_slices", []):
-            window = ts.get("window")
-            max_minutes = ts.get("max", 0)
-            if window:
-                used, max_sec = self._get_time_slice_budget(artwork_id, window)
-                window_end = self._get_window_end(window)
-                time_slices_info.append({
-                    "window": window,
-                    "used": used,
-                    "max": max_sec,
-                    "remaining": max(0, max_sec - used),
-                    "resets_at": window_end.isoformat(),
-                })
+        window_minutes = _get_slice_window_minutes(config)
+        max_seconds = _get_slice_budget_seconds(config)
+
+        time_slice_info = None
+        if window_minutes > 0 and max_seconds > 0:
+            used, max_sec = self._get_time_slice_budget(artwork_id, window_minutes)
+            window_end = self._get_window_end(window_minutes)
+            remaining = max(0, max_sec - used)
+
+            time_slice_info = {
+                "window_minutes": window_minutes,
+                "used": used,
+                "max": max_sec,
+                "remaining": remaining,
+                "remaining_formatted": format_duration(remaining),
+                "resets_at": window_end.isoformat(),
+                "resets_in": int((window_end - now).total_seconds()),
+                "resets_in_formatted": format_duration((window_end - now).total_seconds()),
+            }
 
         # Check if can start
         can_start, block_reason = await self.check_can_start(artwork_id)
@@ -582,18 +1018,22 @@ class ProtectionService:
         return {
             "protected": True,
             "config": {
-                "time_slices": config.get("time_slices", []),
-                "max_runtime": config.get("max_runtime"),
-                "cooldown": config.get("cooldown"),
+                "slice_window": format_duration(_get_slice_window_minutes(config) * 60),
+                "slice_budget": format_duration(_get_slice_budget_seconds(config)),
+                "max_runtime": format_duration(parse_duration(config.get("max_runtime", 0))),
+                "min_runtime": format_duration(self._get_min_runtime(config)),
+                "cooldown": format_duration(parse_duration(config.get("cooldown", 0))),
                 "force_completion": config.get("force_completion", False),
-                "min_budget_to_start": config.get("min_budget_to_start", 0),
             },
             "state": {
                 "is_running": state.get("is_running", False),
                 "runtime_seconds": runtime_seconds,
+                "runtime_formatted": format_duration(runtime_seconds),
+                "desired_state": state.get("desired_state", "off"),
                 "cooldown_active": cooldown_active,
                 "cooldown_remaining": cooldown_remaining,
-                "time_slices": time_slices_info,
+                "cooldown_remaining_formatted": format_duration(cooldown_remaining),
+                "time_slice": time_slice_info,
                 "can_start": can_start,
                 "block_reason": block_reason,
             },
@@ -640,14 +1080,18 @@ class ProtectionService:
         timeslice_enabled: Optional[bool],
     ) -> None:
         """Apply protection config to in-memory state."""
+        # Update protection config if provided
         if protection_config:
-            self._configs[artwork_id] = protection_config
+            # Validate config
+            errors = validate_protection_config(protection_config)
+            if errors:
+                logger.warning(
+                    "Protection config validation warnings",
+                    artwork_id=str(artwork_id)[:8],
+                    errors=errors,
+                )
 
-            # Update enabled status
-            if timeslice_enabled:
-                self._enabled_artworks.add(artwork_id)
-            else:
-                self._enabled_artworks.discard(artwork_id)
+            self._configs[artwork_id] = protection_config
 
             if artwork_id not in self._states:
                 self._states[artwork_id] = {
@@ -656,16 +1100,15 @@ class ProtectionService:
                     "cooldown_until": None,
                     "time_slice_usage": {},
                     "last_window_reset": {},
+                    "desired_state": "off",
                 }
             logger.info(
                 "Reloaded protection config",
                 artwork_id=str(artwork_id)[:8],
-                timeslice_enabled=timeslice_enabled,
             )
-        elif artwork_id in self._configs:
-            # Protection was removed
+        elif protection_config is not None and artwork_id in self._configs:
+            # protection_config explicitly set to empty/None - remove protection
             del self._configs[artwork_id]
-            self._enabled_artworks.discard(artwork_id)
             if artwork_id in self._states:
                 del self._states[artwork_id]
             logger.info(
@@ -673,9 +1116,24 @@ class ProtectionService:
                 artwork_id=str(artwork_id)[:8],
             )
 
+        # Update enabled status independently of config changes
+        if timeslice_enabled is not None:
+            if timeslice_enabled:
+                self._enabled_artworks.add(artwork_id)
+                logger.info(
+                    "Protection enabled",
+                    artwork_id=str(artwork_id)[:8],
+                )
+            else:
+                self._enabled_artworks.discard(artwork_id)
+                logger.info(
+                    "Protection disabled",
+                    artwork_id=str(artwork_id)[:8],
+                )
+
     def is_protected(self, artwork_id: UUID) -> bool:
         """Check if an artwork has protection enabled."""
-        return artwork_id in self._configs
+        return artwork_id in self._configs and artwork_id in self._enabled_artworks
 
     def get_artwork_id_for_device(self, device) -> Optional[UUID]:
         """Get artwork ID from a device object."""

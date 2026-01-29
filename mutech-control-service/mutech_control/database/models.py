@@ -526,10 +526,20 @@ class ArtworkProtectionState(Base):
     Tracks running status, cooldown periods, and time-slice budget usage.
 
     Protection config schema (stored in Artwork.protection_config):
+        New simplified format:
+        {
+            "slice_window": "15m",       # Time window duration
+            "slice_budget": "7m",        # Max runtime per window
+            "max_runtime": "2m30s",      # Max continuous runtime
+            "min_runtime": "30s",        # Min runtime per activation
+            "cooldown": "2m",            # Rest time after forced stop
+            "force_completion": false,   # Ignore OFF until max_runtime
+        }
+
+        Legacy format (still supported):
         {
             "time_slices": [
                 {"window": 15, "max": 7},   # max 7 min per 15-min chunk
-                {"window": 60, "max": 20},  # max 20 min per hour
             ],
             "max_runtime": 150,        # seconds continuous runtime
             "cooldown": 120,           # seconds forced rest after max_runtime
@@ -550,6 +560,7 @@ class ArtworkProtectionState(Base):
     cooldown_until = Column(DateTime, nullable=True)  # Active cooldown period end
     time_slice_usage = Column(JSON, default=dict, nullable=False)  # {"15": 420, "60": 1200}
     last_window_reset = Column(JSON, default=dict, nullable=False)  # {"15": "2024-...", "60": "..."}
+    desired_state = Column(String(10), default="off", nullable=False)  # Sensor's desired state
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships

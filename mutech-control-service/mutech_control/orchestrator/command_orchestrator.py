@@ -90,7 +90,7 @@ class CommandOrchestrator:
         target_type: Literal["exhibition", "artwork", "device"],
         target_id: str,
         command: Literal["on", "off"],
-        source: Literal["web", "fast", "scheduler"],
+        source: Literal["web", "fast", "scheduler", "sensor", "protection"],
     ) -> dict:
         """
         Main entry point for control commands.
@@ -99,7 +99,12 @@ class CommandOrchestrator:
             target_type: Type of target (exhibition, artwork, or device)
             target_id: UUID of target
             command: Command to execute (on or off)
-            source: Source of command (web UI or fast lane)
+            source: Source of command:
+                - web: Web UI manual control
+                - fast: Fast lane API (legacy trigger)
+                - scheduler: Scheduled jobs
+                - sensor: External sensor triggers (lidar, motion, etc.)
+                - protection: Protection service forced stop
 
         Returns:
             dict with success status and results
@@ -169,6 +174,9 @@ class CommandOrchestrator:
                     results = await self._execute_on_with_verification(devices, source)
                 else:
                     results = await self._execute_off_with_verification(devices, source)
+            elif source in ("sensor", "protection"):
+                # Sensor and protection use fast execution (no stagger, no verification)
+                results = await self._execute_fast(devices, command)
             else:  # fast lane
                 results = await self._execute_fast(devices, command)
 
@@ -177,19 +185,21 @@ class CommandOrchestrator:
 
             # Update accepting_triggers gate for web/scheduler commands (not device-level)
             # Device-level = maintenance mode, doesn't change gate
+            # Sensor/protection sources do NOT update accepting_triggers (only web/scheduler do)
             if successful > 0 and source in ("web", "scheduler") and target_type != "device":
                 await self._update_accepting_triggers(
                     target_type, target_id, accepting=(command == "on")
                 )
 
             # Notify protection service of state changes
+            # Pass source so protection service knows if this is a forced stop (cooldown)
             if successful > 0 and self._protection_service:
                 artwork_id = await self._get_artwork_id_for_target(target_type, target_id)
                 if artwork_id and self._protection_service.is_protected(artwork_id):
                     if command == "on":
-                        await self._protection_service.notify_started(artwork_id)
+                        await self._protection_service.notify_started(artwork_id, source=source)
                     elif command == "off":
-                        await self._protection_service.notify_stopped(artwork_id)
+                        await self._protection_service.notify_stopped(artwork_id, source=source)
 
             logger.info("Command execution completed",
                        command=command.upper(),
