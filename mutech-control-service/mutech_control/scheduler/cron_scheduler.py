@@ -681,6 +681,7 @@ class CronScheduler:
         Returns:
             True if triggered, False if not found or circuit open
         """
+        # First, check the job exists and isn't circuit-open
         async with self.db_manager.session() as session:
             stmt = select(ScheduledJob).where(ScheduledJob.id == job_id)
             result = await session.execute(stmt)
@@ -692,9 +693,30 @@ class CronScheduler:
             if job.circuit_open:
                 return False
 
-            # Set next_run_at to now to trigger on next check
-            job.next_run_at = datetime.utcnow()
+        # Check if already executing (outside session to avoid nesting)
+        async with self._job_lock:
+            if job_id in self._executing_jobs:
+                return False
+            self._executing_jobs.add(job_id)
+
+        try:
+            # Re-fetch job with fresh session, then execute outside session
+            # (_execute_job and _record_execution manage their own sessions)
+            async with self.db_manager.session() as session:
+                stmt = select(ScheduledJob).where(ScheduledJob.id == job_id)
+                result = await session.execute(stmt)
+                job = result.scalar_one_or_none()
+
+            if job:
+                await self._execute_job(job)
             return True
+        except Exception as e:
+            logger.error("Error triggering job", job_id=str(job_id), error=str(e))
+            await self._record_failure(job_id, str(e))
+            return False
+        finally:
+            async with self._job_lock:
+                self._executing_jobs.discard(job_id)
 
     async def reset_circuit(self, job_id: UUID) -> bool:
         """Reset circuit breaker for a job.

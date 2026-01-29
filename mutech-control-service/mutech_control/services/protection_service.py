@@ -291,9 +291,15 @@ class ProtectionService:
             )
 
     def _get_time_slice_budget(
-        self, artwork_id: UUID, window_minutes: int
+        self, artwork_id: UUID, window_minutes: int, *, readonly: bool = False
     ) -> Tuple[int, int]:
         """Get remaining budget for a time slice window.
+
+        Args:
+            artwork_id: The artwork UUID
+            window_minutes: Window size in minutes
+            readonly: If True, don't modify state (for status checks).
+                     If False, update state on window rollover.
 
         Returns:
             (used_seconds, max_seconds)
@@ -320,11 +326,12 @@ class ProtectionService:
             if last_reset_dt < window_start:
                 # Window has rolled over, reset usage
                 used_seconds = 0
-                # Update state immediately to persist the reset
-                usage[window_key] = 0
-                last_reset[window_key] = window_start.isoformat()
-                state["time_slice_usage"] = usage
-                state["last_window_reset"] = last_reset
+                # Only update state if not readonly
+                if not readonly:
+                    usage[window_key] = 0
+                    last_reset[window_key] = window_start.isoformat()
+                    state["time_slice_usage"] = usage
+                    state["last_window_reset"] = last_reset
 
         return (used_seconds, max_seconds)
 
@@ -345,8 +352,12 @@ class ProtectionService:
         """Get the end of the current time window."""
         return self._get_window_start(window_minutes) + timedelta(minutes=window_minutes)
 
-    def _get_min_budget_across_slices(self, artwork_id: UUID) -> int:
+    def _get_min_budget_across_slices(self, artwork_id: UUID, *, readonly: bool = False) -> int:
         """Get the minimum remaining budget across all time slices.
+
+        Args:
+            artwork_id: The artwork UUID
+            readonly: If True, don't modify state on window rollover
 
         Returns the smallest remaining budget in seconds.
         """
@@ -357,7 +368,7 @@ class ProtectionService:
         if window_minutes <= 0:
             return float("inf")  # No limits
 
-        used, max_sec = self._get_time_slice_budget(artwork_id, window_minutes)
+        used, max_sec = self._get_time_slice_budget(artwork_id, window_minutes, readonly=readonly)
         if max_sec == 0:
             return float("inf")  # No limits
 
@@ -378,9 +389,13 @@ class ProtectionService:
         return parse_duration(config.get("min_budget_to_start", 0))
 
     async def check_can_start(
-        self, artwork_id: UUID
+        self, artwork_id: UUID, *, readonly: bool = False
     ) -> Tuple[bool, Optional[str]]:
         """Check if an artwork can start running.
+
+        Args:
+            artwork_id: The artwork UUID
+            readonly: If True, don't modify state (for status checks)
 
         Returns:
             (allowed, reason) - reason is None if allowed, otherwise explains why blocked
@@ -403,7 +418,7 @@ class ProtectionService:
             return (False, f"Cooldown active ({format_duration(remaining)} remaining)")
 
         # Check time slice budgets
-        min_budget = self._get_min_budget_across_slices(artwork_id)
+        min_budget = self._get_min_budget_across_slices(artwork_id, readonly=readonly)
         min_runtime = self._get_min_runtime(config)
         force_completion = config.get("force_completion", False)
 
@@ -415,6 +430,24 @@ class ProtectionService:
             need = min_runtime
 
         if min_budget < need:
+            # Check if we can bridge into the next window
+            # If time until rollover < needed runtime, we'll cross into fresh budget
+            window_minutes = _get_slice_window_minutes(config)
+            if window_minutes > 0:
+                window_end = self._get_window_end(window_minutes)
+                time_to_rollover = (window_end - datetime.utcnow()).total_seconds()
+
+                if time_to_rollover < need:
+                    # We're close enough to rollover - allow bridging into new budget
+                    logger.debug(
+                        "Allowing start via window bridging",
+                        artwork_id=str(artwork_id)[:8],
+                        budget_remaining=min_budget,
+                        time_to_rollover=int(time_to_rollover),
+                        needed=need,
+                    )
+                    return (True, None)
+
             return (
                 False,
                 f"Insufficient budget ({format_duration(min_budget)} < {format_duration(need)} required)",
@@ -506,10 +539,30 @@ class ProtectionService:
             need = min_runtime
 
         if min_budget < need:
-            return (
-                False,
-                f"Insufficient budget ({format_duration(min_budget)} < {format_duration(need)} required)",
-            )
+            # Check if we can bridge into the next window
+            window_minutes = _get_slice_window_minutes(config)
+            if window_minutes > 0:
+                window_end = self._get_window_end(window_minutes)
+                time_to_rollover = (window_end - datetime.utcnow()).total_seconds()
+
+                if time_to_rollover < need:
+                    # Allow bridging - we'll cross into fresh budget
+                    logger.debug(
+                        "Sensor ON allowed via window bridging",
+                        artwork_id=str(artwork_id)[:8],
+                        budget_remaining=min_budget,
+                        time_to_rollover=int(time_to_rollover),
+                    )
+                else:
+                    return (
+                        False,
+                        f"Insufficient budget ({format_duration(min_budget)} < {format_duration(need)} required)",
+                    )
+            else:
+                return (
+                    False,
+                    f"Insufficient budget ({format_duration(min_budget)} < {format_duration(need)} required)",
+                )
 
         # Execute via orchestrator
         if not self._orchestrator:
@@ -630,6 +683,7 @@ class ProtectionService:
         """Notify that an artwork has started running.
 
         Called by orchestrator after successful ON command.
+        Idempotent: if already running, does not overwrite started_at.
 
         Args:
             artwork_id: The artwork UUID
@@ -638,7 +692,6 @@ class ProtectionService:
         if artwork_id not in self._configs:
             return
 
-        now = datetime.utcnow()
         if artwork_id not in self._states:
             self._states[artwork_id] = {
                 "is_running": False,
@@ -650,8 +703,18 @@ class ProtectionService:
             }
 
         state = self._states[artwork_id]
+
+        # Idempotent: don't overwrite started_at if already running
+        if state.get("is_running"):
+            logger.debug(
+                "notify_started called but already running (idempotent)",
+                artwork_id=str(artwork_id)[:8],
+                source=source,
+            )
+            return
+
         state["is_running"] = True
-        state["started_at"] = now
+        state["started_at"] = datetime.utcnow()
 
         # For sensor source, desired_state should already be "on" from handle_sensor_signal
         # For other sources, we don't update desired_state (it tracks sensor intent only)
@@ -785,7 +848,11 @@ class ProtectionService:
             # Check max_runtime limit
             max_runtime = parse_duration(config.get("max_runtime", 0))
             if max_runtime > 0 and runtime >= max_runtime:
-                await self._force_stop(artwork_id, "max_runtime_exceeded")
+                # Acquire lock before force stopping
+                async with self._get_artwork_lock(artwork_id):
+                    # Re-check conditions under lock
+                    if state.get("is_running") and state.get("started_at"):
+                        await self._force_stop_locked(artwork_id, "max_runtime_exceeded")
                 continue
 
             # Check time slice budget exhaustion
@@ -797,10 +864,14 @@ class ProtectionService:
                 projected_used = used + int(runtime)
 
                 if projected_used >= max_seconds:
-                    await self._force_stop(
-                        artwork_id,
-                        f"budget_exhausted_{window_minutes}m_window"
-                    )
+                    # Acquire lock before force stopping
+                    async with self._get_artwork_lock(artwork_id):
+                        # Re-check conditions under lock
+                        if state.get("is_running") and state.get("started_at"):
+                            await self._force_stop_locked(
+                                artwork_id,
+                                f"budget_exhausted_{window_minutes}m_window"
+                            )
 
     async def _check_cooldown_expiry(self) -> None:
         """Check for cooldown expiry and auto-resume if desired_state is "on"."""
@@ -814,37 +885,42 @@ class ProtectionService:
             if not cooldown_until or now < cooldown_until:
                 continue
 
-            # Cooldown expired - clear it
-            state["cooldown_until"] = None
-            logger.info(
-                "Cooldown expired",
-                artwork_id=str(artwork_id)[:8],
-            )
+            # Use lock for all state modifications to prevent races with sensor handlers
+            async with self._get_artwork_lock(artwork_id):
+                # Re-check cooldown under lock (may have changed)
+                cooldown_until = state.get("cooldown_until")
+                if not cooldown_until or now < cooldown_until:
+                    continue
 
-            # Check if sensor still wants "on" and we should auto-resume
-            if state.get("desired_state") == "on":
-                # Check if still accepting triggers
-                accepting = await self._is_accepting_triggers(artwork_id)
-                if accepting:
-                    # Check if we can turn on
-                    allowed, reason = await self.check_can_start(artwork_id)
-                    if allowed:
-                        logger.info(
-                            "Auto-resuming after cooldown (desired_state=on)",
-                            artwork_id=str(artwork_id)[:8],
-                        )
-                        # Use lock to prevent race with incoming sensor signal
-                        async with self._get_artwork_lock(artwork_id):
+                # Cooldown expired - clear it
+                state["cooldown_until"] = None
+                logger.info(
+                    "Cooldown expired",
+                    artwork_id=str(artwork_id)[:8],
+                )
+
+                # Check if sensor still wants "on" and we should auto-resume
+                if state.get("desired_state") == "on":
+                    # Check if still accepting triggers
+                    accepting = await self._is_accepting_triggers(artwork_id)
+                    if accepting:
+                        # Check if we can turn on (recheck under lock)
+                        allowed, reason = await self.check_can_start(artwork_id)
+                        if allowed:
+                            logger.info(
+                                "Auto-resuming after cooldown (desired_state=on)",
+                                artwork_id=str(artwork_id)[:8],
+                            )
                             await self._turn_on_via_orchestrator(artwork_id)
-                    else:
-                        logger.info(
-                            "Cannot auto-resume after cooldown",
-                            artwork_id=str(artwork_id)[:8],
-                            reason=reason,
-                        )
+                        else:
+                            logger.info(
+                                "Cannot auto-resume after cooldown",
+                                artwork_id=str(artwork_id)[:8],
+                                reason=reason,
+                            )
 
-            await self._persist_state(artwork_id, state)
-            await self._broadcast_status(artwork_id)
+                await self._persist_state(artwork_id, state)
+                await self._broadcast_status(artwork_id)
 
     async def _turn_on_via_orchestrator(self, artwork_id: UUID) -> None:
         """Turn on artwork via orchestrator (for auto-resume)."""
@@ -883,8 +959,8 @@ class ProtectionService:
                 error=str(e),
             )
 
-    async def _force_stop(self, artwork_id: UUID, reason: str) -> None:
-        """Force stop an artwork and enter cooldown.
+    async def _force_stop_locked(self, artwork_id: UUID, reason: str) -> None:
+        """Force stop an artwork and enter cooldown. MUST be called with lock held.
 
         This method:
         1. Updates internal tracking state
@@ -892,6 +968,7 @@ class ProtectionService:
         3. Broadcasts SSE event for UI updates
 
         Cooldown is handled in notify_stopped() when source="protection".
+        Caller MUST hold self._get_artwork_lock(artwork_id).
         """
         config = self._configs.get(artwork_id, {})
         state = self._states.get(artwork_id, {})
@@ -997,7 +1074,8 @@ class ProtectionService:
 
         time_slice_info = None
         if window_minutes > 0 and max_seconds > 0:
-            used, max_sec = self._get_time_slice_budget(artwork_id, window_minutes)
+            # Use readonly=True to avoid side effects on status checks
+            used, max_sec = self._get_time_slice_budget(artwork_id, window_minutes, readonly=True)
             window_end = self._get_window_end(window_minutes)
             remaining = max(0, max_sec - used)
 
@@ -1012,8 +1090,8 @@ class ProtectionService:
                 "resets_in_formatted": format_duration((window_end - now).total_seconds()),
             }
 
-        # Check if can start
-        can_start, block_reason = await self.check_can_start(artwork_id)
+        # Check if can start (readonly to avoid side effects)
+        can_start, block_reason = await self.check_can_start(artwork_id, readonly=True)
 
         return {
             "protected": True,

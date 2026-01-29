@@ -121,24 +121,27 @@ class CommandOrchestrator:
 
         try:
             # 0. Check protection rules for ON commands
+            # For exhibitions, check ALL protected artworks - block if ANY are blocked
             if command == "on" and self._protection_service:
-                artwork_id = await self._get_artwork_id_for_target(target_type, target_id)
-                if artwork_id and self._protection_service.is_protected(artwork_id):
-                    allowed, reason = await self._protection_service.check_can_start(artwork_id)
-                    if not allowed:
-                        logger.warning(
-                            "Command blocked by protection",
-                            command=command.upper(),
-                            target_type=target_type,
-                            target_id=target_id[:8],
-                            reason=reason,
-                        )
-                        return {
-                            "success": False,
-                            "blocked": True,
-                            "reason": reason,
-                            "request_id": request_id,
-                        }
+                artwork_ids = await self._get_artwork_ids_for_target(target_type, target_id)
+                for artwork_id in artwork_ids:
+                    if self._protection_service.is_protected(artwork_id):
+                        allowed, reason = await self._protection_service.check_can_start(artwork_id)
+                        if not allowed:
+                            logger.warning(
+                                "Command blocked by protection",
+                                command=command.upper(),
+                                target_type=target_type,
+                                target_id=target_id[:8],
+                                artwork_id=str(artwork_id)[:8],
+                                reason=reason,
+                            )
+                            return {
+                                "success": False,
+                                "blocked": True,
+                                "reason": reason,
+                                "request_id": request_id,
+                            }
 
             # 1. Resolve target to list of devices
             devices = await self._resolve_target(target_type, target_id)
@@ -194,12 +197,13 @@ class CommandOrchestrator:
             # Notify protection service of state changes
             # Pass source so protection service knows if this is a forced stop (cooldown)
             if successful > 0 and self._protection_service:
-                artwork_id = await self._get_artwork_id_for_target(target_type, target_id)
-                if artwork_id and self._protection_service.is_protected(artwork_id):
-                    if command == "on":
-                        await self._protection_service.notify_started(artwork_id, source=source)
-                    elif command == "off":
-                        await self._protection_service.notify_stopped(artwork_id, source=source)
+                artwork_ids = await self._get_artwork_ids_for_target(target_type, target_id)
+                for artwork_id in artwork_ids:
+                    if self._protection_service.is_protected(artwork_id):
+                        if command == "on":
+                            await self._protection_service.notify_started(artwork_id, source=source)
+                        elif command == "off":
+                            await self._protection_service.notify_stopped(artwork_id, source=source)
 
             logger.info("Command execution completed",
                        command=command.upper(),
@@ -245,6 +249,35 @@ class CommandOrchestrator:
                 return row[0] if row else None
         # Exhibition-level commands don't trigger protection (too broad)
         return None
+
+    async def _get_artwork_ids_for_target(
+        self, target_type: str, target_id: str
+    ) -> List[UUID]:
+        """Get all artwork IDs for a given target.
+
+        Returns:
+            - [UUID(target_id)] for artwork targets
+            - [device.artwork_id] for device targets (if device has an artwork)
+            - All artwork IDs in the exhibition for exhibition targets
+        """
+        if target_type == "artwork":
+            return [UUID(target_id)]
+        elif target_type == "device":
+            # Get device's artwork_id
+            async with self.db_manager.session() as session:
+                stmt = select(Device.artwork_id).where(Device.id == UUID(target_id))
+                result = await session.execute(stmt)
+                row = result.first()
+                if row and row[0]:
+                    return [row[0]]
+                return []
+        elif target_type == "exhibition":
+            # Get all artwork IDs in the exhibition
+            async with self.db_manager.session() as session:
+                stmt = select(Artwork.id).where(Artwork.exhibition_id == UUID(target_id))
+                result = await session.execute(stmt)
+                return [row[0] for row in result.fetchall()]
+        return []
 
     async def _update_accepting_triggers(
         self, target_type: str, target_id: str, accepting: bool
