@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import random
 import re
 import socket
 
@@ -108,10 +109,7 @@ class ANELManager(DeviceManager):
             return -1
 
     async def get_state(self, device) -> DeviceResult:
-        """Get ANEL outlet state."""
-        if cooldown_result := self.cooldown_manager.check_cooldown(device.id, device.state):
-            return cooldown_result
-
+        """Get ANEL outlet state. No cooldown - queries are read-only."""
         start_time = asyncio.get_event_loop().time()
 
         try:
@@ -129,10 +127,6 @@ class ANELManager(DeviceManager):
 
                 if state == -1:
                     logger.warning(f"ANEL: Could not parse state from response")
-
-                # Record successful request
-                cooldown = self.config.get("cooldown_seconds", 5)
-                self.cooldown_manager.record_request(device.id, cooldown)
 
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
@@ -191,8 +185,8 @@ class ANELManager(DeviceManager):
                     logger.warning(f"ANEL: Unexpected response: {response}")
                     new_state = -1
 
-                # Record successful request
-                cooldown = self.config.get("cooldown_seconds", 5)
+                # Record minimal random cooldown (0-1s) to prevent accidental double-clicks
+                cooldown = random.uniform(0, 1)
                 self.cooldown_manager.record_request(device.id, cooldown)
 
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)

@@ -482,12 +482,16 @@ class CommandOrchestrator:
                 # Stagger delay between devices
                 await asyncio.sleep(stagger_delay)
 
-        # Start verification tasks for successful devices (excluding shell)
+        # Start verification tasks for successful devices AND cooldown failures (excluding shell)
+        # Cooldown failures should still get enforcement - the enforcement will retry
         if orchestrator_config.get("enable_verification", True):
             devices_to_verify = [
                 device
                 for device, result in zip(devices, results)
-                if result.get("success") and device.device_type != "shell"
+                if device.device_type != "shell" and (
+                    result.get("success") or
+                    "cooldown" in str(result.get("error", "")).lower()
+                )
             ]
 
             if devices_to_verify:
@@ -528,13 +532,17 @@ class CommandOrchestrator:
             else:
                 processed_results.append(result)
 
-        # 2. Start verification tasks for successful devices (excluding shell)
+        # 2. Start verification tasks for successful devices AND cooldown failures (excluding shell)
+        # Cooldown failures should still get enforcement - the enforcement will retry
         orchestrator_config = self.config.get("orchestrator", {})
         if orchestrator_config.get("enable_verification", True):
             devices_to_verify = [
                 device
                 for device, result in zip(devices, processed_results)
-                if result.get("success") and device.device_type != "shell"
+                if device.device_type != "shell" and (
+                    result.get("success") or
+                    "cooldown" in str(result.get("error", "")).lower()
+                )
             ]
 
             if devices_to_verify:

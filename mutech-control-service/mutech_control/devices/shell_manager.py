@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import random
 import re
 from typing import Dict, Optional
 
@@ -125,17 +126,7 @@ class ShellManager(DeviceManager):
         self.cooldown_manager = CooldownManager()
 
     async def get_state(self, device) -> DeviceResult:
-        """Execute status command and parse output."""
-        # Check cooldown
-        if not self.cooldown_manager.is_allowed(device.id):
-            next_time = self.cooldown_manager.next_allowed_time(device.id)
-            remaining = self.cooldown_manager.get_remaining_seconds(device.id)
-            return DeviceResult(
-                success=False,
-                state=device.state,
-                error=f"Cooldown active, next allowed at {next_time} ({remaining:.1f}s remaining)",
-            )
-
+        """Execute status command and parse output. No cooldown - queries are read-only."""
         # Get status command from device config
         commands = device.config.get("commands", {})
 
@@ -179,10 +170,6 @@ class ShellManager(DeviceManager):
                 state = 1
             elif off_pattern and re.search(off_pattern, output):
                 state = 0
-
-            # Record successful request
-            cooldown = self.config.get("cooldown_seconds", 2)
-            self.cooldown_manager.record_request(device.id, cooldown)
 
             duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
@@ -275,8 +262,8 @@ class ShellManager(DeviceManager):
             if proc.returncode == 0:
                 new_state = 1 if on else 0
 
-                # Record successful request
-                cooldown = self.config.get("cooldown_seconds", 2)
+                # Record minimal random cooldown (0-1s) to prevent accidental double-clicks
+                cooldown = random.uniform(0, 1)
                 self.cooldown_manager.record_request(device.id, cooldown)
 
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)

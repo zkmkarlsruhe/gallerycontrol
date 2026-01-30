@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import random
 
 import httpx
 
@@ -33,10 +34,7 @@ class NETIOManager(DeviceManager):
         self.http_client = httpx.AsyncClient(timeout=timeout)
 
     async def get_state(self, device) -> DeviceResult:
-        """Get NETIO outlet state."""
-        if cooldown_result := self.cooldown_manager.check_cooldown(device.id, device.state):
-            return cooldown_result
-
+        """Get NETIO outlet state. No cooldown - queries are read-only."""
         start_time = asyncio.get_event_loop().time()
 
         try:
@@ -77,10 +75,6 @@ class NETIOManager(DeviceManager):
                 if outlet_state == -1:
                     logger.warning(f"NETIO: ID {netio_id} not found in response")
 
-                # Record successful request
-                cooldown = self.config.get("cooldown_seconds", 5)
-                self.cooldown_manager.record_request(device.id, cooldown)
-
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
                 return DeviceResult(
@@ -103,7 +97,7 @@ class NETIOManager(DeviceManager):
             return DeviceResult(success=False, state=-1, error=str(e), duration_ms=duration_ms)
 
     async def set_power(self, device, on: bool) -> DeviceResult:
-        """Set NETIO outlet power state."""
+        """Set NETIO outlet power state. Minimal random cooldown (0-1s)."""
         if cooldown_result := self.cooldown_manager.check_cooldown(device.id, device.state):
             return cooldown_result
 
@@ -148,8 +142,8 @@ class NETIOManager(DeviceManager):
                 # NETIO responds immediately
                 new_state = 1 if on else 0
 
-                # Record successful request
-                cooldown = self.config.get("cooldown_seconds", 5)
+                # Record minimal random cooldown (0-1s) to prevent accidental double-clicks
+                cooldown = random.uniform(0, 1)
                 self.cooldown_manager.record_request(device.id, cooldown)
 
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)

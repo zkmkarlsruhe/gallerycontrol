@@ -76,10 +76,7 @@ class PJLinkManager(DeviceManager):
             sock.close()
 
     async def get_state(self, device) -> DeviceResult:
-        """Get projector power state."""
-        if cooldown_result := self.cooldown_manager.check_cooldown(device.id, device.state):
-            return cooldown_result
-
+        """Get projector power state. No cooldown - queries are read-only."""
         start_time = asyncio.get_event_loop().time()
 
         try:
@@ -109,10 +106,6 @@ class PJLinkManager(DeviceManager):
                                   host=device.host,
                                   response=response[:100])
                     state = -1
-
-                # Record successful request
-                cooldown = self.config.get("cooldown_seconds", 30)
-                self.cooldown_manager.record_request(device.id, cooldown)
 
                 duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 

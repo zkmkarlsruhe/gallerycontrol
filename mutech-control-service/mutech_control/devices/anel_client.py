@@ -6,6 +6,7 @@ Credentials are passed per-request from this client.
 
 import asyncio
 import logging
+import random
 
 import httpx
 
@@ -51,35 +52,25 @@ class ANELClient(DeviceManager):
             except socket.gaierror:
                 ip = device.host  # Use as-is if resolution fails
 
-            url = f"{self.runner_url}/query"
+            url = f"{self.runner_url}/devices/{ip}/state"
             headers = {"Authorization": f"Bearer {self.api_key}"}
-            payload = {"ip": ip}
+            params = {"port": port}
 
             logger.info(f"ANEL: Getting state for {device.host} ({ip}) port {port} via runner")
 
-            response = await self.http_client.post(url, json=payload, headers=headers)
+            response = await self.http_client.get(url, headers=headers, params=params)
 
             if response.status_code == 200:
                 data = response.json()
 
                 if data.get("success"):
-                    # Extract port state from device response
-                    device_data = data.get("device", {})
-                    ports = device_data.get("ports", [])
-
-                    state = -1
-                    for p in ports:
-                        if p.get("port") == port:
-                            state = p.get("state", -1)
-                            break
-
+                    state = data.get("state", -1)
                     duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
 
                     return DeviceResult(
                         success=True,
                         state=state,
                         duration_ms=duration_ms,
-                        raw_response=device_data.get("raw"),
                     )
                 else:
                     error = data.get("error", "Unknown error")
@@ -123,36 +114,29 @@ class ANELClient(DeviceManager):
             except socket.gaierror:
                 ip = device.host
 
-            url = f"{self.runner_url}/switch"
+            action = "on" if on else "off"
+            url = f"{self.runner_url}/devices/{ip}/{action}"
             headers = {"Authorization": f"Bearer {self.api_key}"}
-            payload = {
-                "ip": ip,
+            params = {
                 "port": port,
-                "state": on,
-                "username": creds.username,
+                "user": creds.username,
                 "password": creds.password,
+                "fast_lane": "true",
             }
 
             command = "ON" if on else "OFF"
             logger.info(f"ANEL: Setting {device.host} ({ip}) port {port} to {command} via runner")
 
-            response = await self.http_client.post(url, json=payload, headers=headers)
+            response = await self.http_client.post(url, headers=headers, params=params)
 
             if response.status_code == 200:
                 data = response.json()
 
                 if data.get("success"):
-                    state = data.get("actual_state", 1 if on else 0)
-                    confirmed = data.get("confirmed", False)
+                    state = data.get("state", 1 if on else 0)
 
-                    if not confirmed:
-                        logger.warning(
-                            f"ANEL: State not confirmed for {device.host}:{port}, "
-                            f"requested={on}, actual={state}"
-                        )
-
-                    # Record successful request
-                    cooldown = self.config.get("cooldown_seconds", 5)
+                    # Record minimal random cooldown (0-1s) to prevent accidental double-clicks
+                    cooldown = random.uniform(0, 1)
                     self.cooldown_manager.record_request(device.id, cooldown)
 
                     duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
@@ -161,7 +145,6 @@ class ANELClient(DeviceManager):
                         success=True,
                         state=state,
                         duration_ms=duration_ms,
-                        raw_response=data.get("device", {}).get("raw"),
                     )
                 else:
                     error = data.get("error", "Unknown error")
@@ -193,13 +176,12 @@ class ANELClient(DeviceManager):
             except socket.gaierror:
                 ip = device.host
 
-            url = f"{self.runner_url}/query"
+            url = f"{self.runner_url}/devices/{ip}/info"
             headers = {"Authorization": f"Bearer {self.api_key}"}
-            payload = {"ip": ip, "timeout": 5.0}
 
             logger.info(f"ANEL: Testing connection to {device.host} ({ip}) via runner")
 
-            response = await self.http_client.post(url, json=payload, headers=headers, timeout=10.0)
+            response = await self.http_client.get(url, headers=headers, timeout=10.0)
 
             if response.status_code == 200:
                 data = response.json()
@@ -226,16 +208,21 @@ class ANELClient(DeviceManager):
             except socket.gaierror:
                 ip = device.host
 
-            url = f"{self.runner_url}/query"
+            url = f"{self.runner_url}/devices/{ip}/info"
             headers = {"Authorization": f"Bearer {self.api_key}"}
-            payload = {"ip": ip}
 
-            response = await self.http_client.post(url, json=payload, headers=headers)
+            response = await self.http_client.get(url, headers=headers)
 
             if response.status_code == 200:
                 data = response.json()
                 if data.get("success"):
-                    return data.get("device", {})
+                    return {
+                        "name": data.get("name"),
+                        "ip": data.get("ip"),
+                        "mac": data.get("mac"),
+                        "ports": data.get("ports", []),
+                        "temperature": data.get("temperature"),
+                    }
                 else:
                     return {"error": data.get("error", "Query failed")}
             else:

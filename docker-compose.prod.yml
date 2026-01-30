@@ -3,7 +3,8 @@ version: "2.4"
 services:
 
   mutech-control:
-    image: harbor.zkm.de/mutech/mutech-control:v1.0.0
+    build: ./mutech-control-service
+    image: harbor.zkm.de/mutech/mutech-control:v1.2.3
     container_name: "mutech-control"
     restart: always
     cpus: "1.0"
@@ -21,9 +22,9 @@ services:
       # Email (defaults in production.yaml, can override here)
       - EMAIL_RECIPIENT=${EMAIL_RECIPIENT:-marc@zkm.de}
 
-      # ANEL Runner (if deployed separately)
-      # - ANEL_RUNNER_URL=http://anel-runner:8001
-      # - ANEL_API_KEY=${ANEL_API_KEY}
+      # ANEL Runner (runs on docker-medmus.mutech.zkm.de)
+      - ANEL_RUNNER_URL=http://docker-medmus.mutech.zkm.de:8001
+      - ANEL_API_KEY=${ANEL_API_KEY:-changeme}
 
     volumes:
       - ./logs:/app/logs
@@ -42,11 +43,20 @@ services:
     labels:
       # traefik
       - traefik.enable=true
-      - traefik.http.routers.mutech-control.rule=Host(`steuerung.mutech.zkm.de`)
+      # Main router - protected by whitelist AND guardian auth
+      - traefik.http.routers.mutech-control.rule=Host(`control.mutech.zkm.de`)
       - traefik.http.routers.mutech-control.entrypoints=websecure
       - traefik.http.routers.mutech-control.service=mutech-control
       - traefik.http.routers.mutech-control.tls=true
       - traefik.http.routers.mutech-control.middlewares=whitelist-and-guardian@file
+      # External API router - only IP whitelist, no guardian auth (for /api/sensor and /api/fast)
+      - traefik.http.routers.mutech-control-external.rule=Host(`control.mutech.zkm.de`) && (PathPrefix(`/api/sensor`) || PathPrefix(`/api/fast`))
+      - traefik.http.routers.mutech-control-external.entrypoints=websecure
+      - traefik.http.routers.mutech-control-external.service=mutech-control
+      - traefik.http.routers.mutech-control-external.tls=true
+      - traefik.http.routers.mutech-control-external.middlewares=zkm-intern-whitelist@file
+      - traefik.http.routers.mutech-control-external.priority=100
+      # Service
       - traefik.http.services.mutech-control.loadbalancer.server.port=8000
 
   mutech-postgres:
