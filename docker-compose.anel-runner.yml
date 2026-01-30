@@ -1,0 +1,23 @@
+version: "2.4"
+
+services:
+  anel-runner:
+    image: harbor.zkm.de/mutech/anel-runner:v1.0.0
+    container_name: "anel-runner"
+    restart: always
+    network_mode: host  # Required for UDP to ANEL devices
+    cpus: "0.25"
+    mem_limit: 128mb
+
+    environment:
+      - TZ=Europe/Berlin
+      - HOST=127.0.0.1
+      - PORT=8001
+      - LOG_LEVEL=INFO
+      - ANEL_API_KEY=${ANEL_API_KEY}
+
+    healthcheck:
+      test: curl --fail http://127.0.0.1:8001/health || exit 1
+      timeout: 5s
+      interval: 30s
+      retries: 3

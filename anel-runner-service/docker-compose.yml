@@ -12,6 +12,7 @@ services:
     network_mode: host
 
     environment:
+      - TZ=Europe/Berlin
       - API_KEY=${API_KEY:-dev-api-key}
       - PORT=8001
       - LOG_LEVEL=DEBUG

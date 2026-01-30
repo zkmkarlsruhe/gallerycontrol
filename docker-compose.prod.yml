@@ -4,7 +4,7 @@ services:
 
   mutech-control:
     build: ./mutech-control-service
-    image: harbor.zkm.de/mutech/mutech-control:v1.2.3
+    image: harbor.zkm.de/mutech/mutech-control:v1.2.10
     container_name: "mutech-control"
     restart: always
     cpus: "1.0"
@@ -12,6 +12,9 @@ services:
     memswap_limit: 1gb
 
     environment:
+      # Timezone
+      - TZ=Europe/Berlin
+
       # Database
       - DATABASE_URL=postgresql+asyncpg://mutech:${DB_PASSWORD}@mutech-postgres:5432/mutech
 
@@ -68,6 +71,7 @@ services:
     memswap_limit: 512mb
 
     environment:
+      - TZ=Europe/Berlin
       - POSTGRES_DB=mutech
       - POSTGRES_USER=mutech
       - POSTGRES_PASSWORD=${DB_PASSWORD}

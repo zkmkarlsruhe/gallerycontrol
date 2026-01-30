@@ -1,0 +1,19 @@
+services:
+  anel-runner:
+    build: .
+    container_name: "anel-runner"
+    restart: always
+    network_mode: host
+
+    environment:
+      - TZ=Europe/Berlin
+      - ANEL_HOST=0.0.0.0
+      - ANEL_PORT=8001
+      - ANEL_LOG_LEVEL=INFO
+      - ANEL_API_KEY=${ANEL_API_KEY:-changeme}
+      # ZKM uses non-standard UDP ports
+      - ANEL_UDP_SEND_PORT=75
+      - ANEL_UDP_RECEIVE_PORT=77
+
+    labels:
+      - com.centurylinklabs.watchtower.enable=false
