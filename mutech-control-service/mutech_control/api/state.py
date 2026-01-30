@@ -505,7 +505,12 @@ async def list_state_changes(
 
     try:
         stmt = (
-            select(StateChangeLog, Device.name.label("device_name"), Device.device_type.label("device_type"))
+            select(
+                StateChangeLog,
+                Device.name.label("device_name"),
+                Device.device_type.label("device_type"),
+                Device.host.label("device_host"),
+            )
             .join(Device, StateChangeLog.device_id == Device.id)
             .join(Artwork, Device.artwork_id == Artwork.id)
             .order_by(StateChangeLog.timestamp.desc())
@@ -550,6 +555,7 @@ async def list_state_changes(
                 "device_id": str(row[0].device_id),
                 "device_name": row[1],
                 "device_type": row[2],
+                "device_host": row[3],
                 "previous_state": row[0].previous_state,
                 "previous_state_name": state_to_name(row[0].previous_state),
                 "new_state": row[0].new_state,

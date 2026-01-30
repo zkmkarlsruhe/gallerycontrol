@@ -8,6 +8,7 @@ interface StateChange {
   device_id: string;
   device_name: string;
   device_type: string;
+  device_host: string;
   previous_state: number;
   new_state: number;
   timestamp: string;
@@ -18,6 +19,8 @@ interface TimeSegment {
   device_id: string;
   device_name: string;
   device_type: string;
+  device_host: string;
+  device_port: number | null;
   state: number;
   start: Date;
   end: Date;
@@ -35,6 +38,8 @@ interface DeviceOption {
   id: string;
   name: string;
   type: string;
+  host: string;
+  port: number | null;
   artworkName: string;
   exhibitionName: string;
   state: number;
@@ -239,6 +244,8 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
               device_id: device.id,
               device_name: device.name,
               device_type: device.type,
+              device_host: device.host,
+              device_port: device.port,
               state: change.previous_state,
               start: from,
               end: changeTime,
@@ -247,19 +254,62 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
           }
 
           // Segment for new state
-          const segmentEnd = i < changes.length - 1
-            ? new Date(changes[i + 1].timestamp)
-            : to;
+          const isLastChange = i === changes.length - 1;
+          const segmentEnd = isLastChange ? to : new Date(changes[i + 1].timestamp);
 
-          segments.push({
-            device_id: device.id,
-            device_name: device.name,
-            device_type: device.type,
-            state: change.new_state,
-            start: changeTime,
-            end: segmentEnd,
-            rowIndex: rowIndex,
-          });
+          // Self-healing: For the last segment, if the current device state differs
+          // from the last logged state, use the current state and add a transition.
+          // This handles cases where polling detected a change but hasn't logged it yet.
+          if (isLastChange && device.state !== change.new_state && device.state >= 0) {
+            // Add segment for the logged state up to a recent point
+            // Assume the state changed recently (use midpoint as approximation)
+            const now = new Date();
+            const transitionTime = new Date(Math.max(
+              changeTime.getTime() + 60000, // At least 1 minute after logged change
+              now.getTime() - 60000 // Or 1 minute ago, whichever is later
+            ));
+
+            // Logged state segment (ends at transition point)
+            segments.push({
+              device_id: device.id,
+              device_name: device.name,
+              device_type: device.type,
+              device_host: device.host,
+              device_port: device.port,
+              state: change.new_state,
+              start: changeTime,
+              end: transitionTime < to ? transitionTime : changeTime,
+              rowIndex: rowIndex,
+            });
+
+            // Current state segment (from transition to now) - self-healed
+            if (transitionTime < to) {
+              segments.push({
+                device_id: device.id,
+                device_name: device.name,
+                device_type: device.type,
+                device_host: device.host,
+                device_port: device.port,
+                state: device.state,
+                start: transitionTime,
+                end: to,
+                rowIndex: rowIndex,
+              });
+            }
+          } else {
+            // Normal case: use the logged state
+            segments.push({
+              device_id: device.id,
+              device_name: device.name,
+              device_type: device.type,
+              device_host: device.host,
+              device_port: device.port,
+              state: change.new_state,
+              start: changeTime,
+              end: segmentEnd,
+              rowIndex: rowIndex,
+            });
+          }
         }
       } else {
         // Device has no state changes - show current state for entire range
@@ -267,6 +317,8 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
           device_id: device.id,
           device_name: device.name,
           device_type: device.type,
+          device_host: device.host,
+          device_port: device.port,
           state: device.state,
           start: from,
           end: to,
@@ -423,8 +475,9 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
             .style('left', (event.pageX + 15) + 'px')
             .style('top', (event.pageY - 10) + 'px')
             .html(`
-              <strong>${d.device_name}</strong><br/>
-              <span class="tooltip-type">${d.device_type}</span><br/>
+              <strong>${d.device_name || '(unnamed)'}</strong><br/>
+              <span class="tooltip-host">${d.device_host}${(d.device_type.toLowerCase() === 'netio' || d.device_type.toLowerCase() === 'anel') && d.device_port !== null ? ` :${d.device_port + 1}` : ''}</span><br/>
+              <span class="tooltip-type">${d.device_type.toUpperCase()}</span><br/>
               State: <span style="color:${STATE_COLORS[d.state]}">${STATE_NAMES[d.state] || 'Unknown'}</span><br/>
               From: ${d3.timeFormat('%Y-%m-%d %H:%M:%S')(d.start)}<br/>
               To: ${d3.timeFormat('%Y-%m-%d %H:%M:%S')(d.end)}<br/>

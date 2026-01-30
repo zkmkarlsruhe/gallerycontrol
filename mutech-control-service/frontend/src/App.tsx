@@ -154,7 +154,7 @@ function App() {
 
   // Extract all devices for debug filter dropdown and timeline
   const allDevices = useMemo(() => {
-    const devices: Array<{ id: string; name: string; type: string; artworkName: string; exhibitionName: string; state: number }> = [];
+    const devices: Array<{ id: string; name: string; type: string; host: string; port: number | null; artworkName: string; exhibitionName: string; state: number }> = [];
     for (const exhibition of exhibitions) {
       for (const artwork of exhibition.artworks) {
         for (const device of artwork.devices) {
@@ -162,6 +162,8 @@ function App() {
             id: device.id,
             name: device.name,
             type: device.device_type,
+            host: device.host,
+            port: device.port,
             artworkName: artwork.name,
             exhibitionName: exhibition.name,
             state: device.state,
