@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as d3 from 'd3';
 

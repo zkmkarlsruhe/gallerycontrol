@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 /**
  * Modal for editing exhibition properties including schedules feature toggle
  * and satellite relay assignment.

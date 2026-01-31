@@ -1,3 +1,6 @@
+/* Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+ * SPDX-License-Identifier: MIT
+ */
 :root {
   /* State colors */
   --state-error: #e74c3c;
@@ -3861,6 +3864,12 @@ body {
 
 /* Timeline tooltip (positioned fixed) */
 /* Duplicate tooltip styles removed - using earlier definition */
+
+.timeline-tooltip .tooltip-host {
+  color: #adb5bd;
+  font-size: 0.8rem;
+  margin-bottom: 2px;
+}
 
 .timeline-tooltip .tooltip-type {
   color: #6c757d;

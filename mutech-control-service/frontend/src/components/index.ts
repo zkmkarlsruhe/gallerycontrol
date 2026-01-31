@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 // Layout components
 export { Header } from './Header';
 export { Toast } from './Toast';

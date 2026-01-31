@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """API error handling utilities.
 
 Provides decorators and context managers for consistent error handling

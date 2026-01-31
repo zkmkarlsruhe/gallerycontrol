@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """ANEL Runner Service - UDP-to-HTTP relay for ANEL device control.
 
 This service is a simple bridge between HTTP and UDP. It has no state,

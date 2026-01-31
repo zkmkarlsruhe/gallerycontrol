@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 import { useState, useEffect, useCallback } from 'react';
 import { Modal } from '../ui/Modal';
 import type { Satellite, PendingSatellite } from '../../types';

@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Service Health Monitor - tracks health of external services/runners."""
 
 import asyncio

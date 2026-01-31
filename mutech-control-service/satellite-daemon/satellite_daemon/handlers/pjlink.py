@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """PJLink projector handler.
 
 PJLink uses TCP on port 4352 with optional MD5 authentication.

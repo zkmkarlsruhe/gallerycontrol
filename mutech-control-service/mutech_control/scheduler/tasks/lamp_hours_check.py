@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Periodic lamp hours check task.
 
 Queries lamp hours for all linked PJLink projectors on a schedule.

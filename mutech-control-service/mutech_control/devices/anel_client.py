@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """ANEL client - communicates with ANEL runner service via REST.
 
 The runner is a UDP-to-HTTP relay. It has no state, no credential storage.

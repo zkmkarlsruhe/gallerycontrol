@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Add artwork_id and exhibition_id to log tables for historical accuracy
 
 Denormalizes artwork/exhibition into log tables so timeline filtering

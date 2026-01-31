@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Remove exclude_from_auto_onoff column from devices table
 
 This column is redundant with automation_enabled - devices with

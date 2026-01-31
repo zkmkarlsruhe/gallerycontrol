@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Admin API endpoints for managing exhibitions, artworks, and devices."""
 
 import asyncio

@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Scheduler task implementations."""
 
 from mutech_control.scheduler.tasks.asset_linker import run_asset_linker

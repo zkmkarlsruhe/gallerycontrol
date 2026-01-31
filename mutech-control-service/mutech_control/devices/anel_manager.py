@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """ANEL device manager for power outlet control via UDP."""
 
 import asyncio
@@ -112,9 +114,18 @@ class ANELManager(DeviceManager):
         """Get ANEL outlet state. No cooldown - queries are read-only."""
         start_time = asyncio.get_event_loop().time()
 
+        # Port is required for ANEL devices
+        if device.port is None:
+            logger.error(f"ANEL: No port configured for {device.host} (device {device.id})")
+            return DeviceResult(
+                success=False,
+                state=-1,
+                error="No port/outlet configured for ANEL device"
+            )
+
         try:
             timeout = self.config.get("request_timeout", 5)
-            port = device.port if device.port is not None else device.config.get("port", 0)
+            port = device.port
 
             async with asyncio.timeout(timeout):
                 logger.info(f"ANEL: Getting state for {device.host}:{port}")
@@ -151,6 +162,15 @@ class ANELManager(DeviceManager):
 
     async def set_power(self, device, on: bool) -> DeviceResult:
         """Set ANEL outlet power state."""
+        # Port is required for ANEL devices
+        if device.port is None:
+            logger.error(f"ANEL: No port configured for {device.host} (device {device.id})")
+            return DeviceResult(
+                success=False,
+                state=device.state,
+                error="No port/outlet configured for ANEL device"
+            )
+
         if cooldown_result := self.cooldown_manager.check_cooldown(device.id, device.state):
             return cooldown_result
 
@@ -158,7 +178,7 @@ class ANELManager(DeviceManager):
 
         try:
             timeout = self.config.get("request_timeout", 5)
-            port = device.port if device.port is not None else device.config.get("port", 0)
+            port = device.port
             creds = resolve_credentials(device, ANEL_DEFAULT_USERNAME, ANEL_DEFAULT_PASSWORD)
             username, password = creds.username, creds.password
             command_str = "on" if on else "off"

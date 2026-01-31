@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';

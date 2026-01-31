@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Shared credential resolution utilities for device managers.
 
 All device managers that need to resolve credentials from the credential cache

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """
 SQLite to PostgreSQL Migration Script
 
@@ -184,15 +186,19 @@ async def migrate_units(cursor: sqlite3.Cursor, pg_conn):
             except json.JSONDecodeError:
                 args = {}
 
-        # Determine if device should be excluded from auto on/off
-        # Shell devices with reboot/restart commands should be excluded
-        exclude_from_auto = False
+        # Clean up shell device commands - remove obsolete 'reachable' command
         if unit["unit_type"] == "shell":
             commands = args.get("commands", [])
-            for cmd in commands:
-                if cmd.get("name", "").lower() in ["reboot", "restart"]:
-                    exclude_from_auto = True
-                    break
+            # Handle list format (old)
+            if isinstance(commands, list):
+                args["commands"] = [
+                    c for c in commands
+                    if c.get("name", "").lower() != "reachable"
+                ]
+            # Handle dict format (new)
+            elif isinstance(commands, dict):
+                commands.pop("reachable", None)
+                args["commands"] = commands
 
         # Map unit_type to device_type
         device_type_map = {
@@ -209,10 +215,10 @@ async def migrate_units(cursor: sqlite3.Cursor, pg_conn):
                 """
                 INSERT INTO devices (
                     id, artwork_id, name, device_type, host, port,
-                    enabled, automation_enabled, exclude_from_auto_onoff,
+                    enabled, automation_enabled,
                     config, state, created_at, updated_at
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 """,
                 new_id,
                 new_artwork_id,
@@ -222,7 +228,6 @@ async def migrate_units(cursor: sqlite3.Cursor, pg_conn):
                 unit.get("port"),
                 bool(unit.get("active", 1)),  # Convert SQLite int to bool
                 bool(unit.get("automation", 1)),  # Convert SQLite int to bool
-                exclude_from_auto,
                 json.dumps(args),
                 unit.get("state", -1),
                 datetime.fromisoformat(unit["created_at"])

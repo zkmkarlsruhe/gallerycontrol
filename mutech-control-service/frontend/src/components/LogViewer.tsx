@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMobile } from '../hooks/useMobile';
 
@@ -106,6 +108,12 @@ function formatLogLine(entry: TimelineEntry, advanced: boolean): { time: string;
   if (entry.type === 'operation') {
     const level = entry.success ? 'OK' : 'ERR';
 
+    // Show state for successful state queries
+    let stateInfo = '';
+    if (entry.success && entry.state_after !== undefined && entry.state_after !== null) {
+      stateInfo = ` [${STATE_NAMES[entry.state_after] || '?'}]`;
+    }
+
     let details = '';
     if (entry.error_message) {
       if (advanced) {
@@ -132,7 +140,7 @@ function formatLogLine(entry: TimelineEntry, advanced: boolean): { time: string;
       return {
         time,
         level,
-        message: `[${entry.device_type}] ${prefix}`,
+        message: `[${entry.device_type}] ${prefix}${stateInfo}`,
         details: details || advancedDetails ? `${details}${details && advancedDetails ? ' | ' : ''}${advancedDetails || ''}` : undefined
       };
     }
@@ -140,7 +148,7 @@ function formatLogLine(entry: TimelineEntry, advanced: boolean): { time: string;
     return {
       time,
       level,
-      message: `${prefix}${details}`
+      message: `${prefix}${stateInfo}${details}`
     };
   } else {
     const level = 'CHG';

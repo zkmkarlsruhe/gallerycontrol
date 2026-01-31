@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 /**
  * Reusable modal for creating multiple items from comma-separated input.
  * Used by AddExhibitionModal and AddArtworkModal.

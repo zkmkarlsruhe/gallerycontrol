@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """NETIO device manager for power outlet control."""
 
 import asyncio
@@ -37,9 +39,18 @@ class NETIOManager(DeviceManager):
         """Get NETIO outlet state. No cooldown - queries are read-only."""
         start_time = asyncio.get_event_loop().time()
 
+        # Port is required for NETIO devices
+        if device.port is None:
+            logger.error(f"NETIO: No port configured for {device.host} (device {device.id})")
+            return DeviceResult(
+                success=False,
+                state=-1,
+                error="No port/outlet configured for NETIO device"
+            )
+
         try:
             timeout = self.config.get("request_timeout", 5)
-            port = device.port if device.port is not None else device.config.get("port", 0)
+            port = device.port
             # Convert 0-based port (database) to 1-based ID (NETIO API)
             netio_id = db_to_device_id(port)
             creds = resolve_credentials(device, NETIO_DEFAULT_USERNAME, NETIO_DEFAULT_PASSWORD)
@@ -98,6 +109,15 @@ class NETIOManager(DeviceManager):
 
     async def set_power(self, device, on: bool) -> DeviceResult:
         """Set NETIO outlet power state. Minimal random cooldown (0-1s)."""
+        # Port is required for NETIO devices
+        if device.port is None:
+            logger.error(f"NETIO: No port configured for {device.host} (device {device.id})")
+            return DeviceResult(
+                success=False,
+                state=device.state,
+                error="No port/outlet configured for NETIO device"
+            )
+
         if cooldown_result := self.cooldown_manager.check_cooldown(device.id, device.state):
             return cooldown_result
 
@@ -105,7 +125,7 @@ class NETIOManager(DeviceManager):
 
         try:
             timeout = self.config.get("request_timeout", 5)
-            port = device.port if device.port is not None else device.config.get("port", 0)
+            port = device.port
             # Convert 0-based port (database) to 1-based ID (NETIO API)
             netio_id = db_to_device_id(port)
             creds = resolve_credentials(device, NETIO_DEFAULT_USERNAME, NETIO_DEFAULT_PASSWORD)

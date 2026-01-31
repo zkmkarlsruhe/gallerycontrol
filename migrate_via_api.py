@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Migrate data from SQLite to the new API."""
 
 import json
@@ -115,11 +117,12 @@ def migrate():
 
         # Build device config based on type
         config = {}
+        device_port = None  # Port column value (for power strips, this is the outlet)
 
         if device_type == "pjlink":
             # PJLink projector
             password = args.get("password", "")
-            port = args.get("port", "") or None
+            device_port = args.get("port", "") or None
             name = args.get("name", "") or host
 
             config = {}
@@ -127,16 +130,18 @@ def migrate():
                 config["credential_name"] = "panasonic"  # Use credential store
 
         elif device_type == "netio":
-            # NETIO power strip - port is the outlet number
+            # NETIO power strip - port column is the outlet number (0-based)
             port_num = args.get("port", "0")
-            name = args.get("name", "") or f"Port {port_num}"
-            config = {"outlet": int(port_num) if port_num else 0}
+            device_port = int(port_num) if port_num else 0
+            name = args.get("name", "") or f"Outlet {device_port}"
+            config = {}  # No special config needed, port is in column
 
         elif device_type == "anel":
-            # ANEL power strip - port is the outlet number
+            # ANEL power strip - port column is the outlet number (0-based)
             port_num = args.get("port", "0")
-            name = args.get("name", "") or f"Port {port_num}"
-            config = {"outlet": int(port_num) if port_num else 0}
+            device_port = int(port_num) if port_num else 0
+            name = args.get("name", "") or f"Outlet {device_port}"
+            config = {}  # No special config needed, port is in column
 
         elif device_type == "shell":
             # Shell device - convert old command format to new
@@ -162,7 +167,8 @@ def migrate():
                 elif cmd_name == "off":
                     new_commands["off"] = {"cmd": cmd_str}
                 elif cmd_name == "reachable":
-                    new_commands["reachable"] = {"cmd": cmd_str}
+                    # Skip - not used by new system (was for ping checks)
+                    pass
                 elif cmd_name in ["restart", "restart app", "reboot"]:
                     new_commands[cmd_name.replace(" ", "_")] = {"cmd": cmd_str}
 
@@ -179,7 +185,7 @@ def migrate():
             "name": name,
             "device_type": device_type,
             "host": host,
-            "port": None,  # Port is stored in config for power strips
+            "port": device_port,  # For power strips, this is the outlet number
             "enabled": active,
             "automation_enabled": automation,
             "config": config

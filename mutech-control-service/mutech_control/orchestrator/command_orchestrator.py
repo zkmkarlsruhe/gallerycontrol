@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Command orchestrator - coordinates device control operations."""
 
 import asyncio
@@ -631,8 +633,9 @@ class CommandOrchestrator:
 
             # Update database state if successful
             if result.success:
+                # Don't pass device.state - let it fetch current state from DB
                 await update_device_state_with_log(
-                    self.db_manager, device.id, result.state, "command", device.state
+                    self.db_manager, device.id, result.state, "command"
                 )
 
             # Log command to CommandLog (existing)

@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Add actions and onoff_mode columns to shell_templates
 
 Allows templates to store custom actions and track which mode

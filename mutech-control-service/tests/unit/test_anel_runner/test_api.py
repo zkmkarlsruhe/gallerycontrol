@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Tests for ANEL runner API endpoints."""
 
 from unittest.mock import AsyncMock, MagicMock, patch

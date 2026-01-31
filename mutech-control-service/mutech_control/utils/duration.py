@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Duration parsing and formatting utilities.
 
 Parse and format human-readable duration strings like "5m", "2m30s", "1h15m".

@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Satellite manager - handles WebSocket connections and command routing for satellites."""
 
 import asyncio

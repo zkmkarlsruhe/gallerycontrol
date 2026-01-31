@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 /**
  * Form component for configuring artwork protection rules.
  * Prevents overuse with time slices, max runtime, and cooldown.

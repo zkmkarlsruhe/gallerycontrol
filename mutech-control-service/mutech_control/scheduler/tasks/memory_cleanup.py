@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Memory cleanup task - removes stale entries from in-memory caches.
 
 This task runs periodically to clean up:

@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Create sample data for development and testing."""
 
 import asyncio

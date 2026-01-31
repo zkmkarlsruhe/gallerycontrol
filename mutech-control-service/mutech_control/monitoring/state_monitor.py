@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """State monitoring service - periodically polls device states."""
 
 import asyncio
@@ -404,7 +406,7 @@ class StateMonitor:
                         else:
                             # Update device state to error (-1) on timeout (normal polling only)
                             await update_device_state_with_log(
-                                self.db_manager, device.id, -1, "polling", device.state
+                                self.db_manager, device.id, -1, "polling"
                             )
 
                         # Broadcast timeout via SSE
@@ -480,7 +482,7 @@ class StateMonitor:
                           type=device.device_type)
             # Update to error state and send SSE
             await update_device_state_with_log(
-                self.db_manager, device.id, -1, "polling", device.state
+                self.db_manager, device.id, -1, "polling"
             )
             if self._sse:
                 self._create_background_task(
@@ -518,8 +520,10 @@ class StateMonitor:
 
             # Update database if successful
             if result.success:
+                # Don't pass device.state as current_state - it may be stale
+                # Let the function fetch the actual current state from DB
                 await update_device_state_with_log(
-                    self.db_manager, device.id, result.state, "polling", device.state
+                    self.db_manager, device.id, result.state, "polling"
                 )
 
                 logger.debug("Device state updated",
@@ -588,7 +592,7 @@ class StateMonitor:
                                   error=result.error)
                     # Update database to error state (-1) on poll failure (normal polling only)
                     await update_device_state_with_log(
-                        self.db_manager, device.id, -1, "polling", device.state
+                        self.db_manager, device.id, -1, "polling"
                     )
 
                 # Broadcast poll failure via SSE (still useful for frontend)
@@ -624,7 +628,7 @@ class StateMonitor:
                             error=str(e))
                 # Update to error state on exception (normal polling only)
                 await update_device_state_with_log(
-                    self.db_manager, device.id, -1, "polling", device.state
+                    self.db_manager, device.id, -1, "polling"
                 )
 
             if self._sse:

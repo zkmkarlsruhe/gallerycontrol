@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 import { createContext, useContext, useEffect, useState, useRef, useCallback, type ReactNode } from 'react';
 import type { ProtectionStatus } from '../types';
 

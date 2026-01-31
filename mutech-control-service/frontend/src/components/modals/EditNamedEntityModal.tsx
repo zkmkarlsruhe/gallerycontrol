@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 /**
  * Reusable modal for editing named entities with enabled toggle.
  * Used by EditExhibitionModal and EditArtworkModal.

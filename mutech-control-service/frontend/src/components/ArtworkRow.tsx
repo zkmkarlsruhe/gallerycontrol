@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 import type { Artwork, Device } from '../types';
 import { DeviceBadge } from './DeviceBadge';
 import { DeviceAccordion } from './DeviceAccordion';

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 /**
  * Shared types for device form state management.
  * Used by both AddDeviceModal and EditDeviceModal.

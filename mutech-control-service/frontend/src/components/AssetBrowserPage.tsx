@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Asset, LampHoursLog } from '../types';
 import { Modal } from './ui/Modal';

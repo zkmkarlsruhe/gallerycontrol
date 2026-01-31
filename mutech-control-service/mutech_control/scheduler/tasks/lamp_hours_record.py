@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Lamp hours record task - record lamp hours for a single device.
 
 This task is used for one-shot scheduled lamp hours recording, replacing

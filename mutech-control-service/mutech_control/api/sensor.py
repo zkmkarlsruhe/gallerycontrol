@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Sensor API endpoints for external trigger integration.
 
 Provides endpoints for external sensors (lidar, motion detectors, etc.) to trigger

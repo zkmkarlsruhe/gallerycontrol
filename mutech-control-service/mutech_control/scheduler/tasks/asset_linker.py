@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Asset linker task - links unlinked PJLink devices to assets via DNS resolution.
 
 This task runs periodically to:

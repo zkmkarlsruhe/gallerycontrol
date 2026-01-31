@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Artwork protection service - prevents overuse of artworks.
 
 Implements protection mechanisms for sensor-triggered artworks:

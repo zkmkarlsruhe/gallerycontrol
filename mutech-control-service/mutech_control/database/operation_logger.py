@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
 """Device operation logging for debug data with raw responses."""
 
 from datetime import datetime, timedelta, timezone

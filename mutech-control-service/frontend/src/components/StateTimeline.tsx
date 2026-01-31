@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import * as d3 from 'd3';
 
@@ -8,6 +10,7 @@ interface StateChange {
   device_id: string;
   device_name: string;
   device_type: string;
+  device_host: string;
   previous_state: number;
   new_state: number;
   timestamp: string;
@@ -18,6 +21,7 @@ interface TimeSegment {
   device_id: string;
   device_name: string;
   device_type: string;
+  device_host: string;
   state: number;
   start: Date;
   end: Date;
@@ -134,7 +138,7 @@ export const StateTimeline = memo(function StateTimeline({
 
     // Group changes by device
     const deviceChanges = new Map<string, StateChange[]>();
-    const deviceInfo = new Map<string, { name: string; type: string }>();
+    const deviceInfo = new Map<string, { name: string; type: string; host: string }>();
 
     for (const change of stateChanges) {
       if (!deviceChanges.has(change.device_id)) {
@@ -142,6 +146,7 @@ export const StateTimeline = memo(function StateTimeline({
         deviceInfo.set(change.device_id, {
           name: change.device_name,
           type: change.device_type,
+          host: change.device_host,
         });
       }
       deviceChanges.get(change.device_id)!.push(change);
@@ -175,6 +180,7 @@ export const StateTimeline = memo(function StateTimeline({
             device_id: deviceId,
             device_name: info.name,
             device_type: info.type,
+            device_host: info.host,
             state: change.previous_state,
             start: from,
             end: changeTime,
@@ -190,6 +196,7 @@ export const StateTimeline = memo(function StateTimeline({
           device_id: deviceId,
           device_name: info.name,
           device_type: info.type,
+          device_host: info.host,
           state: change.new_state,
           start: changeTime,
           end: segmentEnd,
@@ -310,6 +317,7 @@ export const StateTimeline = memo(function StateTimeline({
           .style('top', (event.pageY - 10) + 'px')
           .html(`
             <strong>${d.device_name}</strong><br/>
+            <span style="color: #adb5bd; font-size: 0.9em">${d.device_host}</span><br/>
             State: ${STATE_NAMES[d.state] || 'Unknown'}<br/>
             From: ${d3.timeFormat('%H:%M:%S')(d.start)}<br/>
             To: ${d3.timeFormat('%H:%M:%S')(d.end)}<br/>
