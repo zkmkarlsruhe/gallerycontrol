@@ -73,7 +73,11 @@ node_modules/
 reports/
 
 # Docker image archives
+*.tar
 *.tar.gz
+
+# Lua scripts (site-specific)
+*.lua
 
 # Agentbox state (session data, not for version control)
 .agentbox/claude/projects/
