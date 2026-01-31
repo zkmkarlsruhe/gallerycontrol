@@ -1,20 +1,41 @@
-version: '3.8'
-
 services:
-  postgres:
+  gallerycontrol:
+    build: ./gallerycontrol
+    container_name: gallerycontrol
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Berlin
+      - DATABASE_URL=postgresql+asyncpg://gallerycontrol:${DB_PASSWORD:-changeme}@gallerycontrol-postgres:5432/gallerycontrol
+      - ENVIRONMENT=development
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      gallerycontrol-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: curl --fail http://localhost:8000/health || exit 1
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 10s
+
+  gallerycontrol-postgres:
     image: postgres:16-alpine
-    container_name: mutech-postgres
+    container_name: gallerycontrol-postgres
     environment:
       TZ: Europe/Berlin
-      POSTGRES_DB: mutech
-      POSTGRES_USER: mutech
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-mutech_password}
+      POSTGRES_DB: gallerycontrol
+      POSTGRES_USER: gallerycontrol
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mutech"]
+      test: ["CMD-SHELL", "pg_isready -U gallerycontrol"]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -1,0 +1,557 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
+import { useState, useEffect } from 'react';
+import type { Credential, ShellTemplate } from '../../types';
+
+interface ShellAction {
+  name: string;
+  cmd: string;
+}
+
+interface ShellFormData {
+  name: string;
+  credential_id: string;
+  onoff_mode: boolean; // Kept for backwards compatibility, now means "has ON/OFF commands"
+  automation_enabled: boolean;
+  status_cmd: string;
+  on_pattern: string;
+  off_pattern: string;
+  on_cmd: string;
+  off_cmd: string;
+  actions: ShellAction[];
+  enabled: boolean;
+}
+
+interface ShellFormProps {
+  data: ShellFormData;
+  onChange: (data: ShellFormData) => void;
+  credentials?: Credential[];
+  templates?: ShellTemplate[];
+}
+
+interface TestResult {
+  success: boolean;
+  exit_code: number | null;
+  stdout: string;
+  stderr: string;
+  duration_ms: number;
+  error: string | null;
+  commandLabel: string;
+}
+
+// Check if ON/OFF section has any content
+function hasOnOffContent(data: ShellFormData): boolean {
+  return !!(data.on_cmd || data.off_cmd);
+}
+
+// Check if actions section has any content
+function hasActionsContent(data: ShellFormData): boolean {
+  return data.actions.some(a => a.name || a.cmd);
+}
+
+export function ShellForm({ data, onChange, credentials = [], templates = [] }: ShellFormProps) {
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [testingCommand, setTestingCommand] = useState<string | null>(null);
+  const [outputExpanded, setOutputExpanded] = useState(true);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+
+  // Accordion states - auto-open if there's content
+  const [onOffExpanded, setOnOffExpanded] = useState(hasOnOffContent(data));
+  const [actionsExpanded, setActionsExpanded] = useState(hasActionsContent(data));
+
+  // Auto-expand when content is added (e.g., from template)
+  useEffect(() => {
+    if (hasOnOffContent(data) && !onOffExpanded) {
+      setOnOffExpanded(true);
+    }
+    if (hasActionsContent(data) && !actionsExpanded) {
+      setActionsExpanded(true);
+    }
+  }, [data.on_cmd, data.off_cmd, data.actions]);
+
+  const update = (field: keyof ShellFormData, value: string | boolean | ShellAction[]) => {
+    onChange({ ...data, [field]: value });
+  };
+
+  const applyTemplate = () => {
+    const template = templates.find(t => t.id === selectedTemplateId);
+    if (!template) return;
+
+    // In combined mode, templates can have both ON/OFF and actions
+    const hasOnOff = !!(template.on_command && template.off_command);
+
+    onChange({
+      ...data,
+      onoff_mode: hasOnOff, // Set based on actual presence of ON/OFF commands
+      status_cmd: template.status_command || '',
+      on_pattern: template.status_on_pattern || '',
+      off_pattern: template.status_off_pattern || '',
+      on_cmd: template.on_command || '',
+      off_cmd: template.off_command || '',
+      actions: template.actions?.length ? template.actions : [],
+      automation_enabled: hasOnOff, // Enable automation only if has ON/OFF
+    });
+    setSelectedTemplateId('');
+  };
+
+  const updateAction = (index: number, field: 'name' | 'cmd', value: string) => {
+    const newActions = [...data.actions];
+    newActions[index] = { ...newActions[index], [field]: value };
+    update('actions', newActions);
+  };
+
+  const addAction = () => {
+    update('actions', [...data.actions, { name: '', cmd: '' }]);
+  };
+
+  const removeAction = (index: number) => {
+    update('actions', data.actions.filter((_, i) => i !== index));
+  };
+
+  const testCommand = async (command: string, label: string) => {
+    if (!command.trim()) return;
+
+    setTestingCommand(label);
+    setTestResult(null);
+
+    try {
+      const response = await fetch('/api/admin/shell/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          command,
+          timeout: 5,
+          credential_id: data.credential_id || null,
+        }),
+      });
+
+      const result = await response.json();
+      setTestResult({
+        ...result,
+        commandLabel: label,
+      });
+      setOutputExpanded(true);
+    } catch (err) {
+      setTestResult({
+        success: false,
+        exit_code: null,
+        stdout: '',
+        stderr: '',
+        duration_ms: 0,
+        error: err instanceof Error ? err.message : 'Unknown error',
+        commandLabel: label,
+      });
+      setOutputExpanded(true);
+    } finally {
+      setTestingCommand(null);
+    }
+  };
+
+  // Filter credentials by shell type
+  const shellCredentials = credentials.filter(c => c.credential_type === 'shell');
+  const selectedCredential = shellCredentials.find(c => c.id === data.credential_id);
+
+  const TestButton = ({ command, label }: { command: string; label: string }) => (
+    <button
+      type="button"
+      className="btn btn-outline-secondary btn-sm"
+      onClick={() => testCommand(command, label)}
+      disabled={!command.trim() || testingCommand !== null}
+      title={command.trim() ? `Test ${label}` : 'Enter a command first'}
+    >
+      {testingCommand === label ? (
+        <><i className="bi bi-hourglass-split"></i> Testing...</>
+      ) : (
+        <><i className="bi bi-play-fill"></i> Test</>
+      )}
+    </button>
+  );
+
+  return (
+    <div className="device-form">
+      {/* Template Selector */}
+      {templates.length > 0 && (
+        <div className="form-section template-selector">
+          <div className="section-title">
+            <i className="bi bi-bookmark me-1"></i> Load from Template
+          </div>
+          <div className="input-group">
+            <select
+              className="form-select"
+              value={selectedTemplateId}
+              onChange={(e) => setSelectedTemplateId(e.target.value)}
+            >
+              <option value="">Select a template...</option>
+              {templates.map(tmpl => {
+                const hasOnOff = !!(tmpl.on_command && tmpl.off_command);
+                const hasActions = tmpl.actions && tmpl.actions.length > 0;
+                const modeLabel = hasOnOff && hasActions ? '(Combined)' : hasOnOff ? '(ON/OFF)' : '(Actions)';
+                return (
+                  <option key={tmpl.id} value={tmpl.id}>
+                    {tmpl.name} {modeLabel}{tmpl.description ? ` - ${tmpl.description}` : ''}
+                  </option>
+                );
+              })}
+            </select>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={applyTemplate}
+              disabled={!selectedTemplateId}
+            >
+              Apply
+            </button>
+          </div>
+          <small className="form-text text-muted">
+            Templates pre-fill command fields. Device name and credentials are not affected.
+          </small>
+        </div>
+      )}
+
+      <div className="form-section">
+        <div className="section-title">Basic Information</div>
+        <div className="mb-3">
+          <label className="form-label">Device Name</label>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="e.g. Media Server"
+            value={data.name}
+            onChange={(e) => update('name', e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Credentials - shown inline in Basic Info style */}
+      <div className="form-section">
+        <div className="section-title">Credentials</div>
+        <div className="mb-3">
+          <select
+            className="form-select"
+            value={data.credential_id}
+            onChange={(e) => update('credential_id', e.target.value)}
+          >
+            <option value="">None (optional)</option>
+            {shellCredentials.map(cred => (
+              <option key={cred.id} value={cred.id}>
+                {cred.name} ({cred.username})
+              </option>
+            ))}
+          </select>
+          {shellCredentials.length === 0 ? (
+            <small className="form-text text-muted">
+              Add Shell credentials in the Credentials Store
+            </small>
+          ) : data.credential_id && selectedCredential ? (
+            <small className="form-text text-muted">
+              Use <code>{'{'}{'{'}'user{'}'}{'}'}</code> and <code>{'{'}{'{'}'password{'}'}{'}'}</code> in commands
+            </small>
+          ) : (
+            <small className="form-text text-muted">
+              For SSH or sudo commands
+            </small>
+          )}
+        </div>
+      </div>
+
+      {/* Status Command - Always Required */}
+      <div className="form-section">
+        <div className="section-title">
+          <i className="bi bi-activity me-1"></i> Status Detection
+        </div>
+        <div className="command-input-group">
+          <label className="form-label">
+            <strong>Status Command</strong> <span className="text-danger">(required)</span>
+          </label>
+          <div className="input-group mb-2">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="systemctl status myapp"
+              value={data.status_cmd}
+              onChange={(e) => update('status_cmd', e.target.value)}
+            />
+            <TestButton command={data.status_cmd} label="Status" />
+          </div>
+          <small className="form-text text-muted">Command to check device state (exit 0 = reachable)</small>
+          <div className="row mt-2">
+            <div className="col-md-6">
+              <label className="form-label small">ON Pattern (regex)</label>
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                placeholder="active \(running\)"
+                value={data.on_pattern}
+                onChange={(e) => update('on_pattern', e.target.value)}
+              />
+              <small className="form-text text-muted">Regex to detect ON state</small>
+            </div>
+            <div className="col-md-6">
+              <label className="form-label small">OFF Pattern (regex)</label>
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                placeholder="inactive"
+                value={data.off_pattern}
+                onChange={(e) => update('off_pattern', e.target.value)}
+              />
+              <small className="form-text text-muted">Regex to detect OFF state</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ON/OFF Commands - Optional Accordion */}
+      <div className="form-section">
+        <div
+          className="section-title d-flex justify-content-between align-items-center"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setOnOffExpanded(!onOffExpanded)}
+        >
+          <span>
+            <i className={`bi bi-chevron-${onOffExpanded ? 'down' : 'right'} me-2`}></i>
+            <i className="bi bi-power me-1"></i> ON/OFF Control
+            <span className="badge bg-secondary ms-2">Optional</span>
+            {hasOnOffContent(data) && <span className="badge bg-info ms-2">Configured</span>}
+          </span>
+        </div>
+
+        {onOffExpanded && (
+          <div className="mt-3">
+            <small className="text-muted d-block mb-3">
+              Add ON and OFF commands to enable power control and automation. Leave empty for action-only devices.
+            </small>
+
+            <div className="command-input-group">
+              <label className="form-label">
+                <strong>ON Command</strong>
+              </label>
+              <div className="input-group mb-2">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="systemctl start myapp (optional)"
+                  value={data.on_cmd}
+                  onChange={(e) => update('on_cmd', e.target.value)}
+                />
+                <TestButton command={data.on_cmd} label="ON" />
+              </div>
+              <small className="form-text text-muted">Command to turn device ON</small>
+            </div>
+
+            <div className="command-input-group">
+              <label className="form-label">
+                <strong>OFF Command</strong>
+              </label>
+              <div className="input-group mb-2">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="systemctl stop myapp (optional)"
+                  value={data.off_cmd}
+                  onChange={(e) => update('off_cmd', e.target.value)}
+                />
+                <TestButton command={data.off_cmd} label="OFF" />
+              </div>
+              <small className="form-text text-muted">Command to turn device OFF</small>
+            </div>
+
+            {/* Show warning if only one of ON/OFF is set */}
+            {((data.on_cmd && !data.off_cmd) || (!data.on_cmd && data.off_cmd)) && (
+              <div className="alert alert-warning py-2 mt-2">
+                <i className="bi bi-exclamation-triangle me-1"></i>
+                Both ON and OFF commands are required for automation. Add both or leave both empty.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Custom Actions - Optional Accordion */}
+      <div className="form-section">
+        <div
+          className="section-title d-flex justify-content-between align-items-center"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setActionsExpanded(!actionsExpanded)}
+        >
+          <span>
+            <i className={`bi bi-chevron-${actionsExpanded ? 'down' : 'right'} me-2`}></i>
+            <i className="bi bi-lightning me-1"></i> Custom Actions
+            <span className="badge bg-secondary ms-2">Optional</span>
+            {hasActionsContent(data) && (
+              <span className="badge bg-info ms-2">
+                {data.actions.filter(a => a.name || a.cmd).length} action{data.actions.filter(a => a.name || a.cmd).length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </span>
+        </div>
+
+        {actionsExpanded && (
+          <div className="mt-3">
+            <small className="text-muted d-block mb-3">
+              Add custom action buttons (e.g., Restart, Reboot, Check Logs). These appear alongside ON/OFF buttons.
+            </small>
+
+            <div id="custom-commands-container">
+              {data.actions.map((action, index) => (
+                <div key={index} className="command-input-group">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-delete remove-btn"
+                    onClick={() => removeAction(index)}
+                    title="Remove action"
+                  >
+                    <i className="bi bi-x"></i>
+                  </button>
+                  <label className="form-label"><strong>Action {index + 1}</strong></label>
+                  <input
+                    type="text"
+                    className="form-control mb-2"
+                    placeholder="Button label (e.g. Restart Service)"
+                    value={action.name}
+                    onChange={(e) => updateAction(index, 'name', e.target.value)}
+                  />
+                  <div className="input-group mb-2">
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Command to execute"
+                      value={action.cmd}
+                      onChange={(e) => updateAction(index, 'cmd', e.target.value)}
+                    />
+                    <TestButton command={action.cmd} label={action.name || `Action ${index + 1}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button type="button" className="btn btn-add btn-sm" onClick={addAction}>
+              <i className="bi bi-plus-circle"></i> Add Action
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Test Output Panel */}
+      {testResult && (
+        <div className="form-section test-output-section">
+          <div
+            className="section-title d-flex justify-content-between align-items-center"
+            style={{ cursor: 'pointer' }}
+            onClick={() => setOutputExpanded(!outputExpanded)}
+          >
+            <span>
+              <i className={`bi bi-chevron-${outputExpanded ? 'down' : 'right'} me-2`}></i>
+              Test Output: {testResult.commandLabel}
+            </span>
+            <span className={`badge ${testResult.success ? 'bg-success' : 'bg-danger'}`}>
+              {testResult.success ? 'Success' : 'Failed'}
+            </span>
+          </div>
+
+          {outputExpanded && (
+            <div className="test-output-content">
+              <div className="test-output-meta mb-2">
+                <span className="me-3">
+                  <strong>Exit Code:</strong>{' '}
+                  <code className={testResult.exit_code === 0 ? 'text-success' : 'text-danger'}>
+                    {testResult.exit_code ?? 'N/A'}
+                  </code>
+                </span>
+                <span>
+                  <strong>Duration:</strong> <code>{testResult.duration_ms}ms</code>
+                </span>
+              </div>
+
+              {testResult.error && (
+                <div className="test-output-block error">
+                  <div className="test-output-label">Error</div>
+                  <pre>{testResult.error}</pre>
+                </div>
+              )}
+
+              {testResult.stdout && (
+                <div className="test-output-block stdout">
+                  <div className="test-output-label">stdout</div>
+                  <pre>{testResult.stdout}</pre>
+                </div>
+              )}
+
+              {testResult.stderr && (
+                <div className="test-output-block stderr">
+                  <div className="test-output-label">stderr</div>
+                  <pre>{testResult.stderr}</pre>
+                </div>
+              )}
+
+              {!testResult.stdout && !testResult.stderr && !testResult.error && (
+                <div className="text-muted">
+                  <em>No output</em>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary mt-2"
+                onClick={() => setTestResult(null)}
+              >
+                <i className="bi bi-x-circle"></i> Clear Output
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="form-section">
+        <div className="section-title">Settings</div>
+        <div className="form-check mb-3">
+          <input
+            className="form-check-input"
+            type="checkbox"
+            id="shell-enabled"
+            checked={data.enabled}
+            onChange={(e) => update('enabled', e.target.checked)}
+          />
+          <label className="form-check-label" htmlFor="shell-enabled">
+            <strong>Device Enabled</strong>
+          </label>
+          <small className="d-block text-muted">When disabled, device is ignored by the system</small>
+        </div>
+        {/* Show automation checkbox only when both ON and OFF commands exist */}
+        {data.on_cmd && data.off_cmd ? (
+          <div className="form-check mb-3">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="shell-automation"
+              checked={data.automation_enabled}
+              onChange={(e) => update('automation_enabled', e.target.checked)}
+            />
+            <label className="form-check-label" htmlFor="shell-automation">
+              <strong>Include in Automation</strong>
+            </label>
+            <small className="d-block text-muted">Included in bulk ON/OFF operations for artwork/exhibition</small>
+          </div>
+        ) : (
+          <small className="d-block text-muted">
+            <i className="bi bi-info-circle"></i> Add both ON and OFF commands to enable automation
+          </small>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export const defaultShellData: ShellFormData = {
+  name: '',
+  credential_id: '',
+  onoff_mode: true,
+  automation_enabled: true,
+  status_cmd: '',
+  on_pattern: '',
+  off_pattern: '',
+  on_cmd: '',
+  off_cmd: '',
+  actions: [],
+  enabled: true,
+};

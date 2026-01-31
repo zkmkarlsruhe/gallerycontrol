@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 # SPDX-License-Identifier: MIT
 """
-Standalone test script for MuTech Control System
+Standalone test script for GalleryControl Control System
 
 Tests the system without Docker by:
 1. Using in-memory SQLite database
@@ -20,7 +20,7 @@ from pathlib import Path
 from uuid import uuid4
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "mutech-control-service"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "gallerycontrol-service"))
 
 # Patch SQLAlchemy types for SQLite compatibility BEFORE importing models
 from sqlalchemy import JSON, String, create_engine, select
@@ -50,10 +50,10 @@ postgresql.UUID = TextUUID
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from mutech_control.database.models import Base, Exhibition, Artwork, Device, CommandLog
-from mutech_control.devices.base import DeviceManager, DeviceResult, ConnectionResult
-from mutech_control.orchestrator.command_orchestrator import CommandOrchestrator
-from mutech_control.database.connection import DatabaseManager
+from gallerycontrol.database.models import Base, Exhibition, Artwork, Device, CommandLog
+from gallerycontrol.devices.base import DeviceManager, DeviceResult, ConnectionResult
+from gallerycontrol.orchestrator.command_orchestrator import CommandOrchestrator
+from gallerycontrol.database.connection import DatabaseManager
 
 
 # Mock Device Manager
@@ -465,7 +465,7 @@ async def test_fast_lane(db: TestDatabaseManager, orchestrator: CommandOrchestra
 async def main():
     """Main test function."""
     print(f"\n{Colors.BLUE}{'='*60}{Colors.RESET}")
-    print(f"{Colors.BLUE}MuTech Control System - Standalone Test{Colors.RESET}")
+    print(f"{Colors.BLUE}GalleryControl Control System - Standalone Test{Colors.RESET}")
     print(f"{Colors.BLUE}{'='*60}{Colors.RESET}\n")
 
     # Initialize database

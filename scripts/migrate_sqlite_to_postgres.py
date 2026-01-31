@@ -10,7 +10,7 @@ Usage:
     python migrate_sqlite_to_postgres.py <sqlite_db_path>
 
 Example:
-    python migrate_sqlite_to_postgres.py /path/to/old/mutech.db
+    python migrate_sqlite_to_postgres.py /path/to/old/gallerycontrol.db
 """
 
 import asyncio
@@ -247,7 +247,7 @@ async def migrate_units(cursor: sqlite3.Cursor, pg_conn):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python migrate_sqlite_to_postgres.py <sqlite_db_path>")
-        print("Example: python migrate_sqlite_to_postgres.py /path/to/mutech.db")
+        print("Example: python migrate_sqlite_to_postgres.py /path/to/gallerycontrol.db")
         sys.exit(1)
 
     sqlite_path = sys.argv[1]
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     import os
 
     postgres_url = os.getenv(
-        "DATABASE_URL", "postgresql://mutech:mutech_password@localhost:5432/mutech"
+        "DATABASE_URL", "postgresql://gallerycontrol:changeme@localhost:5432/gallerycontrol"
     )
 
     # Remove asyncpg:// prefix if present and replace with postgresql://

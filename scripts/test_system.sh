@@ -12,7 +12,7 @@ API_BASE="http://localhost:8000"
 ANEL_BASE="http://localhost:8001"
 
 echo "================================"
-echo "MuTech Control System - Test Suite"
+echo "GalleryControl - Test Suite"
 echo "================================"
 echo ""
 

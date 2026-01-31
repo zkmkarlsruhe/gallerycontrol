@@ -1,195 +1,173 @@
-# MuTech Control System - Python Refactor
+# GalleryControl
 
-Modern Python-based museum device control system with FastAPI, PostgreSQL, and Docker.
+**One switch to open your museum.**
 
-## Architecture
+GalleryControl is a centralized control system for museums and galleries. It replaces hours of walking around with remotes or juggling browser tabs with a single, unified interface to manage all your exhibition devices.
 
-- **Main Service**: FastAPI monolith handling PJLink, NETIO, Shell, and ANEL client
-- **ANEL Runner**: Separate service for ANEL devices (network segment isolation)
-- **PostgreSQL**: Database for exhibitions, artworks, and devices
-- **React Frontend**: Modern TypeScript UI (to be implemented)
+## What it does
+
+- **Turn exhibitions on/off** with a single click
+- **Schedule opening hours** - devices turn on/off automatically
+- **Monitor device health** - see what's online, offline, or needs attention
+- **Protect artwork** - automated shutdown when sensors detect issues
+- **Control any device** - projectors, power outlets, computers, custom hardware
+
+## Supported Devices
+
+| Protocol | Devices | Examples |
+|----------|---------|----------|
+| **PJLink** | Projectors, displays | Epson, Panasonic, NEC, Sony |
+| **NETIO** | Smart power outlets | NETIO PowerPDU, 4All |
+| **ANEL** | Power distribution | ANEL NET-PwrCtrl |
+| **Shell** | Any SSH-accessible device | Linux PCs, Raspberry Pi, Mac |
 
 ## Quick Start
 
-### Prerequisites
-
-- Docker and Docker Compose
-- Git
-
-### Setup
-
-1. Clone and navigate to the project:
 ```bash
-cd /workspace
-```
+# Clone the repository
+git clone https://github.com/zkmkarlsruhe/gallerycontrol.git
+cd gallerycontrol
 
-2. Create environment file:
-```bash
+# Create environment file
 cp .env.example .env
-# Edit .env and set secure passwords/keys
+# Edit .env and set a secure DB_PASSWORD
+
+# Start services
+docker compose up -d
+
+# Open the UI
+open http://localhost:8000
 ```
 
-3. Build and start services:
-```bash
-docker-compose up --build
-```
-
-4. Access services:
-- Main API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-- ANEL Runner: http://localhost:8001 (host network mode)
-- PostgreSQL: localhost:5432
-
-### Development
-
-To run services locally without Docker:
-
-**Main Service:**
-```bash
-cd mutech-control-service
-poetry install
-poetry run uvicorn mutech_control.main:app --reload
-```
-
-**ANEL Runner:**
-```bash
-cd anel-runner-service
-poetry install
-poetry run uvicorn anel_runner.main:app --port 8001
-```
-
-## Project Structure
+## Architecture
 
 ```
-/workspace/
-├── mutech-control-service/      # Main FastAPI service
-│   ├── mutech_control/
-│   │   ├── api/                 # REST endpoints
-│   │   ├── database/            # Models & migrations
-│   │   ├── devices/             # Device managers
-│   │   ├── orchestrator/        # Command coordination
-│   │   └── utils/
-│   ├── config/                  # YAML configuration
-│   └── tests/
-│
-├── anel-runner-service/         # ANEL isolated service
-│   └── anel_runner/
-│
-├── docker-compose.yml           # Docker orchestration
-└── README.md
+┌─────────────────────────────────────────────────────────┐
+│                    GalleryControl                        │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
+│  │   Web UI    │  │  REST API   │  │  Scheduler  │      │
+│  │   (React)   │  │  (FastAPI)  │  │   (cron)    │      │
+│  └─────────────┘  └─────────────┘  └─────────────┘      │
+│         │                │                │              │
+│  ┌──────┴────────────────┴────────────────┴──────┐      │
+│  │              Device Managers                   │      │
+│  │  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐  │      │
+│  │  │ PJLink │ │ NETIO  │ │  ANEL  │ │ Shell  │  │      │
+│  └──┴────────┴─┴────────┴─┴────────┴─┴────────┴──┘      │
+│                          │                               │
+│  ┌───────────────────────┴───────────────────────┐      │
+│  │              PostgreSQL Database               │      │
+│  └────────────────────────────────────────────────┘      │
+└─────────────────────────────────────────────────────────┘
+                           │
+          ┌────────────────┼────────────────┐
+          ▼                ▼                ▼
+    ┌──────────┐    ┌──────────┐    ┌──────────┐
+    │ Projector│    │  Power   │    │   PC     │
+    │ (PJLink) │    │ (NETIO)  │    │ (Shell)  │
+    └──────────┘    └──────────┘    └──────────┘
 ```
+
+## Features
+
+### Device Control
+- Turn individual devices on/off
+- Group devices by artwork and exhibition
+- Staggered startup to prevent power surges
+- Verification that devices actually turned off
+
+### Scheduling
+- Define opening hours per exhibition
+- Automatic on/off at scheduled times
+- One-shot tasks for special events
+- Per-device schedule overrides
+
+### Monitoring
+- Real-time device state polling
+- Projector lamp hours tracking
+- Connection health monitoring
+- Email alerts for failures
+
+### Protection
+- Sensor integration (temperature, humidity)
+- Automatic shutdown when thresholds exceeded
+- Configurable protection rules per artwork
 
 ## Configuration
 
-Configuration is managed via YAML files in `mutech-control-service/config/`:
+Configuration is managed via YAML files in `gallerycontrol/config/`:
 
-- `default.yaml`: Base configuration
-- `development.yaml`: Dev overrides (optional)
-- `production.yaml`: Production settings (optional)
+```yaml
+# config/default.yaml
+server:
+  host: 0.0.0.0
+  port: 8000
 
-Hot-reload is enabled - changes to config files are picked up automatically.
+polling:
+  interval_seconds: 30
 
-## Database Migrations
-
-```bash
-# Create new migration
-docker-compose exec main-service poetry run alembic revision --autogenerate -m "description"
-
-# Apply migrations
-docker-compose exec main-service poetry run alembic upgrade head
-
-# Rollback
-docker-compose exec main-service poetry run alembic downgrade -1
+email:
+  enabled: false
+  # smtp_host: smtp.example.com
 ```
 
-## API Documentation
+## API
 
 Once running, visit http://localhost:8000/docs for interactive API documentation.
 
 ### Key Endpoints
 
-**Control:**
-- `POST /api/control/exhibition/{id}/on` - Turn on exhibition
-- `POST /api/control/exhibition/{id}/off` - Turn off exhibition (with verification)
-- `POST /api/control/artwork/{id}/on` - Turn on artwork
-- `POST /api/control/device/{id}/on` - Turn on device
-
-**Fast Lane:**
-- `POST /api/fast/device/{id}/on` - Fast lane (no verification)
-- `POST /api/fast/device/{id}/off` - Fast lane off
-
-**State:**
-- `GET /api/state/exhibition/{id}` - Get exhibition state
-- `GET /api/state/device/{id}` - Get device state
-
-**Admin:**
-- `GET /api/admin/exhibitions` - List exhibitions
-- `POST /api/admin/exhibitions` - Create exhibition
-- (CRUD endpoints for artworks and devices)
-
-## Features
-
-### Implemented
-
-✅ FastAPI REST API framework
-✅ PostgreSQL database with SQLAlchemy
-✅ Alembic migrations
-✅ YAML configuration with hot-reload
-✅ Docker deployment with docker-compose
-✅ ANEL runner service with API key auth
-✅ Health check endpoints
-
-### In Progress
-
-🚧 Device managers (PJLink, NETIO, Shell, ANEL client)
-🚧 Command orchestrator with ON stagger (1s)
-🚧 OFF verification with retry logic
-🚧 Per-device cooldown management
-🚧 REST API endpoints
-🚧 SQLite to PostgreSQL migration script
-🚧 Frontend React + TypeScript
-
-## Testing
-
 ```bash
-# Run tests
-docker-compose exec main-service poetry run pytest
+# Turn on an exhibition
+POST /api/control/exhibition/{id}/on
 
-# With coverage
-docker-compose exec main-service poetry run pytest --cov=mutech_control
+# Turn off an exhibition (with verification)
+POST /api/control/exhibition/{id}/off
+
+# Get exhibition state
+GET /api/state/exhibition/{id}
+
+# Fast lane - direct device control
+POST /api/fast/device/{id}/on
+POST /api/fast/device/{id}/off
 ```
 
-## Monitoring
+## Development
 
 ```bash
-# View logs
-docker-compose logs -f main-service
-docker-compose logs -f anel-runner
-
-# Database logs
-docker-compose logs -f postgres
+cd gallerycontrol
+poetry install
+poetry run uvicorn gallerycontrol.main:app --reload
 ```
 
-## Troubleshooting
+### Running Tests
 
-**Database connection issues:**
 ```bash
-# Check PostgreSQL is running
-docker-compose ps postgres
-
-# Check connection
-docker-compose exec postgres psql -U mutech -d mutech -c "\dt"
+poetry run pytest
+poetry run pytest --cov=gallerycontrol
 ```
 
-**ANEL runner network issues:**
-- ANEL runner uses `network_mode: host` to access UDP broadcasts
-- Ensure ANEL devices are on the same network segment
-- Check ports 9975 (send) and 9977 (receive) are accessible
+## Deployment
+
+See [examples/zkm-deployment/](examples/zkm-deployment/) for a production deployment example with Traefik reverse proxy.
+
+### ANEL Runner
+
+ANEL devices require UDP broadcast access. For network-isolated deployments, run the ANEL Runner service separately:
+
+```bash
+cd anel-runner-service
+docker compose up -d
+```
 
 ## License
 
-GPL-3.0
+MIT License - see [LICENSE](LICENSE) for details.
 
 ## Authors
 
-ZKM | Center for Art and Media Karlsruhe
+Created by Marc Schütze @ [ZKM | Center for Art and Media Karlsruhe](https://zkm.de)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
