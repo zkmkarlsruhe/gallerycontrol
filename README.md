@@ -2,6 +2,8 @@
 
 **One switch to open your museum.**
 
+> **Production-ready** — Daily driver at [ZKM | Center for Art and Media Karlsruhe](https://zkm.de) since 2025. Battle-tested with 50+ devices across multiple exhibitions.
+
 GalleryControl is a centralized control system for museums and galleries. It replaces hours of walking around with remotes or juggling browser tabs with a single, unified interface to manage all your exhibition devices.
 
 ## What it does

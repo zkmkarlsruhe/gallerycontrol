@@ -1,11 +1,9 @@
-version: "2.4"
-
 services:
 
-  mutech-control:
-    build: ./mutech-control-service
-    image: harbor.zkm.de/mutech/mutech-control:v1.2.10
-    container_name: "mutech-control"
+  gallerycontrol:
+    build: ./gallerycontrol
+    image: harbor.zkm.de/gallerycontrol/gallerycontrol:v1.3.0
+    container_name: "gallerycontrol"
     restart: always
     cpus: "1.0"
     mem_limit: 1gb
@@ -16,7 +14,7 @@ services:
       - TZ=Europe/Berlin
 
       # Database
-      - DATABASE_URL=postgresql+asyncpg://mutech:${DB_PASSWORD}@mutech-postgres:5432/mutech
+      - DATABASE_URL=postgresql+asyncpg://gallerycontrol:${DB_PASSWORD}@gallerycontrol-postgres:5432/gallerycontrol
 
       # Application
       - ENVIRONMENT=production
@@ -40,31 +38,31 @@ services:
       start_period: 10s
 
     depends_on:
-      mutech-postgres:
+      gallerycontrol-postgres:
         condition: service_healthy
 
     labels:
       # traefik
       - traefik.enable=true
       # Main router - protected by whitelist AND guardian auth
-      - traefik.http.routers.mutech-control.rule=Host(`control.mutech.zkm.de`)
-      - traefik.http.routers.mutech-control.entrypoints=websecure
-      - traefik.http.routers.mutech-control.service=mutech-control
-      - traefik.http.routers.mutech-control.tls=true
-      - traefik.http.routers.mutech-control.middlewares=whitelist-and-guardian@file
+      - traefik.http.routers.gallerycontrol.rule=Host(`control.mutech.zkm.de`)
+      - traefik.http.routers.gallerycontrol.entrypoints=websecure
+      - traefik.http.routers.gallerycontrol.service=gallerycontrol
+      - traefik.http.routers.gallerycontrol.tls=true
+      - traefik.http.routers.gallerycontrol.middlewares=whitelist-and-guardian@file
       # External API router - only IP whitelist, no guardian auth (for /api/sensor and /api/fast)
-      - traefik.http.routers.mutech-control-external.rule=Host(`control.mutech.zkm.de`) && (PathPrefix(`/api/sensor`) || PathPrefix(`/api/fast`))
-      - traefik.http.routers.mutech-control-external.entrypoints=websecure
-      - traefik.http.routers.mutech-control-external.service=mutech-control
-      - traefik.http.routers.mutech-control-external.tls=true
-      - traefik.http.routers.mutech-control-external.middlewares=zkm-intern-whitelist@file
-      - traefik.http.routers.mutech-control-external.priority=100
+      - traefik.http.routers.gallerycontrol-external.rule=Host(`control.mutech.zkm.de`) && (PathPrefix(`/api/sensor`) || PathPrefix(`/api/fast`))
+      - traefik.http.routers.gallerycontrol-external.entrypoints=websecure
+      - traefik.http.routers.gallerycontrol-external.service=gallerycontrol
+      - traefik.http.routers.gallerycontrol-external.tls=true
+      - traefik.http.routers.gallerycontrol-external.middlewares=zkm-intern-whitelist@file
+      - traefik.http.routers.gallerycontrol-external.priority=100
       # Service
-      - traefik.http.services.mutech-control.loadbalancer.server.port=8000
+      - traefik.http.services.gallerycontrol.loadbalancer.server.port=8000
 
-  mutech-postgres:
+  gallerycontrol-postgres:
     image: postgres:16-alpine
-    container_name: "mutech-postgres"
+    container_name: "gallerycontrol-postgres"
     restart: always
     cpus: "0.5"
     mem_limit: 512mb
@@ -72,15 +70,15 @@ services:
 
     environment:
       - TZ=Europe/Berlin
-      - POSTGRES_DB=mutech
-      - POSTGRES_USER=mutech
+      - POSTGRES_DB=gallerycontrol
+      - POSTGRES_USER=gallerycontrol
       - POSTGRES_PASSWORD=${DB_PASSWORD}
 
     volumes:
-      - mutech_postgres_data:/var/lib/postgresql/data
+      - gallerycontrol_postgres_data:/var/lib/postgresql/data
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mutech"]
+      test: ["CMD-SHELL", "pg_isready -U gallerycontrol"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -90,7 +88,7 @@ services:
       - traefik.enable=false
 
 volumes:
-  mutech_postgres_data:
+  gallerycontrol_postgres_data:
     driver: local
 
 networks:
