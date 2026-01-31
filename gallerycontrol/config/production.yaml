@@ -18,8 +18,8 @@ email:
   smtp_password: ""
   smtp_use_tls: true
   from_address: "gallerycontrol@zkm.de"
-  from_name: "MuTech Steuerung"
-  subject: "MuTech Device Status Report"
+  from_name: "GalleryControl"
+  subject: "GalleryControl Device Status Report"
   recipients:
     - "${EMAIL_RECIPIENT:-marc@zkm.de}"
 

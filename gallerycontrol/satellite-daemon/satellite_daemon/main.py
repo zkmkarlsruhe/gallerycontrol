@@ -65,7 +65,7 @@ async def run_daemon(config: Config) -> None:
 
 def main() -> None:
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Satellite daemon for MuTech Control")
+    parser = argparse.ArgumentParser(description="Satellite daemon for GalleryControl")
     parser.add_argument(
         "-c", "--config",
         type=Path,

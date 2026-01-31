@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 # SPDX-License-Identifier: MIT
-"""Simple CLI tool for MuTech Control Service operations."""
+"""Simple CLI tool for GalleryControl operations."""
 
 import argparse
 import asyncio
@@ -135,7 +135,7 @@ async def health_check():
 
 def main():
     """CLI entry point."""
-    parser = argparse.ArgumentParser(description="MuTech Control Service CLI")
+    parser = argparse.ArgumentParser(description="GalleryControl CLI")
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
 
     # Health check

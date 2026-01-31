@@ -1341,7 +1341,7 @@ async def export_inventory(session=Depends(get_session)):
         exhibitions = result.scalars().all()
 
         lines = [
-            "MuTech Device Inventory",
+            "GalleryControl Device Inventory",
             f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
             "",
         ]
@@ -1404,7 +1404,7 @@ async def get_email_config():
 
     return {
         "recipients": config.get("email.recipients", []),
-        "subject": config.get("email.subject", "MuTech Device Inventory"),
+        "subject": config.get("email.subject", "GalleryControl Device Inventory"),
         "from_address": config.get("email.from_address", ""),
         "smtp_configured": bool(config.get("email.smtp_host")),
     }
@@ -1429,7 +1429,7 @@ async def send_inventory_email(
 
     config = get_config()
     recipients = config.get("email.recipients", [])
-    subject = config.get("email.subject", "MuTech Device Inventory")
+    subject = config.get("email.subject", "GalleryControl Device Inventory")
 
     if not recipients:
         return {

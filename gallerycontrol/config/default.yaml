@@ -126,6 +126,6 @@ email:
   smtp_password: "${SMTP_PASSWORD}"
   smtp_use_tls: true
   from_address: "${EMAIL_FROM}"
-  subject: "MuTech Device Inventory"
+  subject: "GalleryControl Device Inventory"
   recipients:
     - "technik@zkm.de"

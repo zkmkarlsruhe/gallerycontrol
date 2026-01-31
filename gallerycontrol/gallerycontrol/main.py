@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
-    logger.info("Starting MuTech Control Service...")
+    logger.info("Starting GalleryControl...")
 
     config = get_config()
 
@@ -243,13 +243,13 @@ async def lifespan(app: FastAPI):
     # Start protection service for artwork overuse prevention
     await protection_service.start()
 
-    logger.info("MuTech Control Service started successfully")
+    logger.info("GalleryControl started successfully")
     logger.info("API documentation available at /docs")
 
     yield
 
     # Shutdown
-    logger.info("Shutting down MuTech Control Service...")
+    logger.info("Shutting down GalleryControl...")
 
     # Cancel all active verifications first
     cancelled = await orchestrator.command_verifier.cancel_all_verifications()
@@ -284,12 +284,12 @@ async def lifespan(app: FastAPI):
 
     await db_manager.close()
 
-    logger.info("MuTech Control Service shutdown complete")
+    logger.info("GalleryControl shutdown complete")
 
 
 # Create FastAPI app
 app = FastAPI(
-    title="MuTech Control Service",
+    title="GalleryControl",
     description="Museum device control system API",
     version="1.0.0",
     lifespan=lifespan,
@@ -332,7 +332,7 @@ async def root():
     index_path = static_dir / "index.html"
     if index_path.exists():
         return FileResponse(index_path)
-    return {"service": "MuTech Control Service", "version": "1.0.0", "status": "running"}
+    return {"service": "GalleryControl", "version": "1.0.0", "status": "running"}
 
 
 @app.get("/health")

@@ -1,14 +1,14 @@
 # Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 # SPDX-License-Identifier: MIT
-"""Custom exceptions for MuTech Control System."""
+"""Custom exceptions for GalleryControl System."""
 
 
-class MuTechError(Exception):
-    """Base exception for all MuTech errors."""
+class GalleryControlError(Exception):
+    """Base exception for all GalleryControl errors."""
     pass
 
 
-class DeviceError(MuTechError):
+class DeviceError(GalleryControlError):
     """Base exception for device-related errors."""
 
     def __init__(self, message: str, device_id: str | None = None, device_host: str | None = None):
@@ -42,16 +42,16 @@ class DeviceCooldownError(DeviceError):
     pass
 
 
-class ConfigurationError(MuTechError):
+class ConfigurationError(GalleryControlError):
     """Configuration is invalid or missing."""
     pass
 
 
-class DatabaseError(MuTechError):
+class DatabaseError(GalleryControlError):
     """Database operation failed."""
     pass
 
 
-class OrchestratorError(MuTechError):
+class OrchestratorError(GalleryControlError):
     """Orchestrator operation failed."""
     pass
