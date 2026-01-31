@@ -79,6 +79,9 @@ reports/
 # Lua scripts (site-specific)
 *.lua
 
+# Dev folder (dev branch only, not for GitHub)
+dev/
+
 # Agentbox state (session data, not for version control)
 .agentbox/claude/projects/
 .agentbox/claude/file-history/
