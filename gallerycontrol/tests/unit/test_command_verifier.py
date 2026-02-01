@@ -91,14 +91,15 @@ class MockStateMonitor:
         self._fast_poll_devices = {}
         self._callback_delay = 0.05  # Simulate time to detect state
 
-    def register_fast_poll(self, device_id, target_states, callback):
+    async def register_fast_poll(self, device_id, target_states, callback, deviation_callback=None):
         """Register device for fast polling."""
         self._fast_poll_devices[device_id] = {
             "target_states": target_states,
             "callback": callback,
+            "deviation_callback": deviation_callback,
         }
 
-    def unregister_fast_poll(self, device_id):
+    async def unregister_fast_poll(self, device_id):
         """Unregister device from fast polling."""
         if device_id in self._fast_poll_devices:
             del self._fast_poll_devices[device_id]
@@ -234,47 +235,69 @@ async def test_on_verification_warming_accepted(verifier, mock_device, mock_mana
     mock_manager.set_power.assert_not_called()
 
 
-# ========== Stability Failure Tests ==========
+# ========== Deviation Callback Tests ==========
 
 
 @pytest.mark.asyncio
-async def test_stability_failure_triggers_retry(verifier, mock_device, mock_manager, mock_state_monitor):
-    """Test that state change during stability period triggers retry."""
+async def test_deviation_triggers_correction(mock_manager, config, mock_state_monitor):
+    """Test that state deviation during enforcement triggers correction command."""
+    from gallerycontrol.orchestrator.command_verifier import CommandVerifier
+
+    # Create a mock device with all required attributes
+    mock_device = MagicMock()
+    mock_device.id = uuid4()
+    mock_device.name = "Test Projector"
+    mock_device.device_type = "pjlink"
+    mock_device.host = "192.168.1.100"
+    mock_device.state = 0
+
     device_id = str(mock_device.id)
-    call_count = 0
 
-    async def get_state_side_effect(device):
-        nonlocal call_count
-        call_count += 1
-        # First call (stability check): device is OFF (state changed = device lied)
-        # Second call (after retry): device is ON (stable now)
-        if call_count == 1:
-            return DeviceResult(success=True, state=0, error=None, duration_ms=100)
-        else:
-            return DeviceResult(success=True, state=1, error=None, duration_ms=100)
+    # Create a properly mocked db_manager that returns the device from query
+    mock_db = MagicMock()
+    mock_session = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.add = MagicMock()
 
-    mock_manager.get_state = AsyncMock(side_effect=get_state_side_effect)
+    # Mock the execute().scalar_one_or_none() chain to return the device
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none = MagicMock(return_value=mock_device)
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    mock_db.session = MagicMock(return_value=mock_session)
+
+    # Create verifier with the mocked db
+    device_managers = {"pjlink": mock_manager}
+    verifier = CommandVerifier(mock_db, device_managers, config)
+    verifier.set_state_monitor(mock_state_monitor)
+
+    mock_manager.get_state.return_value = DeviceResult(
+        success=True, state=1, error=None, duration_ms=100
+    )
     mock_manager.set_power.return_value = DeviceResult(
         success=True, state=1, error=None, duration_ms=100
     )
 
     await verifier.verify_devices([mock_device], "on")
-
-    # Simulate initial state reached
     await asyncio.sleep(0.02)
-    await mock_state_monitor.simulate_state_detected(device_id, 1)
 
-    # Wait for stability period + retry
-    await asyncio.sleep(0.3)
+    # Verify device is registered for fast polling
+    assert mock_state_monitor.is_fast_polling(device_id)
 
-    # After retry, simulate state reached again
-    if mock_state_monitor.is_fast_polling(device_id):
-        await mock_state_monitor.simulate_state_detected(device_id, 1)
-        await asyncio.sleep(0.3)
+    # Get the deviation callback that was registered
+    entry = mock_state_monitor._fast_poll_devices.get(device_id)
+    assert entry is not None
+    deviation_callback = entry.get("deviation_callback")
 
-    # Should have retried ON command (device lied about being on)
-    assert mock_manager.set_power.call_count >= 1
-    mock_manager.set_power.assert_called_with(mock_device, True)
+    if deviation_callback:
+        # Simulate state deviation (device went to state 0 when we want state 1)
+        await deviation_callback(device_id, 0)
+        await asyncio.sleep(0.1)
+
+        # Should have sent correction command
+        assert mock_manager.set_power.call_count >= 1
+        mock_manager.set_power.assert_called_with(mock_device, True)
 
 
 # ========== Device Never Reaches State (Broken) ==========

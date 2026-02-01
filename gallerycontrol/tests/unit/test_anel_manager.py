@@ -143,19 +143,23 @@ async def test_timeout_error(manager, mock_device):
 
 
 @pytest.mark.asyncio
-async def test_cooldown_prevents_rapid_requests(manager, mock_device):
-    """Test that cooldown prevents rapid polling."""
+async def test_cooldown_prevents_rapid_power_commands(manager, mock_device):
+    """Test that cooldown prevents rapid power commands (not status queries)."""
     mock_response = "NET-PwrCtrl:TestDevice:192.168.1.102:255.255.255.0:192.168.1.1:00:11:22:33:44:55:10000000:Ports...:0:80:25.5"
 
     with patch.object(manager, '_send_udp_command', return_value=mock_response):
-        # First request succeeds
-        result1 = await manager.get_state(mock_device)
+        # First power command succeeds
+        result1 = await manager.set_power(mock_device, True)
         assert result1.success is True
 
-        # Immediate second request blocked by cooldown
-        result2 = await manager.get_state(mock_device)
+        # Immediate second power command blocked by cooldown
+        result2 = await manager.set_power(mock_device, True)
         assert result2.success is False
         assert "cooldown" in result2.error.lower()
+
+        # But status queries should still work (no cooldown on get_state)
+        result3 = await manager.get_state(mock_device)
+        assert result3.success is True
 
 
 @pytest.mark.asyncio

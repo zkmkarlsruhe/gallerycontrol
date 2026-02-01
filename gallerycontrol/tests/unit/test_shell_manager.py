@@ -145,6 +145,8 @@ async def test_timeout_error(manager, mock_device):
     """Test timeout handling."""
     mock_proc = MagicMock()
     mock_proc.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
+    mock_proc.kill = MagicMock()
+    mock_proc.wait = AsyncMock()
 
     with patch('asyncio.create_subprocess_shell', return_value=mock_proc):
         result = await manager.get_state(mock_device)
@@ -155,21 +157,26 @@ async def test_timeout_error(manager, mock_device):
 
 
 @pytest.mark.asyncio
-async def test_cooldown_prevents_rapid_requests(manager, mock_device):
-    """Test that cooldown prevents rapid polling."""
+async def test_cooldown_prevents_rapid_power_commands(manager, mock_device):
+    """Test that cooldown prevents rapid power commands (not status queries)."""
     mock_proc = MagicMock()
     mock_proc.returncode = 0
-    mock_proc.communicate = AsyncMock(return_value=(b"app running", b""))
+    mock_proc.communicate = AsyncMock(return_value=(b"Started successfully", b""))
 
     with patch('asyncio.create_subprocess_shell', return_value=mock_proc):
-        # First request succeeds
-        result1 = await manager.get_state(mock_device)
+        # First power command succeeds
+        result1 = await manager.set_power(mock_device, True)
         assert result1.success is True
 
-        # Immediate second request blocked by cooldown
-        result2 = await manager.get_state(mock_device)
+        # Immediate second power command blocked by cooldown
+        result2 = await manager.set_power(mock_device, True)
         assert result2.success is False
         assert "cooldown" in result2.error.lower()
+
+        # But status queries should still work (no cooldown on get_state)
+        mock_proc.communicate = AsyncMock(return_value=(b"app running", b""))
+        result3 = await manager.get_state(mock_device)
+        assert result3.success is True
 
 
 @pytest.mark.asyncio

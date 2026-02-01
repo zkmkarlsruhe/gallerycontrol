@@ -153,23 +153,26 @@ async def test_timeout_error(manager, mock_device):
 
 
 @pytest.mark.asyncio
-async def test_cooldown_prevents_rapid_requests(manager, mock_device):
-    """Test that cooldown prevents rapid polling."""
+async def test_cooldown_prevents_rapid_power_commands(manager, mock_device):
+    """Test that cooldown prevents rapid power commands (not status queries)."""
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "Outputs": [{"ID": 1, "State": 1}]
-    }
 
-    with patch.object(manager.http_client, 'get', return_value=mock_response):
-        # First request succeeds
-        result1 = await manager.get_state(mock_device)
+    with patch.object(manager.http_client, 'post', return_value=mock_response):
+        # First power command succeeds
+        result1 = await manager.set_power(mock_device, True)
         assert result1.success is True
 
-        # Immediate second request blocked by cooldown
-        result2 = await manager.get_state(mock_device)
+        # Immediate second power command blocked by cooldown
+        result2 = await manager.set_power(mock_device, True)
         assert result2.success is False
         assert "cooldown" in result2.error.lower()
+
+    # But status queries should still work (no cooldown on get_state)
+    mock_response.json.return_value = {"Outputs": [{"ID": 1, "State": 1}]}
+    with patch.object(manager.http_client, 'get', return_value=mock_response):
+        result3 = await manager.get_state(mock_device)
+        assert result3.success is True
 
 
 @pytest.mark.asyncio

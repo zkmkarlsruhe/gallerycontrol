@@ -62,9 +62,16 @@ async def test_get_state_success(manager, mock_device):
 @pytest.mark.asyncio
 async def test_get_state_with_authentication(manager, mock_device):
     """Test state query with MD5 authentication."""
-    with patch('socket.socket') as mock_socket_class:
+    # Set up device with credential_name that will be resolved
+    mock_device.config = {"credential_name": "projector_cred"}
+
+    with patch('socket.socket') as mock_socket_class, \
+         patch('gallerycontrol.devices.credential_utils.get_credential') as mock_get_cred:
         mock_sock = MagicMock()
         mock_socket_class.return_value = mock_sock
+
+        # Mock credential lookup to return password
+        mock_get_cred.return_value = {"username": "admin", "password": "panasonic"}
 
         # Mock recv to return auth challenge
         mock_sock.recv.side_effect = [
@@ -80,7 +87,7 @@ async def test_get_state_with_authentication(manager, mock_device):
         # Verify authentication was used
         send_calls = [call[0][0] for call in mock_sock.sendall.call_args_list]
         assert len(send_calls) == 1
-        # Should contain MD5 hash
+        # Should contain MD5 hash (32 chars) + command
         assert len(send_calls[0]) > 20  # Hash + command
 
 
@@ -157,24 +164,29 @@ async def test_connection_error(manager, mock_device):
 
 
 @pytest.mark.asyncio
-async def test_cooldown_prevents_rapid_requests(manager, mock_device):
-    """Test that cooldown prevents rapid polling."""
+async def test_cooldown_prevents_rapid_power_commands(manager, mock_device):
+    """Test that cooldown prevents rapid power commands (not status queries)."""
     with patch('socket.socket') as mock_socket_class:
         mock_sock = MagicMock()
         mock_socket_class.return_value = mock_sock
 
         mock_sock.recv.side_effect = [
-            b'PJLINK 0\r', b'%1POWR=1\r',  # First request
+            b'PJLINK 0\r', b'%1POWR=OK\r',  # First power command
+            b'PJLINK 0\r', b'%1POWR=1\r',   # Status query
         ]
 
-        # First request succeeds
-        result1 = await manager.get_state(mock_device)
+        # First power command succeeds
+        result1 = await manager.set_power(mock_device, True)
         assert result1.success is True
 
-        # Immediate second request blocked by cooldown
-        result2 = await manager.get_state(mock_device)
+        # Immediate second power command blocked by cooldown
+        result2 = await manager.set_power(mock_device, True)
         assert result2.success is False
         assert "cooldown" in result2.error.lower()
+
+        # But status queries should still work (no cooldown on get_state)
+        result3 = await manager.get_state(mock_device)
+        assert result3.success is True
 
 
 @pytest.mark.asyncio
