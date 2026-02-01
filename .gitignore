@@ -90,3 +90,4 @@ dev/
 .agentbox/claude/statsig/
 .agentbox/codex/sessions/
 .agentbox/backup-pre-migration/
+.boxctl/
