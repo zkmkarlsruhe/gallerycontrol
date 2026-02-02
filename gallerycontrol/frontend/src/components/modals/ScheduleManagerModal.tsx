@@ -42,7 +42,9 @@ interface ScheduleManagerModalProps {
 
 function formatDateTime(isoString: string | null): string {
   if (!isoString) return 'Never';
-  const date = new Date(isoString);
+  // Backend stores UTC but returns naive ISO strings - append Z to parse as UTC
+  const utcString = isoString.endsWith('Z') ? isoString : isoString + 'Z';
+  const date = new Date(utcString);
   return date.toLocaleString();
 }
 
