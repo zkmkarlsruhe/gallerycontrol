@@ -20,8 +20,12 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, Optional
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 from croniter import croniter
+
+# Default timezone for naive datetime inputs (user's local time)
+LOCAL_TZ = ZoneInfo("Europe/Berlin")
 from sqlalchemy import and_, select, update
 from sqlalchemy.orm import selectinload
 
@@ -764,7 +768,7 @@ class CronScheduler:
         Returns:
             List of next run times in UTC (timezone-aware for API responses)
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         cron = croniter(cron_expression, now)
         runs = []
 
@@ -832,9 +836,11 @@ class CronScheduler:
                     )
                     return None
 
-                # Ensure naive datetime for DB compatibility
-                if run_at.tzinfo is not None:
-                    run_at = run_at.replace(tzinfo=None)
+                # Convert to UTC naive datetime for DB storage
+                if run_at.tzinfo is None:
+                    # Naive datetime: assume it's in local timezone
+                    run_at = run_at.replace(tzinfo=LOCAL_TZ)
+                run_at = run_at.astimezone(timezone.utc).replace(tzinfo=None)
 
                 # Create the one-shot job
                 job_id = uuid4()

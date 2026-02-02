@@ -501,7 +501,7 @@ async def list_state_changes(
     - limit: Max results (default 100)
     - offset: Pagination offset
     """
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     from gallerycontrol.database.models import StateChangeLog
 
@@ -530,16 +530,16 @@ async def list_state_changes(
 
         if from_date:
             from_dt = datetime.fromisoformat(from_date.replace("Z", "+00:00"))
-            # Strip timezone info to match naive datetimes in database
+            # Convert to UTC for database comparison (DB stores UTC naive datetimes)
             if from_dt.tzinfo is not None:
-                from_dt = from_dt.replace(tzinfo=None)
+                from_dt = from_dt.astimezone(timezone.utc).replace(tzinfo=None)
             stmt = stmt.where(StateChangeLog.timestamp >= from_dt)
 
         if to_date:
             to_dt = datetime.fromisoformat(to_date.replace("Z", "+00:00"))
-            # Strip timezone info to match naive datetimes in database
+            # Convert to UTC for database comparison (DB stores UTC naive datetimes)
             if to_dt.tzinfo is not None:
-                to_dt = to_dt.replace(tzinfo=None)
+                to_dt = to_dt.astimezone(timezone.utc).replace(tzinfo=None)
             stmt = stmt.where(StateChangeLog.timestamp <= to_dt)
 
         if new_state is not None:
@@ -586,7 +586,7 @@ async def export_state_changes(
 
     Same filters as /changes endpoint but returns CSV format.
     """
-    from datetime import datetime
+    from datetime import datetime, timezone
     from io import StringIO
 
     from fastapi.responses import StreamingResponse
@@ -613,16 +613,16 @@ async def export_state_changes(
 
         if from_date:
             from_dt = datetime.fromisoformat(from_date.replace("Z", "+00:00"))
-            # Strip timezone info to match naive datetimes in database
+            # Convert to UTC for database comparison (DB stores UTC naive datetimes)
             if from_dt.tzinfo is not None:
-                from_dt = from_dt.replace(tzinfo=None)
+                from_dt = from_dt.astimezone(timezone.utc).replace(tzinfo=None)
             stmt = stmt.where(StateChangeLog.timestamp >= from_dt)
 
         if to_date:
             to_dt = datetime.fromisoformat(to_date.replace("Z", "+00:00"))
-            # Strip timezone info to match naive datetimes in database
+            # Convert to UTC for database comparison (DB stores UTC naive datetimes)
             if to_dt.tzinfo is not None:
-                to_dt = to_dt.replace(tzinfo=None)
+                to_dt = to_dt.astimezone(timezone.utc).replace(tzinfo=None)
             stmt = stmt.where(StateChangeLog.timestamp <= to_dt)
 
         result = await session.execute(stmt)

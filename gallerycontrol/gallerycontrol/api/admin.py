@@ -4,11 +4,15 @@
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+
+# Default timezone for naive datetime inputs (user's local time)
+LOCAL_TZ = ZoneInfo("Europe/Berlin")
 from pydantic import BaseModel
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import selectinload
@@ -2043,10 +2047,13 @@ async def create_one_shot_job(
             if not target:
                 raise HTTPException(status_code=404, detail=f"Target {job.target_type} not found")
 
-        # Strip timezone for DB compatibility
+        # Convert to UTC for DB storage (scheduler uses datetime.utcnow())
         next_run_at = job.run_at
-        if next_run_at.tzinfo is not None:
-            next_run_at = next_run_at.replace(tzinfo=None)
+        if next_run_at.tzinfo is None:
+            # Naive datetime: assume it's in local timezone (Europe/Berlin)
+            next_run_at = next_run_at.replace(tzinfo=LOCAL_TZ)
+        # Convert to UTC and strip tzinfo for DB
+        next_run_at = next_run_at.astimezone(timezone.utc).replace(tzinfo=None)
 
         # Create the one-shot job
         # For "all" target, target_id is empty string so we don't try to parse it as UUID
@@ -2191,9 +2198,11 @@ async def create_scheduled_job(
             if not job.run_at:
                 raise HTTPException(status_code=400, detail="run_at required for one-shot jobs")
             next_run_at = job.run_at
-            # Strip timezone for DB compatibility
-            if next_run_at.tzinfo is not None:
-                next_run_at = next_run_at.replace(tzinfo=None)
+            # Convert to UTC for DB storage (scheduler uses datetime.utcnow())
+            if next_run_at.tzinfo is None:
+                # Naive datetime: assume it's in local timezone (Europe/Berlin)
+                next_run_at = next_run_at.replace(tzinfo=LOCAL_TZ)
+            next_run_at = next_run_at.astimezone(timezone.utc).replace(tzinfo=None)
         else:
             # Recurring validation
             if not job.cron_expression:
