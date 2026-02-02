@@ -1,0 +1,43 @@
+# Display configuration for test artwork
+# Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+# SPDX-License-Identifier: MIT
+
+# Link to the artwork in the database
+# Replace with actual UUID from your database
+artwork_uuid: "00000000-0000-0000-0000-000000000000"
+
+# Template to use for rendering
+# Options: mack-style, chart-only, fullscreen-countdown, progress-bar, info-panel, gauge
+template: mack-style
+
+# Chart visualization type
+# Options: pie, donut, bar-horizontal, bar-vertical, gauge, digits-only
+chart_type: donut
+
+# Color scheme
+colors:
+  background: "#000000"
+  available: "#4CAF50"
+  used: "#FFC107"
+  warning: "#f44336"
+  text: "#FFFFFF"
+
+# Typography settings
+font:
+  family: "Hero New"
+  size_budget: "4rem"
+  size_info: "1.5rem"
+
+# Global scale factor for the display (useful for different screen sizes)
+scale: 1.0
+
+# Text content for the display
+texts:
+  artwork_name: "Test Artwork"
+  info_de: "Dies ist ein Test-Kunstwerk zur Demonstration des Steuerungsdisplays."
+  info_en: "This is a test artwork for demonstrating the control display."
+  warning_de: "Die Werke machen eine kurze Pause. Bitte warten Sie einen Moment."
+  warning_en: "The works are taking a short break. Please wait a moment."
+
+# Optional: Path to custom CSS file (relative to this config file's directory)
+# custom_css: "custom.css"

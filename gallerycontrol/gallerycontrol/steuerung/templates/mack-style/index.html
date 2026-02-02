@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ artwork_name }} - Display</title>
+    <!-- CSS_VARIABLES -->
+    <!-- BASE_CSS -->
+    <style>
+        /* Mack-style: Split layout - chart on left, text on right */
+        .display-container {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            padding: 2rem;
+            align-items: center;
+        }
+
+        .chart-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chart-container {
+            width: 100%;
+            max-width: 350px;
+            aspect-ratio: 1;
+        }
+
+        .text-section {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 1.5rem;
+            padding-right: 2rem;
+        }
+
+        .artwork-name {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .info-block {
+            font-size: 1.25rem;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+
+        .info-block.de {
+            margin-bottom: 1rem;
+        }
+
+        .info-block.en {
+            font-style: italic;
+            opacity: 0.7;
+        }
+
+        .budget-info {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .budget-label {
+            font-size: 1rem;
+            opacity: 0.6;
+            margin-bottom: 0.5rem;
+        }
+
+        .budget-display {
+            font-size: 3rem;
+            font-weight: 600;
+        }
+
+        .reset-timer {
+            margin-top: 1rem;
+        }
+
+        /* Warning overlay styles */
+        .warning-overlay {
+            flex-direction: column;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .warning-icon {
+            font-size: 6rem;
+            margin-bottom: 2rem;
+        }
+
+        .warning-text {
+            font-size: 1.75rem;
+        }
+
+        .warning-text.de {
+            margin-bottom: 1rem;
+        }
+
+        .warning-text.en {
+            font-style: italic;
+            opacity: 0.7;
+            font-size: 1.5rem;
+        }
+
+        .cooldown-info {
+            margin-top: 2rem;
+            font-size: 1.25rem;
+        }
+
+        @media (max-width: 1024px) {
+            .display-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+
+            .text-section {
+                padding-right: 0;
+                text-align: center;
+            }
+        }
+    </style>
+    <!-- CUSTOM_CSS -->
+</head>
+<body>
+    <div class="display-container">
+        <div class="chart-section">
+            <div class="chart-container"></div>
+        </div>
+
+        <div class="text-section">
+            <h1 class="artwork-name">{{ artwork_name }}</h1>
+
+            <div class="info-block de">{{ info_de }}</div>
+            <div class="info-block en">{{ info_en }}</div>
+
+            <div class="budget-info">
+                <div class="budget-label">Verbleibende Zeit / Remaining time</div>
+                <div class="budget-display status-available" data-running-indicator>
+                    <span class="budget-value">--:--</span>
+                </div>
+                <div class="reset-timer hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Warning Overlay -->
+    <div class="warning-overlay">
+        <div class="warning-icon">&#9888;</div>
+        <div class="warning-text de">{{ warning_de }}</div>
+        <div class="warning-text en">{{ warning_en }}</div>
+        <div class="cooldown-info">
+            <span class="cooldown-remaining"></span>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/steuerung/templates/d3.min.js"></script>
+    <!-- SHARED_JS -->
+</body>
+</html>

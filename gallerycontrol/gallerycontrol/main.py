@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from gallerycontrol.api import admin, assets, control, debug, fast, satellite, sensor, state
+from gallerycontrol.api import admin, assets, control, debug, display, fast, satellite, sensor, state
 from gallerycontrol.config import get_config
 from gallerycontrol.database.connection import get_db_manager
 from gallerycontrol.devices.anel_client import ANELClient
@@ -318,11 +318,22 @@ app.include_router(admin.router)
 app.include_router(debug.router)
 app.include_router(assets.router)
 app.include_router(satellite.router)
+app.include_router(display.router)
 
 # Mount static files directory if it exists
 static_dir = Path(__file__).parent.parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+# Mount steuerung templates directory for display assets (fonts, D3.js, etc.)
+steuerung_templates_dir = Path(__file__).parent / "steuerung" / "templates"
+if steuerung_templates_dir.exists():
+    app.mount("/steuerung/templates", StaticFiles(directory=str(steuerung_templates_dir)), name="steuerung-templates")
+
+# Mount steuerung fonts directory
+steuerung_fonts_dir = Path(__file__).parent / "steuerung" / "fonts"
+if steuerung_fonts_dir.exists():
+    app.mount("/steuerung/fonts", StaticFiles(directory=str(steuerung_fonts_dir)), name="steuerung-fonts")
 
 
 # Root endpoint - serve web interface

@@ -5,7 +5,7 @@
 Provides race-safe cache update functions for device info caching.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -67,7 +67,7 @@ async def update_device_cache(
     Returns:
         True if update was applied, False if skipped
     """
-    ts = timestamp or datetime.utcnow()
+    ts = timestamp or datetime.now(timezone.utc)
 
     result = await session.execute(
         update(Device)

@@ -61,3 +61,9 @@ python_functions = ["test_*"]
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
 ]
+filterwarnings = [
+    # Ignore RuntimeWarnings from mock coroutines that are never awaited
+    # These occur when AsyncMock creates coroutines during test setup/teardown
+    # Scoped to unittest.mock module to avoid hiding real async issues
+    "ignore:coroutine .* was never awaited:RuntimeWarning:unittest.mock",
+]

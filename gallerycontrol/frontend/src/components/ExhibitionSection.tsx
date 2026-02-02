@@ -33,6 +33,7 @@ interface ExhibitionSectionProps {
   onViewDeviceLogs?: (deviceId: string) => void;
   onOpenSchedules?: (id: string, type: 'exhibition' | 'artwork' | 'device', name: string) => void;
   onEditProtection?: (artwork: Artwork) => void;
+  onOpenDisplayLinks?: (artwork: Artwork) => void;
 }
 
 export function ExhibitionSection({
@@ -56,6 +57,7 @@ export function ExhibitionSection({
   onViewDeviceLogs,
   onOpenSchedules,
   onEditProtection,
+  onOpenDisplayLinks,
 }: ExhibitionSectionProps) {
   const isDisabled = !exhibition.enabled;
   const visibleArtworks = (editMode ? exhibition.artworks : exhibition.artworks.filter(a => a.enabled))
@@ -137,6 +139,7 @@ export function ExhibitionSection({
             onViewDeviceLogs={onViewDeviceLogs}
             onOpenSchedules={onOpenSchedules}
             onEditProtection={onEditProtection}
+            onOpenDisplayLinks={onOpenDisplayLinks}
           />
         ))}
       </div>

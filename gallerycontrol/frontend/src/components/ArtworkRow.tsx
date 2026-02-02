@@ -25,6 +25,7 @@ interface ArtworkRowProps {
   onViewDeviceLogs?: (deviceId: string) => void;
   onOpenSchedules?: (id: string, type: 'exhibition' | 'artwork' | 'device', name: string) => void;
   onEditProtection?: (artwork: Artwork) => void;
+  onOpenDisplayLinks?: (artwork: Artwork) => void;
 }
 
 function getDeviceStateLabel(state: number): string {
@@ -73,6 +74,7 @@ export function ArtworkRow({
   onViewDeviceLogs,
   onOpenSchedules,
   onEditProtection,
+  onOpenDisplayLinks,
 }: ArtworkRowProps) {
   const isDisabled = !artwork.enabled;
 
@@ -119,13 +121,24 @@ export function ArtworkRow({
                   </button>
                 )}
                 {artwork.timeslice_enabled && (
-                  <button
-                    className={`btn btn-sm me-2 ${hasTimeSliceProtection(artwork) ? 'btn-warning' : 'btn-outline-secondary'}`}
-                    onClick={() => onEditProtection?.(artwork)}
-                    title="Protection settings (time slices)"
-                  >
-                    <i className="bi bi-shield-lock"></i>
-                  </button>
+                  <>
+                    <button
+                      className={`btn btn-sm me-2 ${hasTimeSliceProtection(artwork) ? 'btn-warning' : 'btn-outline-secondary'}`}
+                      onClick={() => onEditProtection?.(artwork)}
+                      title="Protection settings (time slices)"
+                    >
+                      <i className="bi bi-shield-lock"></i>
+                    </button>
+                    {hasTimeSliceProtection(artwork) && (
+                      <button
+                        className="btn btn-outline-info btn-sm me-2"
+                        onClick={() => onOpenDisplayLinks?.(artwork)}
+                        title="Display URLs for kiosk screens"
+                      >
+                        <i className="bi bi-display"></i>
+                      </button>
+                    )}
+                  </>
                 )}
                 <div className="btn-group me-2">
                   <button className="btn btn-edit btn-sm" onClick={onEditArtwork} title="Edit"><i className="bi bi-pencil"></i></button>

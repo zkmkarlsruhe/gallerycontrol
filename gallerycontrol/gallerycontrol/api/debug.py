@@ -3,7 +3,9 @@
 """Debug API endpoints for viewing operation logs and debug data."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+from gallerycontrol.utils.datetime_utils import ensure_utc
 from typing import List
 from uuid import UUID
 
@@ -126,7 +128,7 @@ async def get_debug_summary(session=Depends(get_session)):
     - Top 10 devices with most errors
     - Last 10 errors
     """
-    cutoff = datetime.utcnow() - timedelta(hours=24)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
 
     try:
         # Total operations in last 24h
@@ -231,7 +233,7 @@ async def list_operations(
     - limit: Max results (default 100, max 500)
     - offset: Pagination offset
     """
-    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     try:
         stmt = (
@@ -345,7 +347,7 @@ async def get_debug_timeline(
     Combines operation logs and state change logs into a single
     chronological timeline for comprehensive debugging.
     """
-    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     try:
         # Query operation logs
@@ -498,7 +500,7 @@ async def cleanup_old_logs(
 
     try:
         deleted_count = await cleanup_old_operation_logs(db_manager, retention_hours)
-        cutoff = datetime.utcnow() - timedelta(hours=retention_hours)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=retention_hours)
 
         return CleanupResult(
             success=True,
@@ -563,10 +565,10 @@ async def get_device_info(
         )
 
     # Check cache freshness
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     has_cache = device.cached_info is not None
     # 24 hour TTL for static metadata
-    is_fresh = has_cache and device.cached_info_at and (now - device.cached_info_at).total_seconds() < 86400
+    is_fresh = has_cache and device.cached_info_at and (now - ensure_utc(device.cached_info_at)).total_seconds() < 86400
 
     # Fresh cache: return directly
     if is_fresh:

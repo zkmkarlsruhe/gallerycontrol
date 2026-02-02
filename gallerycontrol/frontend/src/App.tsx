@@ -26,6 +26,7 @@ import { EmailInventoryModal } from './components/modals/EmailInventoryModal';
 import { AdminModal } from './components/modals/AdminModal';
 import { ScheduleManagerModal } from './components/modals/ScheduleManagerModal';
 import { ProtectionConfigModal } from './components/modals/ProtectionConfigModal';
+import { DisplayLinksModal } from './components/modals/DisplayLinksModal';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './App.css';
@@ -153,6 +154,7 @@ function App() {
   const [addDeviceContext, setAddDeviceContext] = useState<AddDeviceContext | null>(null);
   const [scheduleModalContext, setScheduleModalContext] = useState<ScheduleModalContext | null>(null);
   const [protectionArtwork, setProtectionArtwork] = useState<Artwork | null>(null);
+  const [displayLinksArtwork, setDisplayLinksArtwork] = useState<Artwork | null>(null);
 
   // Extract all devices for debug filter dropdown and timeline
   const allDevices = useMemo(() => {
@@ -721,6 +723,7 @@ function App() {
               onViewDeviceLogs={openLogViewer}
               onOpenSchedules={handleOpenSchedules}
               onEditProtection={setProtectionArtwork}
+              onOpenDisplayLinks={setDisplayLinksArtwork}
             />
           ))}
         </div>
@@ -872,6 +875,15 @@ function App() {
         onClose={() => setProtectionArtwork(null)}
         onSave={handleUpdateProtectionConfig}
       />
+
+      {displayLinksArtwork && (
+        <DisplayLinksModal
+          isOpen={displayLinksArtwork !== null}
+          onClose={() => setDisplayLinksArtwork(null)}
+          artworkId={displayLinksArtwork.id}
+          artworkName={displayLinksArtwork.name}
+        />
+      )}
     </div>
   );
 }

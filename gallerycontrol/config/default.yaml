@@ -129,3 +129,13 @@ email:
   subject: "GalleryControl Device Inventory"
   recipients:
     - "technik@zkm.de"
+
+# Visitor display system for kiosk screens showing protection status
+display:
+  enabled: true
+  # Cache TTL for config.yaml files (seconds) - enables hot-reload
+  config_cache_ttl: 5
+  # Default template if not specified in artwork config
+  default_template: "mack-style"
+  # Default chart type if not specified in artwork config
+  default_chart_type: "donut"

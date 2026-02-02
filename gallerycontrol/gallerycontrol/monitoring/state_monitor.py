@@ -800,7 +800,7 @@ class StateMonitor:
                     .where(Device.id == device.id)
                     .values(
                         resolved=resolved,
-                        resolved_at=datetime.utcnow(),
+                        resolved_at=datetime.now(timezone.utc),
                     )
                 )
                 await session.execute(stmt)
@@ -818,7 +818,7 @@ class StateMonitor:
                 stmt = (
                     update(Device)
                     .where(Device.id == device.id)
-                    .values(resolved_at=datetime.utcnow())
+                    .values(resolved_at=datetime.now(timezone.utc))
                 )
                 await session.execute(stmt)
                 await session.commit()

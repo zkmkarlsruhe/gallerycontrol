@@ -25,6 +25,7 @@ export { DeviceAccordion } from './DeviceAccordion';
 // UI components
 export { Modal } from './ui/Modal';
 export { ConfirmButton } from './ui/ConfirmButton';
+export { InputWithCopyButton } from './ui/InputWithCopyButton';
 
 // Modal components
 export { AddExhibitionModal } from './modals/AddExhibitionModal';
@@ -35,3 +36,4 @@ export { EditArtworkModal } from './modals/EditArtworkModal';
 export { EditDeviceModal } from './modals/EditDeviceModal';
 export { CredentialsModal } from './modals/CredentialsModal';
 export { ShellTemplatesModal } from './modals/ShellTemplatesModal';
+export { DisplayLinksModal } from './modals/DisplayLinksModal';
