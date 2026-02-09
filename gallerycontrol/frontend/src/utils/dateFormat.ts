@@ -138,7 +138,9 @@ export function formatSeconds(seconds: number): string {
  * @returns Formatted time string (HH:MM:SS)
  */
 export function formatLogTime(timestamp: string): string {
-  const date = new Date(timestamp);
+  // Backend stores UTC - append Z if missing to parse correctly
+  const utcString = timestamp.endsWith('Z') ? timestamp : timestamp + 'Z';
+  const date = new Date(utcString);
   return date.toLocaleTimeString('de-DE', {
     hour: '2-digit',
     minute: '2-digit',
@@ -152,7 +154,9 @@ export function formatLogTime(timestamp: string): string {
  * @returns Formatted datetime string (MM/DD HH:MM:SS)
  */
 export function formatLogTimeFull(timestamp: string): string {
-  const date = new Date(timestamp);
+  // Backend stores UTC - append Z if missing to parse correctly
+  const utcString = timestamp.endsWith('Z') ? timestamp : timestamp + 'Z';
+  const date = new Date(utcString);
   return date.toLocaleString('de-DE', {
     month: '2-digit',
     day: '2-digit',
