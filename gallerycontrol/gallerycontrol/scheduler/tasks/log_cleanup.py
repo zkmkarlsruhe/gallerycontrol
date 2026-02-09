@@ -45,8 +45,8 @@ async def run_log_cleanup(
     deleted_one_shots = 0
     deleted_command_logs = 0
     deleted_job_logs = 0
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=one_shot_retention_hours)
-    command_log_cutoff = datetime.now(timezone.utc) - timedelta(hours=command_log_retention_hours)
+    cutoff = datetime.utcnow() - timedelta(hours=one_shot_retention_hours)
+    command_log_cutoff = datetime.utcnow() - timedelta(hours=command_log_retention_hours)
 
     try:
         async with db_manager.session() as session:

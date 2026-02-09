@@ -67,7 +67,7 @@ async def update_device_cache(
     Returns:
         True if update was applied, False if skipped
     """
-    ts = timestamp or datetime.now(timezone.utc)
+    ts = timestamp or datetime.utcnow()
 
     result = await session.execute(
         update(Device)

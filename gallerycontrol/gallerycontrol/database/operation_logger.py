@@ -110,7 +110,7 @@ async def cleanup_old_operation_logs(
         Number of deleted records
     """
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=retention_hours)
+        cutoff = datetime.utcnow() - timedelta(hours=retention_hours)
 
         async with db_manager.session() as session:
             stmt = delete(DeviceOperationLog).where(

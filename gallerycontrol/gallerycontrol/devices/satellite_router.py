@@ -116,7 +116,7 @@ class SatelliteRouter:
         Returns:
             DeviceResult with operation outcome
         """
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.utcnow()
 
         device_config = self._build_device_config(device)
 
@@ -135,7 +135,7 @@ class SatelliteRouter:
             timeout=30.0,
         )
 
-        duration_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
+        duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
 
         logger.info(
             "Satellite command completed",

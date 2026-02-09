@@ -158,7 +158,7 @@ class ServiceHealthMonitor:
         if not url:
             service.status = ServiceStatus.UNKNOWN
             service.error = "No URL configured"
-            service.last_check = datetime.now(timezone.utc)
+            service.last_check = datetime.utcnow()
             return
 
         full_url = f"{url.rstrip('/')}{health_endpoint}"
@@ -168,12 +168,12 @@ class ServiceHealthMonitor:
             response = await self._http_client.get(full_url, timeout=timeout)
             elapsed_ms = int((asyncio.get_event_loop().time() - start) * 1000)
 
-            service.last_check = datetime.now(timezone.utc)
+            service.last_check = datetime.utcnow()
             service.response_time_ms = elapsed_ms
 
             if response.status_code == 200:
                 service.status = ServiceStatus.ONLINE
-                service.last_seen = datetime.now(timezone.utc)
+                service.last_seen = datetime.utcnow()
                 service.error = None
                 service.consecutive_failures = 0
 
@@ -188,7 +188,7 @@ class ServiceHealthMonitor:
         except httpx.ConnectError as e:
             service.status = ServiceStatus.OFFLINE
             service.error = "Connection refused"
-            service.last_check = datetime.now(timezone.utc)
+            service.last_check = datetime.utcnow()
             service.consecutive_failures += 1
 
             logger.warning(f"Service offline: service={service_id}, error=Connection refused")
@@ -196,7 +196,7 @@ class ServiceHealthMonitor:
         except httpx.TimeoutException:
             service.status = ServiceStatus.OFFLINE
             service.error = f"Timeout after {timeout}s"
-            service.last_check = datetime.now(timezone.utc)
+            service.last_check = datetime.utcnow()
             service.consecutive_failures += 1
 
             logger.warning(f"Service health check timeout: service={service_id}, timeout={timeout}s")
@@ -204,7 +204,7 @@ class ServiceHealthMonitor:
         except Exception as e:
             service.status = ServiceStatus.OFFLINE
             service.error = str(e)
-            service.last_check = datetime.now(timezone.utc)
+            service.last_check = datetime.utcnow()
             service.consecutive_failures += 1
 
             logger.error(f"Service health check error: service={service_id}, error={e}")

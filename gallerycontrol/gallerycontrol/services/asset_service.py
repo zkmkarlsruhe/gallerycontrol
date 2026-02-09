@@ -112,7 +112,7 @@ class AssetService:
             # Update hostname if different and not manually set by user
             if hostname and asset.hostname != hostname and not asset.hostname_manual:
                 asset.hostname = hostname
-                asset.updated_at = datetime.now(timezone.utc)
+                asset.updated_at = datetime.utcnow()
             return asset
 
         # Create new asset
@@ -272,7 +272,7 @@ class AssetService:
         resolved = await self.resolve_dns(device.host)
         if resolved:
             device.resolved = resolved
-            device.resolved_at = datetime.now(timezone.utc)
+            device.resolved_at = datetime.utcnow()
 
         # Extract asset number - try both host and resolved to find a hostname with asset pattern
         # Priority: prefer the value that contains the asset number
@@ -388,7 +388,7 @@ class AssetService:
                         resolved = await self.resolve_dns(device.host)
                         if resolved:
                             device.resolved = resolved
-                            device.resolved_at = datetime.now(timezone.utc)
+                            device.resolved_at = datetime.utcnow()
 
                         # Extract asset number - try both host and resolved
                         asset_number = None
@@ -638,7 +638,11 @@ class AssetService:
         if not device.resolved_at:
             return True
 
-        elapsed = (datetime.now(timezone.utc) - ensure_utc(device.resolved_at)).total_seconds()
+        # Strip timezone if present to ensure naive comparison
+        resolved_at = device.resolved_at
+        if resolved_at.tzinfo is not None:
+            resolved_at = resolved_at.replace(tzinfo=None)
+        elapsed = (datetime.utcnow() - resolved_at).total_seconds()
         return elapsed >= self.dns_resolve_interval
 
     async def update_device_dns(self, device_id: UUID) -> Optional[str]:
@@ -661,7 +665,7 @@ class AssetService:
             resolved = await self.resolve_dns(device.host)
             if resolved:
                 device.resolved = resolved
-                device.resolved_at = datetime.now(timezone.utc)
+                device.resolved_at = datetime.utcnow()
                 await session.commit()
 
             return resolved

@@ -740,7 +740,7 @@ class CommandOrchestrator:
             return
 
         # Schedule 7 minutes from now (wait for projector cooldown)
-        run_at = datetime.now(timezone.utc) + timedelta(minutes=7)
+        run_at = datetime.utcnow() + timedelta(minutes=7)
         dedupe_name = f"lamp_hours:{device_id}"
 
         try:

@@ -14,7 +14,7 @@ def utc_now() -> datetime:
 
     Use this instead of datetime.utcnow() which is deprecated.
     """
-    return datetime.now(timezone.utc)
+    return datetime.utcnow()
 
 
 def ensure_utc(dt: datetime | None) -> datetime | None:

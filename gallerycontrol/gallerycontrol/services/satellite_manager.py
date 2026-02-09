@@ -192,7 +192,7 @@ class SatelliteManager:
                         # Update to approved
                         satellite.name = name
                         satellite.status = "approved"
-                        satellite.approved_at = datetime.now(timezone.utc)
+                        satellite.approved_at = datetime.utcnow()
                         return {
                             "satellite_id": str(satellite.id),
                             "name": satellite.name,
@@ -209,8 +209,8 @@ class SatelliteManager:
                 status="approved",
                 hostname=pending.hostname,
                 version=pending.version,
-                approved_at=datetime.now(timezone.utc),
-                last_seen_at=datetime.now(timezone.utc),
+                approved_at=datetime.utcnow(),
+                last_seen_at=datetime.utcnow(),
             )
             session.add(satellite)
 
@@ -314,7 +314,7 @@ class SatelliteManager:
                 return None
 
             # Update last_seen
-            satellite.last_seen_at = datetime.now(timezone.utc)
+            satellite.last_seen_at = datetime.utcnow()
 
         # Create connection
         connection = SatelliteConnection(
@@ -370,7 +370,7 @@ class SatelliteManager:
                 stmt = (
                     update(Satellite)
                     .where(Satellite.id == satellite_id)
-                    .values(last_seen_at=datetime.now(timezone.utc))
+                    .values(last_seen_at=datetime.utcnow())
                 )
                 await session.execute(stmt)
 
@@ -500,14 +500,14 @@ class SatelliteManager:
         """Handle a heartbeat from a satellite."""
         connection = self._connections.get(satellite_id)
         if connection:
-            connection.last_heartbeat = datetime.now(timezone.utc)
+            connection.last_heartbeat = datetime.utcnow()
 
             # Update database last_seen
             async with self.db_manager.session() as session:
                 stmt = (
                     update(Satellite)
                     .where(Satellite.id == satellite_id)
-                    .values(last_seen_at=datetime.now(timezone.utc))
+                    .values(last_seen_at=datetime.utcnow())
                 )
                 await session.execute(stmt)
 

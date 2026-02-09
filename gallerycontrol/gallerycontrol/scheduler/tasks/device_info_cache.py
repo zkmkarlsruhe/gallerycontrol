@@ -107,7 +107,7 @@ async def run_device_info_cache(
                                     update_session,
                                     device.id,
                                     core_info,
-                                    datetime.now(timezone.utc),
+                                    datetime.utcnow(),
                                 )
                             return "updated"
                         return "skipped"

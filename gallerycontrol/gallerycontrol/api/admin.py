@@ -799,7 +799,7 @@ async def cleanup_state_changes(
     from gallerycontrol.database.models import StateChangeLog
 
     try:
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        cutoff_date = datetime.utcnow() - timedelta(days=retention_days)
 
         stmt = delete(StateChangeLog).where(StateChangeLog.timestamp < cutoff_date)
         result = await session.execute(stmt)
@@ -1346,7 +1346,7 @@ async def export_inventory(session=Depends(get_session)):
 
         lines = [
             "GalleryControl Device Inventory",
-            f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+            f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
             "",
         ]
 
@@ -1382,7 +1382,7 @@ async def export_inventory(session=Depends(get_session)):
 
         return {
             "content": "\n".join(lines),
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.utcnow().isoformat(),
             "exhibition_count": len(exhibitions),
         }
 

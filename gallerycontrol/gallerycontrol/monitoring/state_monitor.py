@@ -316,7 +316,7 @@ class StateMonitor:
             return True
 
         interval = self._get_poll_interval(device_id)
-        elapsed = (datetime.now(timezone.utc) - last).total_seconds()
+        elapsed = (datetime.utcnow() - last).total_seconds()
         return elapsed >= interval
 
     async def _poll_due_devices(self):
@@ -377,7 +377,7 @@ class StateMonitor:
                         batch_results.append(("success" if result else "failed", device.name))
                     except asyncio.TimeoutError:
                         # Mark as polled to prevent retry storm
-                        poll_time = datetime.now(timezone.utc)
+                        poll_time = datetime.utcnow()
                         device_id = str(device.id)
                         self._last_polled[device_id] = poll_time
 
@@ -465,7 +465,7 @@ class StateMonitor:
         manager = self.device_managers.get(device.device_type)
 
         # Mark as polled at the start (even if it fails, to prevent retry storm)
-        poll_time = datetime.now(timezone.utc)
+        poll_time = datetime.utcnow()
         self._last_polled[device_id] = poll_time
         poll_interval = self._get_poll_interval(device_id)
         next_poll_at = poll_time + timedelta(seconds=poll_interval)
@@ -694,7 +694,7 @@ class StateMonitor:
 
         seconds_until_next = 0
         if last_polled:
-            elapsed = (datetime.now(timezone.utc) - last_polled).total_seconds()
+            elapsed = (datetime.utcnow() - last_polled).total_seconds()
             seconds_until_next = max(0, int(interval - elapsed))
 
         return {
@@ -732,11 +732,12 @@ class StateMonitor:
         if not device.resolved_at:
             return True
 
-        # Use timezone-aware comparison
-        now = datetime.now(timezone.utc)
+        # Use naive UTC comparison (DB stores naive datetimes)
+        now = datetime.utcnow()
         resolved_at = device.resolved_at
-        if resolved_at.tzinfo is None:
-            resolved_at = resolved_at.replace(tzinfo=timezone.utc)
+        # Strip timezone info if present (shouldn't be, but be safe)
+        if resolved_at.tzinfo is not None:
+            resolved_at = resolved_at.replace(tzinfo=None)
 
         elapsed = (now - resolved_at).total_seconds()
         return elapsed >= self.dns_resolve_interval
@@ -800,7 +801,7 @@ class StateMonitor:
                     .where(Device.id == device.id)
                     .values(
                         resolved=resolved,
-                        resolved_at=datetime.now(timezone.utc),
+                        resolved_at=datetime.utcnow(),
                     )
                 )
                 await session.execute(stmt)
@@ -818,7 +819,7 @@ class StateMonitor:
                 stmt = (
                     update(Device)
                     .where(Device.id == device.id)
-                    .values(resolved_at=datetime.now(timezone.utc))
+                    .values(resolved_at=datetime.utcnow())
                 )
                 await session.execute(stmt)
                 await session.commit()

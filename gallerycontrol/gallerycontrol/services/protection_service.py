@@ -222,10 +222,17 @@ class ProtectionService:
 
                 if artwork.protection_state:
                     state = artwork.protection_state
+                    # Keep datetimes naive for consistent comparison with utcnow()
+                    started_at = state.started_at
+                    if started_at and started_at.tzinfo is not None:
+                        started_at = started_at.replace(tzinfo=None)
+                    cooldown_until = state.cooldown_until
+                    if cooldown_until and cooldown_until.tzinfo is not None:
+                        cooldown_until = cooldown_until.replace(tzinfo=None)
                     self._states[artwork.id] = {
                         "is_running": state.is_running,
-                        "started_at": ensure_utc(state.started_at),
-                        "cooldown_until": ensure_utc(state.cooldown_until),
+                        "started_at": started_at,
+                        "cooldown_until": cooldown_until,
                         "time_slice_usage": state.time_slice_usage or {},
                         "last_window_reset": state.last_window_reset or {},
                         "desired_state": getattr(state, "desired_state", "off") or "off",
@@ -269,7 +276,7 @@ class ProtectionService:
                             time_slice_usage=state["time_slice_usage"],
                             last_window_reset=state["last_window_reset"],
                             desired_state=state.get("desired_state", "off"),
-                            updated_at=datetime.now(timezone.utc),
+                            updated_at=datetime.utcnow(),
                         )
                     )
                     await session.execute(stmt)
@@ -340,7 +347,7 @@ class ProtectionService:
 
     def _get_window_start(self, window_minutes: int) -> datetime:
         """Get the start of the current time window."""
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         # Align to window boundaries (e.g., 15-min chunks align to :00, :15, :30, :45)
         minutes_since_midnight = now.hour * 60 + now.minute
         window_start_minute = (minutes_since_midnight // window_minutes) * window_minutes
@@ -381,7 +388,7 @@ class ProtectionService:
         """Get current runtime in seconds if running, else 0."""
         if not state.get("is_running") or not state.get("started_at"):
             return 0
-        return int((datetime.now(timezone.utc) - state["started_at"]).total_seconds())
+        return int((datetime.utcnow() - state["started_at"]).total_seconds())
 
     def _get_min_runtime(self, config: dict) -> int:
         """Get min_runtime in seconds (supports both formats)."""
@@ -416,8 +423,8 @@ class ProtectionService:
 
         # Check cooldown
         cooldown_until = state.get("cooldown_until")
-        if cooldown_until and datetime.now(timezone.utc) < cooldown_until:
-            remaining = (cooldown_until - datetime.now(timezone.utc)).total_seconds()
+        if cooldown_until and datetime.utcnow() < cooldown_until:
+            remaining = (cooldown_until - datetime.utcnow()).total_seconds()
             return (False, f"Cooldown active ({format_duration(remaining)} remaining)")
 
         # Check time slice budgets
@@ -438,7 +445,7 @@ class ProtectionService:
             window_minutes = _get_slice_window_minutes(config)
             if window_minutes > 0:
                 window_end = self._get_window_end(window_minutes)
-                time_to_rollover = (window_end - datetime.now(timezone.utc)).total_seconds()
+                time_to_rollover = (window_end - datetime.utcnow()).total_seconds()
 
                 if time_to_rollover < need:
                     # We're close enough to rollover - allow bridging into new budget
@@ -525,8 +532,8 @@ class ProtectionService:
 
         # Check cooldown
         cooldown_until = state.get("cooldown_until")
-        if cooldown_until and datetime.now(timezone.utc) < cooldown_until:
-            remaining = (cooldown_until - datetime.now(timezone.utc)).total_seconds()
+        if cooldown_until and datetime.utcnow() < cooldown_until:
+            remaining = (cooldown_until - datetime.utcnow()).total_seconds()
             return (False, f"Cooldown active ({format_duration(remaining)} remaining)")
 
         # Check budget >= min_runtime
@@ -546,7 +553,7 @@ class ProtectionService:
             window_minutes = _get_slice_window_minutes(config)
             if window_minutes > 0:
                 window_end = self._get_window_end(window_minutes)
-                time_to_rollover = (window_end - datetime.now(timezone.utc)).total_seconds()
+                time_to_rollover = (window_end - datetime.utcnow()).total_seconds()
 
                 if time_to_rollover < need:
                     # Allow bridging - we'll cross into fresh budget
@@ -717,7 +724,7 @@ class ProtectionService:
             return
 
         state["is_running"] = True
-        state["started_at"] = datetime.now(timezone.utc)
+        state["started_at"] = datetime.utcnow()
 
         # For sensor source, desired_state should already be "on" from handle_sensor_signal
         # For other sources, we don't update desired_state (it tracks sensor intent only)
@@ -752,7 +759,7 @@ class ProtectionService:
         started_at = state.get("started_at")
         runtime_seconds = 0
         if started_at:
-            runtime_seconds = (datetime.now(timezone.utc) - started_at).total_seconds()
+            runtime_seconds = (datetime.utcnow() - started_at).total_seconds()
             await self._update_time_slice_usage(artwork_id, int(runtime_seconds))
 
         state["is_running"] = False
@@ -763,7 +770,7 @@ class ProtectionService:
         if source == "protection":
             cooldown_seconds = parse_duration(config.get("cooldown", 0))
             if cooldown_seconds > 0:
-                state["cooldown_until"] = datetime.now(timezone.utc) + timedelta(
+                state["cooldown_until"] = datetime.utcnow() + timedelta(
                     seconds=cooldown_seconds
                 )
                 logger.info(
@@ -831,7 +838,7 @@ class ProtectionService:
 
     async def _check_all_runtimes(self) -> None:
         """Check all running artworks for max_runtime and budget violations."""
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
 
         for artwork_id, state in list(self._states.items()):
             # Skip artworks where timeslice feature is disabled
@@ -878,7 +885,7 @@ class ProtectionService:
 
     async def _check_cooldown_expiry(self) -> None:
         """Check for cooldown expiry and auto-resume if desired_state is "on"."""
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
 
         for artwork_id, state in list(self._states.items()):
             if artwork_id not in self._enabled_artworks:
@@ -980,14 +987,14 @@ class ProtectionService:
         # Calculate runtime for budget update
         started_at = state.get("started_at")
         if started_at:
-            runtime_seconds = (datetime.now(timezone.utc) - started_at).total_seconds()
+            runtime_seconds = (datetime.utcnow() - started_at).total_seconds()
             await self._update_time_slice_usage(artwork_id, int(runtime_seconds))
 
         # Update state (cooldown will be set in notify_stopped via source="protection")
         state["is_running"] = False
         state["started_at"] = None
         if cooldown_seconds > 0:
-            state["cooldown_until"] = datetime.now(timezone.utc) + timedelta(
+            state["cooldown_until"] = datetime.utcnow() + timedelta(
                 seconds=cooldown_seconds
             )
 
@@ -1056,7 +1063,7 @@ class ProtectionService:
 
         config = self._configs[artwork_id]
         state = self._states.get(artwork_id, {})
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
 
         # Calculate current runtime if running
         runtime_seconds = 0
