@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Modal } from '../ui/Modal';
 import { ConfirmButton } from '../ui/ConfirmButton';
 import { formatShortDateTime, formatShortDate } from '../../utils/dateFormat';
@@ -87,49 +87,59 @@ export function QuickScheduleModal({
     }
   }, [isOpen, schedulableExhibitions, selectedExhibitionId]);
 
-  // Fetch all exhibition one-shot jobs
+  // Track if we've fetched for this modal open
+  const hasFetchedRef = useRef(false);
+
+  // Fetch all exhibition one-shot jobs (no dependencies on exhibitions to avoid loops)
   const fetchAllJobs = useCallback(async () => {
-    if (schedulableExhibitions.length === 0) {
-      setAllJobs([]);
-      return;
-    }
     setLoadingAll(true);
     try {
       const url = `${API_BASE}/api/admin/scheduled-jobs?target_type=exhibition`;
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch schedules');
       const data = await response.json();
-      // Filter to only pending one-shot jobs within next 5 days
-      const maxDate = new Date();
-      maxDate.setDate(maxDate.getDate() + 5);
-      const filtered = data.filter((job: ScheduledJob) => {
-        if (!job.run_once || job.executed_at) return false;
-        if (!job.next_run_at) return false;
-        // Only include jobs for schedulable exhibitions
-        if (!job.target_id || !exhibitionNames.has(job.target_id)) return false;
-        const jobDate = new Date(job.next_run_at.endsWith('Z') ? job.next_run_at : job.next_run_at + 'Z');
-        return jobDate <= maxDate;
-      });
-      // Sort by next_run_at
-      filtered.sort((a: ScheduledJob, b: ScheduledJob) => {
-        const dateA = new Date(a.next_run_at!);
-        const dateB = new Date(b.next_run_at!);
-        return dateA.getTime() - dateB.getTime();
-      });
-      setAllJobs(filtered);
+      // Store raw jobs - filtering happens at render time
+      setAllJobs(data);
     } catch (err) {
       console.error('Failed to fetch schedules:', err);
       showToast('Failed to load schedules', 'danger');
     } finally {
       setLoadingAll(false);
     }
-  }, [schedulableExhibitions, exhibitionNames, showToast]);
+  }, [showToast]);
 
+  // Fetch only once when modal opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !hasFetchedRef.current) {
+      hasFetchedRef.current = true;
       fetchAllJobs();
     }
+    if (!isOpen) {
+      hasFetchedRef.current = false;
+    }
   }, [isOpen, fetchAllJobs]);
+
+  // Filter jobs at render time (not in fetch)
+  const filteredJobs = useMemo(() => {
+    if (schedulableExhibitions.length === 0) return [];
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + 5);
+    const filtered = allJobs.filter((job: ScheduledJob) => {
+      if (!job.run_once || job.executed_at) return false;
+      if (!job.next_run_at) return false;
+      // Only include jobs for schedulable exhibitions
+      if (!job.target_id || !exhibitionNames.has(job.target_id)) return false;
+      const jobDate = new Date(job.next_run_at.endsWith('Z') ? job.next_run_at : job.next_run_at + 'Z');
+      return jobDate <= maxDate;
+    });
+    // Sort by next_run_at
+    filtered.sort((a: ScheduledJob, b: ScheduledJob) => {
+      const dateA = new Date(a.next_run_at!);
+      const dateB = new Date(b.next_run_at!);
+      return dateA.getTime() - dateB.getTime();
+    });
+    return filtered;
+  }, [allJobs, schedulableExhibitions, exhibitionNames]);
 
   const handleCreate = async () => {
     if (!selectedExhibitionId) {
@@ -188,7 +198,7 @@ export function QuickScheduleModal({
   };
 
   // Get jobs for selected exhibition
-  const selectedExhibitionJobs = allJobs.filter(j => j.target_id === selectedExhibitionId);
+  const selectedExhibitionJobs = filteredJobs.filter(j => j.target_id === selectedExhibitionId);
   const selectedExhibition = schedulableExhibitions.find(e => e.id === selectedExhibitionId);
 
   // Check if form is valid for adding
@@ -249,7 +259,7 @@ export function QuickScheduleModal({
                   <span className="spinner-border spinner-border-sm"></span>
                   <span className="ms-2">Loading...</span>
                 </div>
-              ) : allJobs.length === 0 ? (
+              ) : filteredJobs.length === 0 ? (
                 <div className="text-muted text-center py-3 bg-light rounded">
                   No scheduled jobs for the next 5 days
                 </div>
@@ -265,7 +275,7 @@ export function QuickScheduleModal({
                       </tr>
                     </thead>
                     <tbody>
-                      {allJobs.map(job => (
+                      {filteredJobs.map(job => (
                         <tr key={job.id}>
                           <td>{formatShortDateTime(job.next_run_at)}</td>
                           <td>{job.target_id ? exhibitionNames.get(job.target_id) || 'Unknown' : 'Unknown'}</td>
