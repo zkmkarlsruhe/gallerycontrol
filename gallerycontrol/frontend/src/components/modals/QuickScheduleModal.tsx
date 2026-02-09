@@ -72,20 +72,27 @@ export function QuickScheduleModal({
     [schedulableExhibitions]
   );
 
-  // Reset state when modal opens
+  // Track if we've initialized for this modal open
+  const hasInitializedRef = useRef(false);
+
+  // Reset state when modal opens (only once per open)
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !hasInitializedRef.current) {
+      hasInitializedRef.current = true;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       setSelectedDate(today);
       setActionType('off');
       setRunAtTime('18:00');
       // Auto-select first exhibition if available
-      if (schedulableExhibitions.length > 0 && !selectedExhibitionId) {
+      if (schedulableExhibitions.length > 0) {
         setSelectedExhibitionId(schedulableExhibitions[0].id);
       }
     }
-  }, [isOpen, schedulableExhibitions, selectedExhibitionId]);
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+    }
+  }, [isOpen, schedulableExhibitions]);
 
   // Track if we've fetched for this modal open
   const hasFetchedRef = useRef(false);
