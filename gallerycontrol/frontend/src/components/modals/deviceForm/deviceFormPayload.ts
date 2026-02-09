@@ -78,9 +78,15 @@ function buildAnelPayload(data: AnelFormData, includeDeviceType: boolean): Devic
   };
 }
 
+interface ShellCommandConfig {
+  cmd: string;
+  onPattern?: string;
+  offPattern?: string;
+}
+
 function buildShellPayload(data: ShellFormData, includeDeviceType: boolean): DevicePayload {
   // Build commands object
-  const shellCommands: Record<string, any> = {};
+  const shellCommands: Record<string, ShellCommandConfig> = {};
 
   // Status command (always included if set)
   if (data.status_cmd) {
@@ -192,17 +198,17 @@ function hydrateShellData(device: Device): ShellFormData {
   let customActions: ShellAction[] = [];
 
   // Check new actions array first
-  if (device.config?.actions && Array.isArray(device.config.actions)) {
-    customActions = device.config.actions
-      .filter((a: any) => a.name && a.cmd)
-      .map((a: any) => ({ name: a.name, cmd: a.cmd }));
+  if (device.config && 'actions' in device.config && Array.isArray(device.config.actions)) {
+    customActions = (device.config.actions as Array<{ name?: string; cmd?: string }>)
+      .filter((a) => a.name && a.cmd)
+      .map((a) => ({ name: a.name!, cmd: a.cmd! }));
   }
 
   // Fall back to old format if no actions array
   if (customActions.length === 0) {
-    customActions = Object.entries(commands || {})
+    customActions = Object.entries(commands)
       .filter(([key]) => !['on', 'off', 'status'].includes(key))
-      .map(([name, cfg]: [string, any]) => ({ name, cmd: cfg?.cmd || '' }));
+      .map(([name, cfg]) => ({ name, cmd: typeof cfg === 'object' && cfg !== null ? (cfg as { cmd?: string }).cmd || '' : '' }));
   }
 
   return {

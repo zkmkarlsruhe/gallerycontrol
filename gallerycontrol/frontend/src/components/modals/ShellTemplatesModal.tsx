@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { ShellTemplate, ShellTemplateCreate, ShellTemplateUpdate, ShellTemplateAction } from '../../types';
 import { Modal } from '../ui/Modal';
 import { ConfirmButton } from '../ui/ConfirmButton';
@@ -65,28 +65,28 @@ export function ShellTemplatesModal({
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testingCommand, setTestingCommand] = useState<string | null>(null);
 
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     try {
       const data = await fetchShellTemplates();
       setTemplates(data);
     } catch {
       showToast('Failed to load shell templates', 'danger');
     }
-  };
+  }, [fetchShellTemplates, showToast]);
+
+  const resetForm = useCallback(() => {
+    setFormData(emptyFormData);
+    setEditingId(null);
+    setIsAdding(false);
+    setTestResult(null);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
       loadTemplates();
       resetForm();
     }
-  }, [isOpen]);
-
-  const resetForm = () => {
-    setFormData(emptyFormData);
-    setEditingId(null);
-    setIsAdding(false);
-    setTestResult(null);
-  };
+  }, [isOpen, loadTemplates, resetForm]);
 
   const update = (field: keyof FormData, value: string | boolean | ShellTemplateAction[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));

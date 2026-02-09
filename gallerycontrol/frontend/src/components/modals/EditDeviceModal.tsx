@@ -8,12 +8,13 @@ import { NetioForm } from '../forms/NetioForm';
 import { AnelForm } from '../forms/AnelForm';
 import { ShellForm } from '../forms/ShellForm';
 import { useDeviceFormState, buildDevicePayload } from './deviceForm';
+import type { DevicePayload } from './deviceForm/deviceForm.types';
 
 interface EditDeviceModalProps {
   isOpen: boolean;
   device: Device | null;
   onClose: () => void;
-  onSave: (id: string, data: any) => Promise<void>;
+  onSave: (id: string, data: DevicePayload) => Promise<void>;
   onDelete?: (id: string, name: string) => Promise<void>;
   credentials?: Credential[];
   templates?: ShellTemplate[];

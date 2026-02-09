@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
 import { useState, useEffect } from 'react';
-import type { Device, Artwork, ProtectionStatus } from '../types';
+import type { Device, Artwork, ProtectionStatus, DeviceInfo, ShellCommand, DeviceAction } from '../types';
 import { ConfirmButton } from './ui/ConfirmButton';
 import { useDevicePollProgress, useProtectionStatus } from '../context/PollStatusContext';
 import { useDeviceInfo } from '../hooks/useDeviceInfo';
@@ -21,14 +21,16 @@ function extractDeviceHost(device: Device): string | null {
   }
 
   // For shell devices, extract from command URLs
-  const commands = device.config?.commands;
+  if (device.device_type !== 'shell') return null;
+  const shellConfig = device.config as { commands?: Record<string, string | ShellCommand> } | undefined;
+  const commands = shellConfig?.commands;
   if (!commands || typeof commands !== 'object') return null;
 
   // Look through all commands for URLs
   const urlPattern = /https?:\/\/([a-zA-Z0-9._-]+(?::\d+)?)/;
 
   for (const cmd of Object.values(commands)) {
-    const cmdStr = typeof cmd === 'object' && cmd !== null ? (cmd as any).cmd : cmd;
+    const cmdStr = typeof cmd === 'object' && cmd !== null ? (cmd as ShellCommand).cmd : cmd;
     if (typeof cmdStr === 'string') {
       const match = cmdStr.match(urlPattern);
       if (match) {
@@ -91,9 +93,27 @@ function PollProgressBar({ progress, isFastPolling, isVerifying }: { progress: n
   );
 }
 
+/** Freshness indicator for device info */
+function FreshnessIndicator({ cachedAt, isStale }: { cachedAt?: Date | null; isStale?: boolean }) {
+  if (!cachedAt) return null;
+  const timeStr = formatRelativeTime(cachedAt);
+  if (isStale) {
+    return (
+      <span className="device-info-freshness stale" title="Device offline - showing cached data">
+        <i className="bi bi-exclamation-triangle"></i> Cached {timeStr}
+      </span>
+    );
+  }
+  return (
+    <span className="device-info-freshness" title="Last updated">
+      Updated {timeStr}
+    </span>
+  );
+}
+
 /** Display extended device info based on device type */
 function DeviceInfoPanel({ info, loading, error, deviceType, cachedAt, isStale }: {
-  info: Record<string, any> | null;
+  info: DeviceInfo | null;
   loading: boolean;
   error: string | null;
   deviceType: string;
@@ -118,66 +138,51 @@ function DeviceInfoPanel({ info, loading, error, deviceType, cachedAt, isStale }
 
   if (!info) return null;
 
-  // Freshness indicator component
-  const FreshnessIndicator = () => {
-    if (!cachedAt) return null;
-    const timeStr = formatRelativeTime(cachedAt);
-    if (isStale) {
-      return (
-        <span className="device-info-freshness stale" title="Device offline - showing cached data">
-          <i className="bi bi-exclamation-triangle"></i> Cached {timeStr}
-        </span>
-      );
-    }
-    return (
-      <span className="device-info-freshness" title="Last updated">
-        Updated {timeStr}
-      </span>
-    );
-  };
-
   // Render based on device type
   if (deviceType === 'pjlink') {
+    const pjInfo = info as { manufacturer?: string; product?: string; name?: string; lamp_hours?: number; lamp_on?: boolean; class?: number; has_errors?: boolean; has_warnings?: boolean; errors?: string };
     return (
       <div className="device-info-extended">
-        <FreshnessIndicator />
-        {info.manufacturer && <span><strong>Manufacturer:</strong> {info.manufacturer}</span>}
-        {info.product && <span><strong>Model:</strong> {info.product}</span>}
-        {info.name && <span><strong>Name:</strong> {info.name}</span>}
-        {info.lamp_hours !== undefined && (
-          <span><strong>Lamp:</strong> {info.lamp_hours}h {info.lamp_on ? '(on)' : '(off)'}</span>
+        <FreshnessIndicator cachedAt={cachedAt} isStale={isStale} />
+        {pjInfo.manufacturer && <span><strong>Manufacturer:</strong> {pjInfo.manufacturer}</span>}
+        {pjInfo.product && <span><strong>Model:</strong> {pjInfo.product}</span>}
+        {pjInfo.name && <span><strong>Name:</strong> {pjInfo.name}</span>}
+        {pjInfo.lamp_hours !== undefined && (
+          <span><strong>Lamp:</strong> {pjInfo.lamp_hours}h {pjInfo.lamp_on ? '(on)' : '(off)'}</span>
         )}
-        {info.class && <span><strong>Class:</strong> {info.class}</span>}
-        {info.has_errors && <span className="text-danger"><strong>Errors:</strong> {info.errors}</span>}
-        {info.has_warnings && <span className="text-warning"><strong>Warnings:</strong> {info.errors}</span>}
+        {pjInfo.class && <span><strong>Class:</strong> {pjInfo.class}</span>}
+        {pjInfo.has_errors && <span className="text-danger"><strong>Errors:</strong> {pjInfo.errors}</span>}
+        {pjInfo.has_warnings && <span className="text-warning"><strong>Warnings:</strong> {pjInfo.errors}</span>}
       </div>
     );
   }
 
   if (deviceType === 'netio') {
+    const netInfo = info as { model?: string; mac?: string; firmware?: string; device_name?: string; voltage?: number; total_power?: number; uptime?: number };
     return (
       <div className="device-info-extended">
-        <FreshnessIndicator />
-        {info.model && <span><strong>Model:</strong> {info.model}</span>}
-        {info.mac && <span><strong>MAC:</strong> {info.mac}</span>}
-        {info.firmware && <span><strong>Firmware:</strong> {info.firmware}</span>}
-        {info.device_name && <span><strong>Name:</strong> {info.device_name}</span>}
-        {info.voltage && <span><strong>Voltage:</strong> {info.voltage}V</span>}
-        {info.total_power !== undefined && <span><strong>Power:</strong> {info.total_power}W</span>}
-        {info.uptime && <span><strong>Uptime:</strong> {Math.floor(info.uptime / 3600)}h</span>}
+        <FreshnessIndicator cachedAt={cachedAt} isStale={isStale} />
+        {netInfo.model && <span><strong>Model:</strong> {netInfo.model}</span>}
+        {netInfo.mac && <span><strong>MAC:</strong> {netInfo.mac}</span>}
+        {netInfo.firmware && <span><strong>Firmware:</strong> {netInfo.firmware}</span>}
+        {netInfo.device_name && <span><strong>Name:</strong> {netInfo.device_name}</span>}
+        {netInfo.voltage && <span><strong>Voltage:</strong> {netInfo.voltage}V</span>}
+        {netInfo.total_power !== undefined && <span><strong>Power:</strong> {netInfo.total_power}W</span>}
+        {netInfo.uptime && <span><strong>Uptime:</strong> {Math.floor(netInfo.uptime / 3600)}h</span>}
       </div>
     );
   }
 
   if (deviceType === 'anel') {
+    const anelInfo = info as { name?: string; mac?: string; ip?: string; temperature?: number; ports?: unknown[] };
     return (
       <div className="device-info-extended">
-        <FreshnessIndicator />
-        {info.name && <span><strong>Name:</strong> {info.name}</span>}
-        {info.mac && <span><strong>MAC:</strong> {info.mac}</span>}
-        {info.ip && <span><strong>IP:</strong> {info.ip}</span>}
-        {info.temperature !== undefined && <span><strong>Temp:</strong> {info.temperature}°C</span>}
-        {info.ports && <span><strong>Ports:</strong> {info.ports.length}</span>}
+        <FreshnessIndicator cachedAt={cachedAt} isStale={isStale} />
+        {anelInfo.name && <span><strong>Name:</strong> {anelInfo.name}</span>}
+        {anelInfo.mac && <span><strong>MAC:</strong> {anelInfo.mac}</span>}
+        {anelInfo.ip && <span><strong>IP:</strong> {anelInfo.ip}</span>}
+        {anelInfo.temperature !== undefined && <span><strong>Temp:</strong> {anelInfo.temperature}°C</span>}
+        {anelInfo.ports && <span><strong>Ports:</strong> {anelInfo.ports.length}</span>}
       </div>
     );
   }
@@ -185,7 +190,7 @@ function DeviceInfoPanel({ info, loading, error, deviceType, cachedAt, isStale }
   // Generic fallback - show all info
   return (
     <div className="device-info-extended">
-      <FreshnessIndicator />
+      <FreshnessIndicator cachedAt={cachedAt} isStale={isStale} />
       {Object.entries(info).map(([key, value]) => (
         <span key={key}><strong>{key}:</strong> {String(value)}</span>
       ))}
@@ -467,19 +472,19 @@ export function DeviceAccordion({ device, artwork, isOpen, editMode, pendingStat
             </div>
           )}
           {/* Show custom actions from config.actions (new format) */}
-          {device.config?.actions && Array.isArray(device.config.actions) && device.config.actions.map((action: any) => (
+          {device.config && 'actions' in device.config && Array.isArray(device.config.actions) && device.config.actions.map((action: DeviceAction) => (
             <div key={action.name} className="shell-cmd-row">
               <span className="shell-cmd-label">{action.name}:</span>
               <code className="shell-cmd-value">{action.cmd}</code>
             </div>
           ))}
           {/* Fallback: show custom actions from commands dict (old format) */}
-          {!device.config?.actions && device.config?.commands && typeof device.config.commands === 'object' && Object.entries(device.config.commands || {})
+          {device.config && !('actions' in device.config) && 'commands' in device.config && device.config.commands && typeof device.config.commands === 'object' && Object.entries(device.config.commands as Record<string, string | { cmd?: string }>)
             .filter(([key]) => !['on', 'off', 'status', 'reachable'].includes(key))
-            .map(([name, cfg]: [string, any]) => (
+            .map(([name, cfg]) => (
               <div key={name} className="shell-cmd-row">
                 <span className="shell-cmd-label">{name}:</span>
-                <code className="shell-cmd-value">{cfg?.cmd}</code>
+                <code className="shell-cmd-value">{typeof cfg === 'object' && cfg !== null ? cfg.cmd : cfg}</code>
               </div>
             ))
           }

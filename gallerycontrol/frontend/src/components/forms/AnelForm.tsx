@@ -142,6 +142,7 @@ export function AnelForm({ data, onChange, credentials = [], onReachabilityChang
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const defaultAnelData: AnelFormData = {
   name: '',
   host: '',

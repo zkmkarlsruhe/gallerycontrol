@@ -110,6 +110,7 @@ export function PJLinkForm({ data, onChange, credentials = [], onReachabilityCha
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const defaultPJLinkData: PJLinkFormData = {
   name: '',
   host: '',

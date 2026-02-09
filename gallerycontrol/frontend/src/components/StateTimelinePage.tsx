@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import * as d3 from 'd3';
 import { formatDuration } from '../utils/dateFormat';
 
@@ -158,9 +158,12 @@ export function StateTimelinePage({ onClose, devices }: StateTimelinePageProps) 
   const exhibitions = [...new Set(devices.map(d => d.exhibitionName))].sort();
 
   // Filter devices by exhibition
-  const filteredDeviceIds = filterExhibition
-    ? new Set(devices.filter(d => d.exhibitionName === filterExhibition).map(d => d.id))
-    : null;
+  const filteredDeviceIds = useMemo(() =>
+    filterExhibition
+      ? new Set(devices.filter(d => d.exhibitionName === filterExhibition).map(d => d.id))
+      : null,
+    [filterExhibition, devices]
+  );
 
   // Process state changes into grouped segments
   const processSegments = useCallback((): { segments: TimeSegment[]; rows: RowInfo[]; totalRows: number } => {

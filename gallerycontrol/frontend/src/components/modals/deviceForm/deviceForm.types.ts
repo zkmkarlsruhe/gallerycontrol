@@ -85,6 +85,7 @@ export interface DevicePayload {
   automation_enabled: boolean;
   schedules_enabled?: boolean; // Only for update
   use_satellite?: boolean; // Route via exhibition satellite
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   config: Record<string, any>;
 }
 

@@ -170,7 +170,7 @@ export function useApi() {
       port?: number;
       enabled?: boolean;
       automation_enabled?: boolean;
-      config?: Record<string, any>;
+      config?: Record<string, unknown>;
     }
   ): Promise<void> => {
     const response = await fetch(`${API_BASE}/api/admin/devices/${id}`, {

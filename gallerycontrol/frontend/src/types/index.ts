@@ -7,6 +7,70 @@ export interface DeviceAction {
   cmd: string;
 }
 
+// Device-specific configuration types
+export interface ShellCommand {
+  cmd: string;
+  timeout?: number;
+}
+
+export interface ShellDeviceConfig {
+  commands?: Record<string, string | ShellCommand>;
+  actions?: DeviceAction[];
+  credential_id?: string;
+  template_id?: string;
+}
+
+export interface PJLinkDeviceConfig {
+  credential_id?: string;
+  class?: number;
+}
+
+export interface NetioDeviceConfig {
+  credential_id?: string;
+  output?: number;
+}
+
+export interface AnelDeviceConfig {
+  credential_id?: string;
+  output?: number;
+}
+
+// Union type for typed access, with fallback to Record for unknown configs
+export type DeviceConfig = ShellDeviceConfig | PJLinkDeviceConfig | NetioDeviceConfig | AnelDeviceConfig | Record<string, unknown>;
+
+// Device info types (returned from /api/debug/device/{id}/info)
+export interface PJLinkDeviceInfo {
+  manufacturer?: string;
+  product?: string;
+  name?: string;
+  lamp_hours?: number;
+  lamp_on?: boolean;
+  class?: number;
+  has_errors?: boolean;
+  has_warnings?: boolean;
+  errors?: string;
+}
+
+export interface NetioDeviceInfo {
+  model?: string;
+  mac?: string;
+  firmware?: string;
+  device_name?: string;
+  voltage?: number;
+  total_power?: number;
+  uptime?: number;
+}
+
+export interface AnelDeviceInfo {
+  name?: string;
+  mac?: string;
+  ip?: string;
+  temperature?: number;
+  ports?: unknown[];
+}
+
+export type DeviceInfo = PJLinkDeviceInfo | NetioDeviceInfo | AnelDeviceInfo | Record<string, unknown>;
+
 export interface PollStatus {
   is_fast_polling: boolean;
   is_verifying: boolean;
@@ -32,6 +96,7 @@ export interface Device {
   next_check_allowed_at: string | null;
   poll_status: PollStatus | null;
   actions: DeviceAction[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   config?: Record<string, any>; // Device-specific configuration
   resolved?: string | null; // Resolved hostname/IP from DNS
   asset_id?: string | null; // Linked asset ID (PJLink only)

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
-import { useState, useEffect } from 'react';
-import type { Credential, CredentialCreate, CredentialUpdate } from '../../types';
+import { useState, useEffect, useCallback } from 'react';
+import type { Credential, CredentialCreate, CredentialUpdate, CredentialType } from '../../types';
 import { Modal } from '../ui/Modal';
 import { ConfirmButton } from '../ui/ConfirmButton';
 
@@ -17,6 +17,14 @@ interface CredentialsModalProps {
 
 const CREDENTIAL_TYPES = ['shell', 'pjlink', 'netio', 'anel'] as const;
 
+const INITIAL_FORM_DATA: CredentialCreate = {
+  name: '',
+  credential_type: 'shell',
+  username: '',
+  password: '',
+  description: '',
+};
+
 export function CredentialsModal({
   isOpen,
   onClose,
@@ -31,41 +39,31 @@ export function CredentialsModal({
   const [isAdding, setIsAdding] = useState(false);
 
   // Form state
-  const [formData, setFormData] = useState<CredentialCreate>({
-    name: '',
-    credential_type: 'shell',
-    username: '',
-    password: '',
-    description: '',
-  });
+  const [formData, setFormData] = useState<CredentialCreate>(INITIAL_FORM_DATA);
 
-  const loadCredentials = async () => {
+  const resetForm = useCallback(() => {
+    setFormData(INITIAL_FORM_DATA);
+    setEditingId(null);
+    setIsAdding(false);
+  }, []);
+
+  const loadCredentials = useCallback(async () => {
     try {
       const data = await fetchCredentials();
       setCredentials(data);
     } catch {
       showToast('Failed to load credentials', 'danger');
     }
-  };
+  }, [fetchCredentials, showToast]);
 
+  // Load data when modal opens - this is intentional initialization
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadCredentials();
       resetForm();
     }
-  }, [isOpen]);
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      credential_type: 'shell',
-      username: '',
-      password: '',
-      description: '',
-    });
-    setEditingId(null);
-    setIsAdding(false);
-  };
+  }, [isOpen, loadCredentials, resetForm]);
 
   const handleAdd = async () => {
     if (!formData.name.trim() || !formData.password.trim()) {
@@ -112,9 +110,9 @@ export function CredentialsModal({
       await deleteCredential(id);
       showToast(`Credential "${name}" deleted`, 'success');
       loadCredentials();
-    } catch (err: any) {
+    } catch (err) {
       // Show specific error message if credential is in use
-      const detail = err?.response?.data?.detail || err?.message || 'Failed to delete credential';
+      const detail = err instanceof Error ? err.message : 'Failed to delete credential';
       showToast(detail, 'danger');
     }
   };
@@ -240,7 +238,7 @@ export function CredentialsModal({
               <select
                 className="form-control form-control-sm"
                 value={formData.credential_type}
-                onChange={(e) => setFormData({ ...formData, credential_type: e.target.value as any })}
+                onChange={(e) => setFormData({ ...formData, credential_type: e.target.value as CredentialType })}
               >
                 {CREDENTIAL_TYPES.map(type => (
                   <option key={type} value={type}>{type}</option>

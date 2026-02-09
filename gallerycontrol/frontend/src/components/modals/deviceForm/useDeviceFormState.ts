@@ -75,10 +75,11 @@ export function useDeviceFormState({
   // Reachability state
   const [reachabilityStatus, setReachabilityStatus] = useState<ReachabilityStatus>('idle');
 
-  // Hydrate from device in edit mode
+  // Hydrate from device in edit mode - intentional initialization
   useEffect(() => {
     if (mode === 'edit' && initialDevice) {
       const hydrated = hydrateFromDevice(initialDevice);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDeviceTypeInternal(hydrated.deviceType);
       setSlices(hydrated.slices);
       // Reset reachability when device changes

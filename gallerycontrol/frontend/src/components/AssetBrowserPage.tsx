@@ -25,6 +25,19 @@ interface LampHistoryResponse {
   pages: number;
 }
 
+interface BackfillResult {
+  linked: number;
+  created: number;
+  skipped?: string[];
+  failed?: string[];
+}
+
+interface LampHoursResult {
+  recorded: number;
+  skipped?: string[];
+  failed?: string[];
+}
+
 const EVENT_ICONS: Record<string, string> = {
   onboard: '🔌',
   power_on: '▶️',
@@ -197,10 +210,10 @@ export function AssetBrowserPage({ onClose }: AssetBrowserPageProps) {
   const [expandedAssetId, setExpandedAssetId] = useState<string | null>(null);
   const [editAsset, setEditAsset] = useState<Asset | null>(null);
   const [backfillRunning, setBackfillRunning] = useState(false);
-  const [backfillResult, setBackfillResult] = useState<any>(null);
+  const [backfillResult, setBackfillResult] = useState<BackfillResult | null>(null);
   const [relinkRunning, setRelinkRunning] = useState(false);
   const [lampHoursRunning, setLampHoursRunning] = useState(false);
-  const [lampHoursResult, setLampHoursResult] = useState<any>(null);
+  const [lampHoursResult, setLampHoursResult] = useState<LampHoursResult | null>(null);
   const [exhibitions, setExhibitions] = useState<ExhibitionOption[]>([]);
   const [selectedExhibition, setSelectedExhibition] = useState<string>('');
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());

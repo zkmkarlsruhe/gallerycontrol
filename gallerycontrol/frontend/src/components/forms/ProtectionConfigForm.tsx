@@ -5,12 +5,32 @@
  * Prevents overuse with time slices, max runtime, and cooldown.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { ProtectionConfig, ProtectionTimeSlice } from '../../types';
 
 interface ProtectionConfigFormProps {
   value: ProtectionConfig | null | undefined;
   onChange: (config: ProtectionConfig | null) => void;
+}
+
+// Validate time slice consistency (pure function, no hooks needed)
+function validateTimeSlices(slices: ProtectionTimeSlice[]): string | null {
+  if (slices.length < 2) return null;
+
+  const sorted = [...slices].sort((a, b) => a.window - b.window);
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const inner = sorted[i];
+    for (let j = i + 1; j < sorted.length; j++) {
+      const outer = sorted[j];
+      const maxPossible = (outer.window / inner.window) * inner.max;
+      if (outer.max > maxPossible) {
+        return `${outer.window}min max (${outer.max}min) exceeds possible from ${inner.window}min window (${Math.floor(maxPossible)}min max)`;
+      }
+    }
+  }
+
+  return null;
 }
 
 export function ProtectionConfigForm({ value, onChange }: ProtectionConfigFormProps) {
@@ -28,20 +48,21 @@ export function ProtectionConfigForm({ value, onChange }: ProtectionConfigFormPr
   const [minBudget, setMinBudget] = useState<number | ''>(
     value?.min_budget_to_start ?? ''
   );
-  const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Derive validation error from time slices (no need for state)
+  const validationError = useMemo(() => validateTimeSlices(timeSlices), [timeSlices]);
+
+  // Memoize onChange to avoid unnecessary effect runs
+  const stableOnChange = useCallback((config: ProtectionConfig | null) => onChange(config), [onChange]);
 
   // Update parent when values change
   useEffect(() => {
     if (!enabled) {
-      onChange(null);
+      stableOnChange(null);
       return;
     }
 
-    // Validate time slices
-    const error = validateTimeSlices(timeSlices);
-    setValidationError(error);
-
-    if (error) {
+    if (validationError) {
       return; // Don't update parent with invalid config
     }
 
@@ -63,28 +84,8 @@ export function ProtectionConfigForm({ value, onChange }: ProtectionConfigFormPr
       config.min_budget_to_start = minBudget;
     }
 
-    onChange(Object.keys(config).length > 0 ? config : null);
-  }, [enabled, timeSlices, maxRuntime, cooldown, forceCompletion, minBudget]);
-
-  // Validate time slice consistency
-  const validateTimeSlices = (slices: ProtectionTimeSlice[]): string | null => {
-    if (slices.length < 2) return null;
-
-    const sorted = [...slices].sort((a, b) => a.window - b.window);
-
-    for (let i = 0; i < sorted.length - 1; i++) {
-      const inner = sorted[i];
-      for (let j = i + 1; j < sorted.length; j++) {
-        const outer = sorted[j];
-        const maxPossible = (outer.window / inner.window) * inner.max;
-        if (outer.max > maxPossible) {
-          return `${outer.window}min max (${outer.max}min) exceeds possible from ${inner.window}min window (${Math.floor(maxPossible)}min max)`;
-        }
-      }
-    }
-
-    return null;
-  };
+    stableOnChange(Object.keys(config).length > 0 ? config : null);
+  }, [enabled, timeSlices, maxRuntime, cooldown, forceCompletion, minBudget, validationError, stableOnChange]);
 
   const addTimeSlice = () => {
     setTimeSlices([...timeSlices, { window: 15, max: 7 }]);

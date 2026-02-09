@@ -170,6 +170,9 @@ export function PollStatusProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Use ref for reconnection to avoid hoisting issues
+  const connectRef = useRef<() => void>(() => {});
+
   const connect = useCallback(() => {
     // Close existing connection
     if (eventSourceRef.current) {
@@ -191,12 +194,17 @@ export function PollStatusProvider({ children }: { children: ReactNode }) {
       // Reconnect after 5 seconds
       reconnectTimeoutRef.current = window.setTimeout(() => {
         console.log('SSE reconnecting...');
-        connect();
+        connectRef.current();
       }, 5000);
     };
 
     eventSource.onmessage = handleMessage;
   }, [handleMessage]);
+
+  // Keep ref in sync with connect function
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     connect();
@@ -218,9 +226,11 @@ export function PollStatusProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const usePollStatus = () => useContext(PollStatusContext);
 
 // Hook for getting a specific device's poll progress (0-100%)
+// eslint-disable-next-line react-refresh/only-export-components
 export function useDevicePollProgress(deviceId: string, fallbackPollStatus?: { last_polled_at: string | null; poll_interval: number; is_verifying?: boolean } | null): {
   progress: number;
   isVerifying: boolean;
@@ -267,6 +277,8 @@ export function useDevicePollProgress(deviceId: string, fallbackPollStatus?: { l
       return Math.max(0, Math.min(100, (remaining / pollInterval) * 100));
     };
 
+    // Initial progress calculation - intentional initialization
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProgress(calcProgress());
     const intervalId = setInterval(() => setProgress(calcProgress()), 1000);
     return () => clearInterval(intervalId);
@@ -276,6 +288,7 @@ export function useDevicePollProgress(deviceId: string, fallbackPollStatus?: { l
 }
 
 // Hook for getting protection status for a specific artwork
+// eslint-disable-next-line react-refresh/only-export-components
 export function useProtectionStatus(artworkId: string): {
   status: ProtectionStatus | null;
   lastUpdated: Date | null;

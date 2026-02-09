@@ -24,6 +24,7 @@ export function ReachabilityIndicator({ status, error }: ReachabilityIndicatorPr
 /**
  * Get CSS class for host input based on reachability status.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function getHostInputClass(status: ReachabilityStatus): string {
   if (status === 'unreachable') return 'is-invalid';
   if (status === 'reachable') return 'is-valid';

@@ -9,6 +9,7 @@ import { NetioForm } from '../forms/NetioForm';
 import { AnelForm } from '../forms/AnelForm';
 import { ShellForm } from '../forms/ShellForm';
 import { useDeviceFormState, buildDevicePayload } from './deviceForm';
+import type { DevicePayload } from './deviceForm/deviceForm.types';
 
 interface AddDeviceModalProps {
   isOpen: boolean;
@@ -16,7 +17,7 @@ interface AddDeviceModalProps {
   artworkName: string;
   artworkId: string;
   onClose: () => void;
-  onSave: (artworkId: string, data: any) => Promise<void>;
+  onSave: (artworkId: string, data: DevicePayload) => Promise<void>;
   credentials?: Credential[];
   templates?: ShellTemplate[];
   existingDevices?: Device[];

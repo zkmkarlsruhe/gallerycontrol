@@ -67,6 +67,7 @@ export function ShellForm({ data, onChange, credentials = [], templates = [] }: 
     if (hasActionsContent(data) && !actionsExpanded) {
       setActionsExpanded(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run when data fields change, not on expanded state changes
   }, [data.on_cmd, data.off_cmd, data.actions]);
 
   const update = (field: keyof ShellFormData, value: string | boolean | ShellAction[]) => {
@@ -542,6 +543,7 @@ export function ShellForm({ data, onChange, credentials = [], templates = [] }: 
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const defaultShellData: ShellFormData = {
   name: '',
   credential_id: '',

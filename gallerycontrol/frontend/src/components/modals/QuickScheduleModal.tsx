@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Modal } from '../ui/Modal';
 import { ConfirmButton } from '../ui/ConfirmButton';
 import { formatShortDateTime, formatShortDate } from '../../utils/dateFormat';
@@ -67,7 +67,10 @@ export function QuickScheduleModal({
   const availableDays = getNextFiveDays();
 
   // Create exhibition name lookup
-  const exhibitionNames = new Map(schedulableExhibitions.map(e => [e.id, e.name]));
+  const exhibitionNames = useMemo(
+    () => new Map(schedulableExhibitions.map(e => [e.id, e.name])),
+    [schedulableExhibitions]
+  );
 
   // Reset state when modal opens
   useEffect(() => {

@@ -80,7 +80,7 @@ export function AdminModal({ isOpen, onClose, showToast }: AdminModalProps) {
       showToast(`Satellite "${name}" approved`, 'success');
       setApprovalName('');
       fetchSatellites();
-    } catch (err) {
+    } catch {
       showToast('Failed to approve satellite', 'danger');
     } finally {
       setApprovingHash(null);
@@ -98,7 +98,7 @@ export function AdminModal({ isOpen, onClose, showToast }: AdminModalProps) {
       if (!response.ok) throw new Error('Failed to reject satellite');
       showToast('Satellite rejected', 'success');
       fetchSatellites();
-    } catch (err) {
+    } catch {
       showToast('Failed to reject satellite', 'danger');
     } finally {
       setRejectingHash(null);
@@ -114,7 +114,7 @@ export function AdminModal({ isOpen, onClose, showToast }: AdminModalProps) {
       if (!response.ok) throw new Error('Failed to revoke satellite');
       showToast(`Satellite "${name}" revoked`, 'success');
       fetchSatellites();
-    } catch (err) {
+    } catch {
       showToast('Failed to revoke satellite', 'danger');
     } finally {
       setRevokingId(null);
@@ -164,7 +164,7 @@ export function AdminModal({ isOpen, onClose, showToast }: AdminModalProps) {
 
       // Refresh status
       setTimeout(fetchStatus, 500);
-    } catch (err) {
+    } catch {
       showToast('Failed to trigger tasks', 'danger');
     } finally {
       setTriggeringAll(false);
@@ -178,13 +178,13 @@ export function AdminModal({ isOpen, onClose, showToast }: AdminModalProps) {
         method: 'POST',
       });
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to trigger task');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to trigger task');
       }
       showToast(`Triggered: ${taskName}`, 'success');
       setTimeout(fetchStatus, 500);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to trigger task', 'danger');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to trigger task', 'danger');
     } finally {
       setTriggeringTask(null);
     }
@@ -199,7 +199,7 @@ export function AdminModal({ isOpen, onClose, showToast }: AdminModalProps) {
       if (!response.ok) throw new Error('Failed to reset circuit');
       showToast(`Reset circuit breaker for: ${taskName}`, 'success');
       setTimeout(fetchStatus, 500);
-    } catch (err) {
+    } catch {
       showToast('Failed to reset circuit', 'danger');
     } finally {
       setResettingTask(null);

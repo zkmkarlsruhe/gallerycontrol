@@ -133,7 +133,7 @@ export function ScheduleManagerModal({
       if (!response.ok) throw new Error('Failed to delete');
       showToast('Schedule deleted', 'success');
       fetchJobs();
-    } catch (err) {
+    } catch {
       showToast('Failed to delete schedule', 'danger');
     }
   };
@@ -148,7 +148,7 @@ export function ScheduleManagerModal({
       if (!response.ok) throw new Error('Failed to update');
       showToast(`Schedule ${job.enabled ? 'disabled' : 'enabled'}`, 'success');
       fetchJobs();
-    } catch (err) {
+    } catch {
       showToast('Failed to update schedule', 'danger');
     }
   };

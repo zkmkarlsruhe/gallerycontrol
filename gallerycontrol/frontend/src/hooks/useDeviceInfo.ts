@@ -1,20 +1,21 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
 import { useState, useEffect } from 'react';
+import type { DeviceInfo } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 export interface DeviceInfoResponse {
   device_id: string;
   device_type: string;
-  info: Record<string, any>;
+  info: DeviceInfo;
   error?: string;
   cached_at?: string;  // ISO timestamp when cache was updated
   is_stale?: boolean;  // True if data is from stale cache
 }
 
 export interface DeviceInfoResult {
-  info: Record<string, any> | null;
+  info: DeviceInfo | null;
   loading: boolean;
   error: string | null;
   cachedAt: Date | null;
@@ -28,7 +29,7 @@ export interface DeviceInfoResult {
  * Returns cached_at and is_stale for freshness display
  */
 export function useDeviceInfo(deviceId: string, deviceType: string, enabled: boolean): DeviceInfoResult {
-  const [info, setInfo] = useState<Record<string, any> | null>(null);
+  const [info, setInfo] = useState<DeviceInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cachedAt, setCachedAt] = useState<Date | null>(null);

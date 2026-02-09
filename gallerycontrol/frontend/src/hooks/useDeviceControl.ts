@@ -43,9 +43,10 @@ export function useDeviceControl({
 
   // Cleanup all timers on unmount
   useEffect(() => {
+    const timers = timersRef.current;
     return () => {
-      timersRef.current.forEach(timer => clearTimeout(timer));
-      timersRef.current.clear();
+      timers.forEach(timer => clearTimeout(timer));
+      timers.clear();
     };
   }, []);
 
@@ -90,6 +91,8 @@ export function useDeviceControl({
     });
 
     if (toRemove.length > 0) {
+      // Sync pending states with actual device states - intentional
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPendingStates(prev => {
         const next = new Map(prev);
         toRemove.forEach(id => next.delete(id));

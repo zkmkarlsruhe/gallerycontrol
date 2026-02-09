@@ -297,8 +297,12 @@ function App() {
     loadData();
   };
 
-  const handleSaveDevice = async (artworkId: string, data: any) => {
-    await createDevice(artworkId, data);
+  const handleSaveDevice = async (artworkId: string, data: { name: string; device_type?: string; host: string; port?: number }) => {
+    if (!data.device_type) {
+      showToast('Device type is required', 'danger');
+      return;
+    }
+    await createDevice(artworkId, { ...data, device_type: data.device_type });
     showToast(`Device "${data.name}" created`, 'success');
     loadData();
   };

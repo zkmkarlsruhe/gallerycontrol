@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Exhibition } from '../../types';
 import { Modal } from '../ui/Modal';
 
@@ -44,6 +44,15 @@ export function EmailInventoryModal({
   const [sending, setSending] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);
 
+  const loadEmailConfig = useCallback(async () => {
+    try {
+      const data = await fetchEmailConfig();
+      setConfig(data);
+    } catch {
+      showToast('Failed to load email config', 'danger');
+    }
+  }, [fetchEmailConfig, showToast]);
+
   // Load email config when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -54,16 +63,7 @@ export function EmailInventoryModal({
       setSelectedExhibitionId('all');
       setIncludeDisabled(false);
     }
-  }, [isOpen]);
-
-  const loadEmailConfig = async () => {
-    try {
-      const data = await fetchEmailConfig();
-      setConfig(data);
-    } catch {
-      showToast('Failed to load email config', 'danger');
-    }
-  };
+  }, [isOpen, loadEmailConfig]);
 
   const loadPreview = async () => {
     setLoadingPreview(true);
