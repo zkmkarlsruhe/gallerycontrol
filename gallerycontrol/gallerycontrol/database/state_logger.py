@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """State change logging utilities."""
 
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -62,7 +62,7 @@ async def update_device_state_with_log(
                 .where(Device.id == device_id)
                 .values(
                     state=new_state,
-                    last_checked_at=datetime.now(timezone.utc)
+                    last_checked_at=datetime.utcnow()
                 )
             )
             await session.execute(update_stmt)
