@@ -1,0 +1,543 @@
+/* Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+ * SPDX-License-Identifier: MIT
+ * 
+ * Forms styles
+ */
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1040;
+}
+
+.modal-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-box {
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  max-height: calc(100vh - 2rem);
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-box.modal-lg {
+  max-width: 800px;
+}
+
+.modal-box.modal-xl {
+  max-width: 1000px;
+}
+
+.modal-box.modal-sm {
+  max-width: 350px;
+}
+
+.modal-box .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.modal-box .modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.modal-box .modal-body {
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.modal-box .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-top: 1px solid #dee2e6;
+}
+
+/* API Link - selectable URL */
+.api-link {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-family: monospace;
+  color: #546e7a;
+  text-decoration: none;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+.api-link:hover {
+  color: #37474f;
+  text-decoration: underline;
+}
+
+/* Disabled States */
+.disabled-badge {
+  display: inline-block;
+  background: #dc3545;
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+.exhibition-card.disabled {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.exhibition-section.disabled {
+  opacity: 0.7;
+}
+
+.exhibition-section.disabled .exhibition-header {
+  background: #6c757d;
+}
+
+.artwork-row.disabled {
+  opacity: 0.6;
+  background: #f0f0f0 !important;
+}
+
+/* Context Info - Compact inline version */
+.context-info-compact {
+  background: #e8eaf6;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  border-radius: 0.25rem;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.context-info-compact .context-label {
+  color: #5c6bc0;
+  font-weight: 500;
+}
+
+.context-info-compact .context-path {
+  color: #37474f;
+  font-weight: 600;
+}
+
+.context-info-compact .context-path i {
+  font-size: 0.7em;
+  margin: 0 0.25rem;
+  opacity: 0.6;
+}
+
+/* Device Type Selector - Compact */
+.device-type-selector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.device-type-btn {
+  padding: 0.75rem 0.5rem;
+  border: 2px solid #dee2e6;
+  background: white;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.device-type-btn:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.device-type-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.device-type-btn i {
+  font-size: 1.25em;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+/* Form Sections - Tighter spacing */
+.form-section {
+  margin-bottom: 1rem;
+}
+
+.section-title {
+  font-size: 0.9em;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid #e9ecef;
+  color: #495057;
+}
+
+/* Host Input with Reachability Indicator */
+.host-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.host-input-wrapper .form-control {
+  padding-right: 2.5rem;
+}
+
+.reachability-indicator {
+  position: absolute;
+  right: 0.75rem;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reachability-indicator.status-idle {
+  color: #adb5bd;
+}
+
+.reachability-indicator.status-checking {
+  color: #6c757d;
+}
+
+.reachability-indicator.status-reachable {
+  color: #28a745;
+}
+
+.reachability-indicator.status-unreachable {
+  color: #dc3545;
+}
+
+.reachability-indicator .spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Port Selector */
+.port-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  max-width: 400px;
+}
+
+.port-btn {
+  padding: 0.75rem;
+  border: 2px solid #dee2e6;
+  background: white;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  font-weight: 600;
+}
+
+.port-btn:hover {
+  background: #e9ecef;
+}
+
+.port-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.port-btn.used {
+  background: #e9ecef;
+  color: #adb5bd;
+  border-color: #dee2e6;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.port-btn.used:hover {
+  background: #e9ecef;
+}
+
+/* Hostname Inline Entry - [number][arrow][host field] */
+.hostname-inline-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hostname-inline-entry .quick-num-input {
+  width: 50px;
+  text-align: center;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.hostname-inline-entry .quick-apply-btn {
+  flex-shrink: 0;
+  padding: 0.25rem 0.5rem;
+}
+
+.hostname-inline-entry .host-input-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Info Box */
+.info-box {
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+  color: #856404;
+}
+
+/* Shell Mode Switch */
+.shell-mode-switch {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+  border: 2px solid #dee2e6;
+}
+
+/* Command Input Group */
+.command-input-group {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.command-input-group .remove-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+  .exhibition-card {
+    min-width: 150px;
+  }
+
+  .artwork-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .artwork-controls {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .empty-state-arrow {
+    right: 10px;
+  }
+
+  .device-type-selector {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Custom Button Styles - Override Bootstrap */
+.btn {
+  font-weight: 600;
+  border: none;
+  transition: all 0.15s;
+}
+
+.btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* ON Button - Green */
+.btn-success,
+.btn-on {
+  background: var(--btn-on) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.btn-success:hover,
+.btn-on:hover {
+  background: var(--btn-on-hover) !important;
+}
+
+/* OFF Button - Red */
+.btn-off {
+  background: #e74c3c !important;
+  color: white !important;
+  border: none !important;
+}
+
+.btn-off:hover {
+  background: #c0392b !important;
+}
+
+/* ON Button - explicitly green */
+.btn-on {
+  background: var(--btn-on) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.btn-on:hover {
+  background: var(--btn-on-hover) !important;
+}
+
+/* Actual Danger/Delete Button - Red */
+.btn-danger:not(.btn-off),
+.btn-delete {
+  background: var(--btn-delete) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.btn-danger:not(.btn-off):hover,
+.btn-delete:hover {
+  background: var(--btn-delete-hover) !important;
+}
+
+/* Edit Button - Blue */
+.btn-secondary,
+.btn-edit {
+  background: var(--btn-edit) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.btn-secondary:hover,
+.btn-edit:hover {
+  background: var(--btn-edit-hover) !important;
+}
+
+/* Add Button - Purple */
+.btn-primary,
+.btn-add {
+  background: var(--btn-add) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.btn-primary:hover,
+.btn-add:hover {
+  background: var(--btn-add-hover) !important;
+}
+
+/* Outline buttons - for cards */
+.btn-outline-secondary {
+  background: transparent !important;
+  color: var(--btn-edit) !important;
+  border: 2px solid var(--btn-edit) !important;
+}
+
+.btn-outline-secondary:hover {
+  background: var(--btn-edit) !important;
+  color: white !important;
+}
+
+.btn-outline-danger {
+  background: transparent !important;
+  color: var(--btn-delete) !important;
+  border: 2px solid var(--btn-delete) !important;
+}
+
+.btn-outline-danger:hover {
+  background: var(--btn-delete) !important;
+  color: white !important;
+}
+
+.btn-outline-light {
+  background: transparent !important;
+  color: white !important;
+  border: 2px solid rgba(255,255,255,0.7) !important;
+}
+
+.btn-outline-light:hover {
+  background: rgba(255,255,255,0.2) !important;
+  border-color: white !important;
+}
+
+/* Action buttons - Teal/Cyan for custom commands */
+.btn-action {
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+
+.btn-action:hover {
+  background: #00897b;
+}
+
+/* Schedule button - Orange/Amber */
+.btn-schedule {
+  background: #f57c00 !important;
+  color: white !important;
+  border: none !important;
+}
+
+.btn-schedule:hover {
+  background: #e65100 !important;
+}
+
+/* Consistent button sizes - touch-friendly */
+.btn.btn-sm {
+  min-width: 60px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0.5rem 1rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+}
+
+
+/* Confirm button animation */
+.btn.confirming {
+  animation: pulse-warning 0.5s ease-in-out infinite;
+  background: #e67e22 !important;
+}
+
+@keyframes pulse-warning {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}

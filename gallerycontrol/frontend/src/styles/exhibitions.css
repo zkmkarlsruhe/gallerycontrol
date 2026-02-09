@@ -1,0 +1,444 @@
+/* Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+ * SPDX-License-Identifier: MIT
+ * 
+ * Exhibitions styles
+ */
+/* Exhibition Overview - Compact Floating Cards */
+.overview-section {
+  padding: 1rem;
+  background: white;
+  margin: 0;
+  border-bottom: 2px solid #dee2e6;
+}
+
+/* Global Control Buttons */
+.global-controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.btn-global-on,
+.btn-global-off {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-global-on {
+  background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+  color: white;
+  box-shadow: 0 3px 10px rgba(46, 204, 113, 0.3);
+}
+
+.btn-global-on:hover {
+  background: linear-gradient(135deg, #219a52 0%, #27ae60 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4);
+}
+
+.btn-global-off {
+  background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%);
+  color: white;
+  box-shadow: 0 3px 10px rgba(149, 165, 166, 0.3);
+}
+
+.btn-global-off:hover {
+  background: linear-gradient(135deg, #6c7a7b 0%, #7f8c8d 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(149, 165, 166, 0.4);
+}
+
+.btn-global-on.confirming,
+.btn-global-off.confirming {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  animation: pulse-confirm 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-confirm {
+  from { transform: scale(1); }
+  to { transform: scale(1.02); }
+}
+
+/* Exhibition Cards Container */
+.exhibition-cards {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.exhibition-card {
+  flex: 1;
+  min-width: 200px;
+  max-width: 350px;
+  background: var(--bg-card);
+  border: 1px solid #cfd8dc;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.exhibition-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.add-exhibition-card {
+  border: 2px dashed var(--btn-add);
+  background: #f3e5f5;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-exhibition-card:hover {
+  background: #e1bee7;
+  border-color: var(--btn-add-hover);
+}
+
+.add-card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--btn-add);
+  font-weight: 600;
+}
+
+.add-card-content i {
+  font-size: 1.5rem;
+}
+
+.exhibition-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.exhibition-card-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.exhibition-card-name:hover {
+  color: var(--primary);
+}
+
+.exhibition-card-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.exhibition-card-stats {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.exhibition-card-controls {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: auto;
+}
+
+.exhibition-card-controls .btn {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.75rem;
+  flex: 1;
+  white-space: nowrap;
+}
+
+/* Status Dots */
+.stat-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.stat-dot.on { background: var(--state-on); }
+.stat-dot.off { background: var(--state-off); }
+.stat-dot.error { background: var(--state-error); }
+.stat-dot.cooling { background: var(--state-cooling); }
+
+.stat-count {
+  font-size: 0.75rem;
+  color: #6c757d;
+}
+
+/* Exhibition Sections */
+.exhibition-section {
+  background: white;
+  margin: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.exhibition-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--bg-header);
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.exhibition-header-controls {
+  display: flex;
+  gap: 0.25rem;
+}
+
+
+/* Artwork Rows */
+.artwork-table {
+  width: 100%;
+}
+
+.artwork-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #dee2e6;
+  min-height: 60px;
+  background: white;
+}
+
+.artwork-row.alt {
+  background: #f8f9fa;
+}
+
+.artwork-row:last-of-type {
+  border-bottom: none;
+}
+
+.artwork-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.artwork-name {
+  font-weight: 600;
+  color: #212529;
+  font-size: 0.9rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.artwork-controls {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.artwork-controls .btn-group {
+  display: flex;
+}
+
+/* New table-like layout for non-edit mode: # | Name | Units | Buttons */
+.artwork-inline-layout {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 250px) 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.artwork-inline-layout .api-link {
+  justify-self: center;
+}
+
+.artwork-name-inline {
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #212529;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Time slice indicator - shows when artwork has protection enabled */
+.timeslice-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  margin-left: 0.25rem;
+  padding: 0.1rem 0.25rem;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+}
+
+.timeslice-indicator.active {
+  color: #ffc107;
+  background-color: rgba(255, 193, 7, 0.15);
+}
+
+.timeslice-indicator.inactive {
+  color: #6c757d;
+  background-color: rgba(108, 117, 125, 0.1);
+  opacity: 0.7;
+}
+
+.timeslice-indicator i {
+  font-size: 0.9rem;
+}
+
+.artwork-devices-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.artwork-buttons-inline {
+  display: flex;
+  gap: 0.5rem;
+  justify-self: end;
+}
+
+/* Manual device rows */
+.artwork-inline-layout.manual-row {
+  padding: 0.25rem 0;
+}
+
+.manual-indent {
+  /* Empty cell placeholder for grid alignment - must have min-width to match api-link column */
+}
+.manual-indent:first-child {
+  min-width: 0.75rem;  /* Match approximate width of # link */
+}
+
+/* Manual device content with colored background */
+.manual-device-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  border-left: 4px solid transparent;
+}
+
+.manual-device-content.bg-even {
+  background: #e8f4f8;
+  border-left-color: #5c9ead;
+}
+
+.manual-device-content.bg-odd {
+  background: #fff8e6;
+  border-left-color: #d4a559;
+}
+
+.manual-device-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+/* Color variants for manual device buttons (5 colors) */
+.manual-device-content.bg-even .btn-on {
+  background: #2c9faf;
+  border-color: #2c9faf;
+}
+.manual-device-content.bg-even .btn-on:hover {
+  background: #248a99;
+  border-color: #248a99;
+}
+.manual-device-content.bg-even .btn-off {
+  background: #6b8e9f;
+  border-color: #6b8e9f;
+}
+.manual-device-content.bg-even .btn-off:hover {
+  background: #5a7a8a;
+  border-color: #5a7a8a;
+}
+
+.manual-device-content.bg-odd .btn-on {
+  background: #d4a559;
+  border-color: #d4a559;
+}
+.manual-device-content.bg-odd .btn-on:hover {
+  background: #c4923d;
+  border-color: #c4923d;
+}
+.manual-device-content.bg-odd .btn-off {
+  background: #a89070;
+  border-color: #a89070;
+}
+.manual-device-content.bg-odd .btn-off:hover {
+  background: #968060;
+  border-color: #968060;
+}
+
+/* Action button colors - different color per action position */
+.btn-action-1 {
+  background: #5c9ead !important;
+  border-color: #5c9ead !important;
+}
+.btn-action-1:hover {
+  background: #4a8a99 !important;
+  border-color: #4a8a99 !important;
+}
+
+.btn-action-2 {
+  background: #d4a559 !important;
+  border-color: #d4a559 !important;
+}
+.btn-action-2:hover {
+  background: #c4923d !important;
+  border-color: #c4923d !important;
+}
+
+.btn-action-3 {
+  background: #8e7cc3 !important;
+  border-color: #8e7cc3 !important;
+}
+.btn-action-3:hover {
+  background: #7a6ab0 !important;
+  border-color: #7a6ab0 !important;
+}
+
+.btn-action-4 {
+  background: #6aa84f !important;
+  border-color: #6aa84f !important;
+}
+.btn-action-4:hover {
+  background: #5a9440 !important;
+  border-color: #5a9440 !important;
+}
+
+.btn-action-5 {
+  background: #cc6677 !important;
+  border-color: #cc6677 !important;
+}
+.btn-action-5:hover {
+  background: #b85566 !important;
+  border-color: #b85566 !important;
+}

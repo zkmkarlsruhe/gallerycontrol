@@ -1,0 +1,184 @@
+/* Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+ * SPDX-License-Identifier: MIT
+ * 
+ * Layout styles
+ */
+/* Header */
+.app-header {
+  flex-shrink: 0;
+  z-index: 1000;
+  background: white;
+  border-bottom: 2px solid #dee2e6;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.app-header h1 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-separator {
+  color: #dee2e6;
+  font-weight: 300;
+  user-select: none;
+}
+
+.btn-credentials {
+  background: #546e7a;
+  color: white;
+  border: none;
+}
+
+.btn-credentials:hover {
+  background: #455a64;
+  color: white;
+}
+
+.btn-shell-library {
+  background: #7b1fa2;
+  color: white;
+  border: none;
+}
+
+.btn-shell-library:hover {
+  background: #6a1b9a;
+  color: white;
+}
+
+.btn-email-inventory {
+  background: #0277bd;
+  color: white;
+  border: none;
+}
+
+.btn-email-inventory:hover {
+  background: #01579b;
+  color: white;
+}
+
+.btn-admin {
+  background: #d84315;
+  color: white;
+  border: none;
+}
+
+.btn-admin:hover {
+  background: #bf360c;
+  color: white;
+}
+
+/* Admin Modal Styles */
+.admin-modal {
+  min-height: 200px;
+}
+
+.admin-section {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+}
+
+.admin-section-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.admin-task-card {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-task-card:last-child {
+  margin-bottom: 0;
+}
+
+.admin-task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-task-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-task-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.admin-task-details {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.admin-task-detail {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.admin-task-error,
+.admin-task-result {
+  font-size: 0.8rem;
+  word-break: break-word;
+}
+
+.edit-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.edit-mode-toggle label {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.edit-mode-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+}
+
+/* Toast Notification */
+.toast-notification {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  padding: 12px 24px;
+  border-radius: 4px;
+  color: white;
+  font-weight: 500;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

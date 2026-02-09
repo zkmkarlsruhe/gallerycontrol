@@ -1,0 +1,330 @@
+/* Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+ * SPDX-License-Identifier: MIT
+ * 
+ * Assets styles
+ */
+/* ========== Asset Browser Page ========== */
+
+.btn-assets {
+  background: #ff9800;
+  color: white;
+  border: none;
+}
+
+.btn-assets:hover {
+  background: #f57c00;
+  color: white;
+}
+
+.btn-assets-active {
+  background: #e65100;
+  color: white;
+  border: none;
+}
+
+.asset-browser-page {
+  flex: 1;
+  min-height: 0; /* Allow flex shrinking */
+  background: white;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.backfill-result {
+  margin: 1rem;
+}
+
+.asset-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.asset-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.asset-table th,
+.asset-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.asset-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #6c757d;
+  position: sticky;
+  top: 0;
+}
+
+.asset-table tbody tr {
+  cursor: pointer;
+}
+
+.asset-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.asset-table tbody tr.expanded {
+  background: #e3f2fd;
+}
+
+.asset-table .asset-number {
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.asset-table .hostname {
+  color: #6c757d;
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+.asset-table .current-device .text-muted {
+  color: #adb5bd !important;
+  font-style: italic;
+}
+
+.asset-table .lamp-hours {
+  font-weight: 500;
+}
+
+.asset-table .col-select {
+  width: 30px;
+  padding: 0.5rem !important;
+  text-align: center;
+}
+
+.asset-table .col-select input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.asset-table .col-status {
+  width: 24px;
+  padding: 0.25rem !important;
+  text-align: center;
+}
+
+.asset-table .status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #adb5bd;
+}
+
+.asset-table .status-dot.state-on {
+  background: #27ae60;
+  box-shadow: 0 0 4px rgba(39, 174, 96, 0.5);
+}
+
+.asset-table .status-dot.state-standby {
+  background: #f39c12;
+}
+
+.asset-table .status-dot.state-offline {
+  background: #e74c3c;
+}
+
+.asset-table .status-dot.state-unknown {
+  background: #adb5bd;
+}
+
+.asset-table .notes {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #6c757d;
+}
+
+.asset-table .actions {
+  white-space: nowrap;
+}
+
+.asset-table .actions button {
+  margin-right: 0.25rem;
+}
+
+.timeline-row td {
+  padding: 0 !important;
+  background: #fafafa;
+}
+
+/* Unlinked assets - visually distinguished but still interactive */
+.asset-row.asset-unlinked {
+  opacity: 0.5;
+  background: #f5f5f5;
+}
+.asset-row.asset-unlinked:hover {
+  opacity: 0.7;
+}
+
+.loading,
+.empty-state {
+  padding: 3rem;
+  text-align: center;
+  color: #6c757d;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-top: 1px solid #dee2e6;
+}
+
+/* ========== Lamp Hours Timeline ========== */
+
+/* Lamp history compact table */
+.lamp-history-table-container {
+  padding: 0.5rem 1rem;
+  background: #f8f9fa;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.lamp-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: #6c757d;
+}
+
+.lamp-history-loading,
+.lamp-history-empty {
+  padding: 1rem;
+  text-align: center;
+  color: #6c757d;
+  font-size: 0.8rem;
+}
+
+.lamp-history-table {
+  width: 100%;
+  font-size: 0.75rem;
+  border-collapse: collapse;
+}
+
+.lamp-history-table th {
+  text-align: left;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid #dee2e6;
+  font-weight: 600;
+  color: #495057;
+  background: #e9ecef;
+  position: sticky;
+  top: 0;
+}
+
+.lamp-history-table td {
+  padding: 0.2rem 0.5rem;
+  border-bottom: 1px solid #f1f3f5;
+  white-space: nowrap;
+}
+
+.lamp-history-table tr:hover {
+  background: #fff;
+}
+
+.lamp-history-table .col-date {
+  color: #6c757d;
+  font-family: monospace;
+  font-size: 0.7rem;
+}
+
+.lamp-history-table .col-event {
+  font-weight: 500;
+}
+
+.lamp-history-table .col-event .event-icon {
+  margin-right: 0.25rem;
+}
+
+.lamp-history-table .col-hours {
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.lamp-history-table .col-delta {
+  font-family: monospace;
+  font-size: 0.7rem;
+}
+
+.lamp-history-table .col-delta .delta-pos {
+  color: #27ae60;
+}
+
+.lamp-history-table .col-delta .delta-neg {
+  color: #e74c3c;
+}
+
+.lamp-history-table .col-exhibition,
+.lamp-history-table .col-artwork,
+.lamp-history-table .col-device {
+  color: #6c757d;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lamp-history-table tr.event-power_on {
+  background: rgba(39, 174, 96, 0.05);
+}
+
+.lamp-history-table tr.event-power_off {
+  background: rgba(52, 73, 94, 0.05);
+}
+
+.lamp-history-table tr.event-onboard {
+  background: rgba(52, 152, 219, 0.08);
+}
+
+.lamp-history-table tr.event-offboard {
+  background: rgba(231, 76, 60, 0.08);
+}
+
+.lamp-history-table tr.event-manual {
+  background: rgba(241, 196, 15, 0.08);
+}
+
+.timeline-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #dee2e6;
+  margin-top: 1rem;
+}
+
+/* Event type colors */
+.timeline-entry.event-onboard .timeline-event-type {
+  color: #2196f3;
+}
+
+.timeline-entry.event-power_on .timeline-event-type {
+  color: #4caf50;
+}
+
+.timeline-entry.event-power_off .timeline-event-type {
+  color: #f44336;
+}
+
+.timeline-entry.event-offboard .timeline-event-type {
+  color: #9c27b0;
+}
+
+.timeline-entry.event-manual .timeline-event-type {
+  color: #ff9800;
+}

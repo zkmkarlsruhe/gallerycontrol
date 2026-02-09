@@ -1,0 +1,474 @@
+/* Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+ * SPDX-License-Identifier: MIT
+ * 
+ * Debug styles
+ */
+/* ========== Debug Section ========== */
+.debug-section {
+  margin: 1rem;
+  border-radius: 0.5rem;
+  background: #263238;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #37474f;
+  color: #eceff1;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.debug-header:hover {
+  background: #455a64;
+}
+
+.debug-header-left {
+  display: flex;
+  align-items: center;
+}
+
+.debug-header-stats {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.debug-content {
+  padding: 0;
+}
+
+/* Summary Cards */
+.debug-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #1e272c;
+  border-bottom: 1px solid #37474f;
+}
+
+.debug-stat-card {
+  background: #37474f;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  text-align: center;
+}
+
+.debug-stat-card.success {
+  border-left: 3px solid var(--state-on);
+}
+
+.debug-stat-card.danger {
+  border-left: 3px solid var(--state-error);
+}
+
+.debug-stat-card.info {
+  border-left: 3px solid #5c6bc0;
+}
+
+.debug-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #eceff1;
+}
+
+.debug-stat-label {
+  font-size: 0.7rem;
+  color: #90a4ae;
+  text-transform: uppercase;
+  margin-top: 0.25rem;
+}
+
+/* Errors Section */
+.debug-errors-section {
+  padding: 1rem;
+  background: rgba(231, 76, 60, 0.1);
+  border-bottom: 1px solid #37474f;
+}
+
+.debug-section-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #eceff1;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.debug-errors-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.debug-error-row {
+  display: grid;
+  grid-template-columns: 150px auto 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.debug-error-row:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.debug-error-device {
+  font-weight: 600;
+  color: #eceff1;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.debug-error-count {
+  text-align: center;
+}
+
+.debug-error-message {
+  font-size: 0.75rem;
+  color: #e57373;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Filters */
+.debug-filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #1e272c;
+  border-bottom: 1px solid #37474f;
+}
+
+.debug-filter-group {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 250px;
+}
+
+.debug-filter-group .form-control {
+  background: #37474f;
+  border: 1px solid #546e7a;
+  color: #eceff1;
+  font-size: 0.8rem;
+}
+
+.debug-filter-group .form-control::placeholder {
+  color: #78909c;
+}
+
+.debug-filter-group .form-control:focus {
+  background: #455a64;
+  border-color: #5c6bc0;
+  color: #eceff1;
+  box-shadow: none;
+}
+
+.debug-filter-group .btn-link {
+  color: #90a4ae;
+  padding: 0 0.5rem;
+}
+
+.debug-filters .btn-outline-secondary {
+  border-color: #546e7a !important;
+  color: #90a4ae !important;
+}
+
+.debug-filters .btn-outline-secondary:hover,
+.debug-filters .btn-secondary {
+  background: #546e7a !important;
+  color: #eceff1 !important;
+}
+
+.debug-filters .btn-outline-danger {
+  border-color: #e57373 !important;
+  color: #e57373 !important;
+}
+
+.debug-filters .btn-outline-danger:hover,
+.debug-filters .btn-danger {
+  background: #e57373 !important;
+  color: white !important;
+}
+
+.debug-filters .btn-outline-success {
+  border-color: #81c784 !important;
+  color: #81c784 !important;
+}
+
+.debug-filters .btn-outline-success:hover,
+.debug-filters .btn-success {
+  background: #81c784 !important;
+  color: white !important;
+}
+
+/* Timeline */
+.debug-timeline {
+  padding: 1rem;
+}
+
+.debug-timeline-list {
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.debug-empty {
+  text-align: center;
+  color: #78909c;
+  padding: 2rem;
+}
+
+.debug-timeline-entry {
+  display: grid;
+  grid-template-columns: 70px 24px 1fr;
+  gap: 0.5rem;
+  align-items: start;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+}
+
+.debug-timeline-entry:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.debug-timeline-entry.error {
+  background: rgba(231, 76, 60, 0.1);
+}
+
+.debug-timeline-entry.error:hover {
+  background: rgba(231, 76, 60, 0.15);
+}
+
+.debug-timeline-time {
+  color: #78909c;
+  font-family: monospace;
+  font-size: 0.7rem;
+}
+
+.debug-timeline-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.debug-timeline-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.debug-timeline-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.debug-device-name {
+  font-weight: 600;
+  color: #eceff1;
+}
+
+.debug-op-type {
+  background: #546e7a;
+  color: #eceff1;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.2rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.debug-op-type.power_on {
+  background: var(--state-on);
+}
+
+.debug-op-type.power_off {
+  background: var(--state-off);
+}
+
+.debug-op-type.state_query {
+  background: #5c6bc0;
+}
+
+.debug-op-source {
+  color: #90a4ae;
+  font-size: 0.7rem;
+}
+
+.debug-timeline-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: #78909c;
+  font-size: 0.7rem;
+}
+
+.debug-duration {
+  background: #37474f;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.2rem;
+}
+
+.debug-state-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.debug-state {
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.2rem;
+  font-weight: 600;
+  font-size: 0.65rem;
+}
+
+.debug-state.state-on {
+  background: var(--state-on);
+  color: white;
+}
+
+.debug-state.state-off {
+  background: var(--state-off);
+  color: white;
+}
+
+.debug-state.state-error {
+  background: var(--state-error);
+  color: white;
+}
+
+.debug-state.state-cooling {
+  background: var(--state-cooling);
+  color: #333;
+}
+
+.debug-error-msg {
+  color: #e57373;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.debug-timeline-details .btn-xs {
+  padding: 0.1rem 0.3rem;
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+/* Raw Response Modal */
+.debug-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.debug-detail-row {
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+}
+
+.debug-detail-label {
+  font-size: 0.7rem;
+  color: #6c757d;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.debug-detail-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #212529;
+}
+
+.debug-raw-section {
+  margin-top: 1rem;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  border: 1px solid #dee2e6;
+}
+
+.debug-raw-section.error {
+  border-color: #e57373;
+}
+
+.debug-raw-label {
+  background: #f8f9fa;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #495057;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.debug-raw-section.error .debug-raw-label {
+  background: #ffebee;
+  color: #c62828;
+  border-color: #e57373;
+}
+
+.debug-raw-content {
+  margin: 0;
+  padding: 0.75rem;
+  background: #1a1a1a;
+  color: #e0e0e0;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .debug-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .debug-error-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .debug-error-message {
+    grid-column: 1 / -1;
+  }
+
+  .debug-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .debug-filter-group {
+    max-width: none;
+  }
+
+  .debug-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
