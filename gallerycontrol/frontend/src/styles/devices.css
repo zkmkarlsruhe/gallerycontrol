@@ -376,6 +376,78 @@
   color: #dc3545;
 }
 
+/* External API Links Section */
+.protection-api-links {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.api-links-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+  font-size: 0.7rem;
+  color: #adb5bd;
+  text-transform: uppercase;
+}
+
+.api-links-header i {
+  color: #17a2b8;
+}
+
+.api-link-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0;
+  font-size: 0.7rem;
+}
+
+.api-link-label {
+  min-width: 45px;
+  color: #adb5bd;
+  font-weight: 500;
+}
+
+.api-link-url {
+  flex: 1;
+  color: #17a2b8;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.65rem;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.15rem 0.35rem;
+  border-radius: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+  user-select: all;
+}
+
+.api-link-url:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-copy-small {
+  background: none;
+  border: none;
+  padding: 0.1rem 0.2rem;
+  cursor: pointer;
+  font-size: 0.65rem;
+  opacity: 0.6;
+  line-height: 1;
+  color: #adb5bd;
+}
+
+.btn-copy-small:hover {
+  opacity: 1;
+  color: #17a2b8;
+}
+
 /* Host link with copy button */
 .host-link-container {
   display: inline-flex;

@@ -346,7 +346,7 @@ def test_protection_service():
     })
     time.sleep(2)
 
-    status = api_get(f"/api/sensor/artwork/{test_artwork_id}/status")
+    status = api_get(f"/external/protect/artwork/{test_artwork_id}/status")
     test("Protection enabled", status.get("protected") == True)
     test("Has budget", status.get("budget_remaining", 0) > 0)
 
@@ -354,7 +354,7 @@ def test_protection_service():
     print("\n2. Sensor with protection:")
 
     # Check initial status
-    status_before = api_get(f"/api/sensor/artwork/{test_artwork_id}/status")
+    status_before = api_get(f"/external/protect/artwork/{test_artwork_id}/status")
     if status_before.get("cooldown_active"):
         wait_time = status_before.get("cooldown_remaining", 0) + 2
         log(f"   ⚠ Cooldown active - waiting {wait_time}s")
@@ -377,23 +377,23 @@ def test_protection_service():
 
     # Sensor OFF to reset running state - wait for device cooldown first
     time.sleep(5)  # Extra wait for device cooldown (2s) + buffer
-    api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+    api_post(f"/external/protect/artwork/{test_artwork_id}/off")
     time.sleep(5)  # Wait for device cooldown after OFF
 
     # Check status before sensor ON
-    status_pre = api_get(f"/api/sensor/artwork/{test_artwork_id}/status")
+    status_pre = api_get(f"/external/protect/artwork/{test_artwork_id}/status")
     if status_pre.get("cooldown_active"):
         wait_time = status_pre.get("cooldown_remaining", 0) + 2
         log(f"   ⚠ Protection cooldown active: {status_pre.get('cooldown_remaining')}s - waiting {wait_time}s")
         time.sleep(wait_time)
 
     # Sensor ON - fresh start
-    r = api_post(f"/api/sensor/artwork/{test_artwork_id}/on")
+    r = api_post(f"/external/protect/artwork/{test_artwork_id}/on")
     if not r.get("success"):
         log(f"   ⚠ Sensor ON failed: {r.get('message')}")
     test("Sensor ON succeeds with protection", r.get("success") == True)
 
-    status = api_get(f"/api/sensor/artwork/{test_artwork_id}/status")
+    status = api_get(f"/external/protect/artwork/{test_artwork_id}/status")
     test("is_running=True", status.get("is_running") == True)
 
     # Test min_runtime - need to turn off first and start fresh
@@ -401,37 +401,37 @@ def test_protection_service():
 
     # First turn off (min_runtime passed above)
     time.sleep(5)  # min_runtime + buffer
-    api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+    api_post(f"/external/protect/artwork/{test_artwork_id}/off")
     time.sleep(5)  # device cooldown + buffer
 
     # Now start fresh and test min_runtime immediately
-    api_post(f"/api/sensor/artwork/{test_artwork_id}/on")
+    api_post(f"/external/protect/artwork/{test_artwork_id}/on")
     time.sleep(1)  # Less than min_runtime (3s)
-    r = api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+    r = api_post(f"/external/protect/artwork/{test_artwork_id}/off")
     test("OFF blocked before min_runtime", r.get("success") == False)
 
     time.sleep(3)  # Now >= 3s total runtime
-    r = api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+    r = api_post(f"/external/protect/artwork/{test_artwork_id}/off")
     test("OFF allowed after min_runtime", r.get("success") == True)
 
     time.sleep(3)
 
     # Test max_runtime
     print("\n4. Max runtime enforcement:")
-    r = api_post(f"/api/sensor/artwork/{test_artwork_id}/on")
+    r = api_post(f"/external/protect/artwork/{test_artwork_id}/on")
     test("Sensor ON for max_runtime test", r.get("success") == True)
 
     # max_runtime=15s, enforcement loop runs every 5s, so need 15s + 5s buffer = 20s
     log("   Waiting 22s for max_runtime (15s) + enforcement loop...")
     time.sleep(22)
 
-    status = api_get(f"/api/sensor/artwork/{test_artwork_id}/status")
+    status = api_get(f"/external/protect/artwork/{test_artwork_id}/status")
     test("Forced stop at max_runtime", status.get("is_running") == False)
     test("Cooldown active", status.get("cooldown_active") == True)
 
     # Cleanup
     time.sleep(status.get("cooldown_remaining", 0) + 6)
-    api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+    api_post(f"/external/protect/artwork/{test_artwork_id}/off")
     time.sleep(3)
     api_post(f"/api/control/artwork/{test_artwork_id}/off")
 
@@ -558,7 +558,7 @@ def test_protection_schedule_interaction():
     })
     time.sleep(2)
 
-    status = api_get(f"/api/sensor/artwork/{test_artwork_id}/status")
+    status = api_get(f"/external/protect/artwork/{test_artwork_id}/status")
     test("Protection enabled", status.get("protected") == True)
 
     # Test 2: Schedule opens gate for sensors
@@ -579,18 +579,18 @@ def test_protection_schedule_interaction():
         time.sleep(3)
 
         # Check gate is open
-        status = api_get(f"/api/sensor/artwork/{test_artwork_id}/status")
+        status = api_get(f"/external/protect/artwork/{test_artwork_id}/status")
         test("Schedule opens gate (is_running)", status.get("is_running") == True)
 
         # Now sensor can turn off (after min_runtime)
         time.sleep(5)  # min_runtime
-        r = api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+        r = api_post(f"/external/protect/artwork/{test_artwork_id}/off")
         test("Sensor OFF works after schedule opened gate", r.get("success") == True)
 
         time.sleep(3)
 
         # Sensor ON should work (gate still open from schedule)
-        r = api_post(f"/api/sensor/artwork/{test_artwork_id}/on")
+        r = api_post(f"/external/protect/artwork/{test_artwork_id}/on")
         test("Sensor ON works with gate open", r.get("success") == True)
 
         api_delete(f"/api/admin/scheduled-jobs/{job_id}")
@@ -598,7 +598,7 @@ def test_protection_schedule_interaction():
     # Test 3: Schedule closes gate
     print("\n3. Schedule closes gate:")
     time.sleep(5)  # min_runtime
-    r = api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+    r = api_post(f"/external/protect/artwork/{test_artwork_id}/off")
     time.sleep(3)
 
     run_at = datetime.utcnow() + timedelta(seconds=3)
@@ -617,7 +617,7 @@ def test_protection_schedule_interaction():
         time.sleep(3)
 
         # Gate should be closed
-        r = api_post(f"/api/sensor/artwork/{test_artwork_id}/on")
+        r = api_post(f"/external/protect/artwork/{test_artwork_id}/on")
         test("Gate closed by schedule (sensor blocked)", r.get("success") == False)
 
         api_delete(f"/api/admin/scheduled-jobs/{job_id}")
@@ -640,7 +640,7 @@ def test_fast_lane():
 
     # Test 1: Fast lane blocked without gate
     print("\n1. Fast lane blocked without gate:")
-    r = api_post(f"/api/fast/artwork/{test_artwork_id}/on")
+    r = api_post(f"/external/fast/artwork/{test_artwork_id}/on")
     test("Fast ON blocked without gate", r.get("status") == 403 or r.get("devices_successful", 0) == 0)
 
     # Test 2: Open gate via web, then use fast lane
@@ -648,17 +648,17 @@ def test_fast_lane():
     api_post(f"/api/control/artwork/{test_artwork_id}/on")
     time.sleep(3)
 
-    r = api_post(f"/api/fast/artwork/{test_artwork_id}/off")
+    r = api_post(f"/external/fast/artwork/{test_artwork_id}/off")
     # Fast lane should work now (gate is open)
     test("Fast OFF succeeds with gate open", r.get("devices_successful", 0) > 0 or "success" in r)
 
     time.sleep(3)
-    r = api_post(f"/api/fast/artwork/{test_artwork_id}/on")
+    r = api_post(f"/external/fast/artwork/{test_artwork_id}/on")
     test("Fast ON succeeds with gate open", r.get("devices_successful", 0) > 0 or "success" in r)
 
     # Test 3: Get fast state
     print("\n3. Get artwork state:")
-    state = api_get(f"/api/fast/artwork/{test_artwork_id}/state")
+    state = api_get(f"/external/fast/artwork/{test_artwork_id}/state")
     test("State endpoint works", "accepting_triggers" in state)
 
     # Cleanup
@@ -803,15 +803,15 @@ def test_protection_edge_cases():
     time.sleep(3)
 
     # Get initial budget
-    status1 = api_get(f"/api/sensor/artwork/{test_artwork_id}/status")
+    status1 = api_get(f"/external/protect/artwork/{test_artwork_id}/status")
     initial_budget = status1.get("budget_remaining", 0)
     initial_resets_in = status1.get("resets_in", 0)
     log(f"   Initial: budget={initial_budget}s, resets_in={initial_resets_in}s")
 
     # Start running via sensor
-    api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+    api_post(f"/external/protect/artwork/{test_artwork_id}/off")
     time.sleep(3)
-    r = api_post(f"/api/sensor/artwork/{test_artwork_id}/on")
+    r = api_post(f"/external/protect/artwork/{test_artwork_id}/on")
     test("Start running for window rollover test", r.get("success") == True)
 
     if r.get("success"):
@@ -820,7 +820,7 @@ def test_protection_edge_cases():
         time.sleep(18)
 
         # Check status after rollover
-        status2 = api_get(f"/api/sensor/artwork/{test_artwork_id}/status")
+        status2 = api_get(f"/external/protect/artwork/{test_artwork_id}/status")
         new_budget = status2.get("budget_remaining", 0)
         is_running = status2.get("is_running", False)
         log(f"   After rollover: budget={new_budget}s, is_running={is_running}")
@@ -832,7 +832,7 @@ def test_protection_edge_cases():
 
         # Clean up - turn off
         time.sleep(3)
-        api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+        api_post(f"/external/protect/artwork/{test_artwork_id}/off")
     else:
         test("Budget resets on window rollover", False)
         test("Artwork continues running after rollover", False)
@@ -860,13 +860,13 @@ def test_protection_edge_cases():
     time.sleep(5)
 
     # Start via sensor
-    r = api_post(f"/api/sensor/artwork/{test_artwork_id}/on")
+    r = api_post(f"/external/protect/artwork/{test_artwork_id}/on")
     test("Start with force_completion", r.get("success") == True)
 
     if r.get("success"):
         # Try to turn off before max_runtime
         time.sleep(3)  # Runtime = 3s < 10s max
-        r = api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+        r = api_post(f"/external/protect/artwork/{test_artwork_id}/off")
         test("OFF blocked by force_completion", r.get("success") == False)
 
         # Wait for max_runtime to be reached
@@ -874,7 +874,7 @@ def test_protection_edge_cases():
         time.sleep(12)
 
         # Should be forced off now
-        status = api_get(f"/api/sensor/artwork/{test_artwork_id}/status")
+        status = api_get(f"/external/protect/artwork/{test_artwork_id}/status")
         test("Forced off at max_runtime", status.get("is_running") == False)
     else:
         test("OFF blocked by force_completion", False)
@@ -903,7 +903,7 @@ def test_protection_edge_cases():
     time.sleep(5)
 
     # Start via sensor
-    r = api_post(f"/api/sensor/artwork/{test_artwork_id}/on")
+    r = api_post(f"/external/protect/artwork/{test_artwork_id}/on")
     test("Start for auto-resume test", r.get("success") == True)
 
     if r.get("success"):
@@ -911,7 +911,7 @@ def test_protection_edge_cases():
         log("   Waiting 15s for forced stop at max_runtime (8s)...")
         time.sleep(15)
 
-        status = api_get(f"/api/sensor/artwork/{test_artwork_id}/status")
+        status = api_get(f"/external/protect/artwork/{test_artwork_id}/status")
         test("Forced stop triggered cooldown", status.get("cooldown_active") == True)
 
         if status.get("cooldown_active"):
@@ -924,12 +924,12 @@ def test_protection_edge_cases():
             time.sleep(cooldown_remaining + 8)
 
             # Check if auto-resumed
-            status2 = api_get(f"/api/sensor/artwork/{test_artwork_id}/status")
+            status2 = api_get(f"/external/protect/artwork/{test_artwork_id}/status")
             test("Auto-resumed after cooldown", status2.get("is_running") == True)
 
             # Clean up
             time.sleep(3)
-            api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+            api_post(f"/external/protect/artwork/{test_artwork_id}/off")
         else:
             test("desired_state remains 'on'", False)
             test("Auto-resumed after cooldown", False)
@@ -963,10 +963,10 @@ def test_protection_edge_cases():
     # Rapid fire sensor signals
     results = []
     for i in range(5):
-        r = api_post(f"/api/sensor/artwork/{test_artwork_id}/on")
+        r = api_post(f"/external/protect/artwork/{test_artwork_id}/on")
         results.append(("on", r.get("success")))
         time.sleep(0.5)
-        r = api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+        r = api_post(f"/external/protect/artwork/{test_artwork_id}/off")
         results.append(("off", r.get("success")))
         time.sleep(0.5)
 
@@ -980,7 +980,7 @@ def test_protection_edge_cases():
 
     # Clean up
     time.sleep(3)
-    api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+    api_post(f"/external/protect/artwork/{test_artwork_id}/off")
     time.sleep(3)
     api_post(f"/api/control/artwork/{test_artwork_id}/off")
 
@@ -1005,22 +1005,22 @@ def test_protection_edge_cases():
     time.sleep(5)
 
     # First run - should succeed
-    r = api_post(f"/api/sensor/artwork/{test_artwork_id}/on")
+    r = api_post(f"/external/protect/artwork/{test_artwork_id}/on")
     test("First run with limited budget", r.get("success") == True)
 
     if r.get("success"):
         # Run for 6 seconds (uses 6s of 10s budget)
         time.sleep(6)
-        api_post(f"/api/sensor/artwork/{test_artwork_id}/off")
+        api_post(f"/external/protect/artwork/{test_artwork_id}/off")
         time.sleep(5)
 
         # Check remaining budget
-        status = api_get(f"/api/sensor/artwork/{test_artwork_id}/status")
+        status = api_get(f"/external/protect/artwork/{test_artwork_id}/status")
         remaining = status.get("budget_remaining", 0)
         log(f"   Remaining budget: {remaining}s (need 5s for min_runtime)")
 
         # Second run - should fail (only ~4s left, need 5s min_runtime)
-        r2 = api_post(f"/api/sensor/artwork/{test_artwork_id}/on")
+        r2 = api_post(f"/external/protect/artwork/{test_artwork_id}/on")
         if remaining < 5:
             test("Second run blocked - insufficient budget", r2.get("success") == False)
         else:

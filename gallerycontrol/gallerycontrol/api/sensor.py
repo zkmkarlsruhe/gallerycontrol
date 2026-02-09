@@ -1,15 +1,16 @@
 # Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 # SPDX-License-Identifier: MIT
-"""Sensor API endpoints for external trigger integration.
+"""Protected API endpoints for external trigger integration.
 
-Provides endpoints for external sensors (lidar, motion detectors, etc.) to trigger
-artwork control. The sensor handles visitor detection and debouncing; this API
-handles budget tracking, runtime limits, and device control via the protection service.
+Provides endpoints for external systems (lidar, motion detectors, etc.) to trigger
+artwork control with budget tracking, runtime limits, and cooldown enforcement.
 
 Hierarchy:
 1. Web UI / Scheduler (KING) -> Controls opening hours, sets accepting_triggers
 2. Protection Service -> Manages runtime WHILE open for business
-3. Sensor (Lidar) -> Triggers within allowed bounds via this API
+3. External System -> Triggers within allowed bounds via this API
+
+Use /external/fast/* for simple triggers without budget tracking.
 """
 
 import logging
@@ -26,12 +27,12 @@ from gallerycontrol.utils.api_errors import api_error_handler
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/sensor", tags=["sensor"])
+router = APIRouter(prefix="/external/protect", tags=["external-protect"])
 
 
 # Response models
-class SensorTriggerResponse(BaseModel):
-    """Response for sensor trigger endpoints."""
+class ProtectTriggerResponse(BaseModel):
+    """Response for protected trigger endpoints."""
 
     success: bool
     artwork_id: str
@@ -39,8 +40,8 @@ class SensorTriggerResponse(BaseModel):
     message: str | None = None
 
 
-class SensorStatusResponse(BaseModel):
-    """Response for sensor status endpoint."""
+class ProtectStatusResponse(BaseModel):
+    """Response for protection status endpoint."""
 
     protected: bool
     budget_remaining: int | None = None
@@ -65,34 +66,36 @@ def get_protection_service():
     return app.state.protection_service
 
 
-@router.post("/artwork/{artwork_id}/{action}", response_model=SensorTriggerResponse)
-@api_error_handler("sensor trigger")
-async def sensor_trigger(
+@router.api_route("/artwork/{artwork_id}/{action}", methods=["GET", "POST"], response_model=ProtectTriggerResponse)
+@api_error_handler("protected trigger")
+async def protect_trigger(
     artwork_id: str,
     action: Literal["on", "off"],
     protection_service=Depends(get_protection_service),
-) -> SensorTriggerResponse:
+) -> ProtectTriggerResponse:
     """
-    Sensor trigger endpoint for external sensors.
+    Protected trigger endpoint for external systems.
 
-    This is the main integration point for external sensors (lidar, motion, etc.).
-    The sensor handles visitor detection and debouncing; this endpoint handles:
+    Supports both GET and POST for easy integration with various systems.
+
+    This is the main integration point for external systems (lidar, motion, etc.)
+    that need budget tracking and cooldown enforcement. The external system handles
+    detection and debouncing; this endpoint handles:
     - Gate check (accepting_triggers must be True for ON, always allowed for OFF)
     - Budget/runtime checks
     - Cooldown checks
     - Device control via orchestrator
 
-    **ON Signal Behavior:**
+    **ON Behavior:**
     - Only works when artwork.accepting_triggers is True
     - Checks cooldown, budget, and min_runtime requirements
     - Executes command via orchestrator
-    - No cooldown on sensor OFF (voluntary stop)
 
-    **OFF Signal Behavior:**
+    **OFF Behavior:**
     - Always allowed (don't trap devices ON)
     - Checks min_runtime and force_completion
     - Executes command via orchestrator
-    - No cooldown after sensor OFF
+    - No cooldown after voluntary OFF
 
     **Returns:**
     - success: Whether the trigger was accepted
@@ -101,8 +104,8 @@ async def sensor_trigger(
     - message: Reason if rejected, null if accepted
 
     **Status codes:**
-    - 200: Trigger accepted (or already in desired state)
-    - 400: Trigger rejected (with reason in message)
+    - 200: Trigger accepted or rejected (check success field)
+    - 400: Protection not enabled for this artwork
     - 404: Artwork not found
     - 500: Internal error
     """
@@ -120,10 +123,10 @@ async def sensor_trigger(
         if not artwork.timeslice_enabled:
             raise HTTPException(
                 status_code=400,
-                detail="Protection not enabled for this artwork",
+                detail="Protection not enabled for this artwork. Use /external/fast/* instead.",
             )
 
-    # Handle the sensor signal via protection service
+    # Handle the signal via protection service
     success, reason = await protection_service.handle_sensor_signal(
         artwork_id=UUID(artwork_id),
         desired_state=action,
@@ -131,9 +134,9 @@ async def sensor_trigger(
 
     if success:
         logger.info(
-            f"Sensor {action.upper()} accepted for artwork {artwork_id[:8]}"
+            f"Protected {action.upper()} accepted for artwork {artwork_id[:8]}"
         )
-        return SensorTriggerResponse(
+        return ProtectTriggerResponse(
             success=True,
             artwork_id=artwork_id,
             action=action,
@@ -141,9 +144,9 @@ async def sensor_trigger(
         )
     else:
         logger.info(
-            f"Sensor {action.upper()} rejected for artwork {artwork_id[:8]}: {reason}"
+            f"Protected {action.upper()} rejected for artwork {artwork_id[:8]}: {reason}"
         )
-        return SensorTriggerResponse(
+        return ProtectTriggerResponse(
             success=False,
             artwork_id=artwork_id,
             action=action,
@@ -151,14 +154,14 @@ async def sensor_trigger(
         )
 
 
-@router.get("/artwork/{artwork_id}/status", response_model=SensorStatusResponse)
-@api_error_handler("sensor status")
-async def sensor_status(
+@router.get("/artwork/{artwork_id}/status", response_model=ProtectStatusResponse)
+@api_error_handler("protection status")
+async def protect_status(
     artwork_id: str,
     protection_service=Depends(get_protection_service),
-) -> SensorStatusResponse:
+) -> ProtectStatusResponse:
     """
-    Get protection status for budget display on sensor devices.
+    Get protection status for budget display.
 
     Returns current protection state including:
     - Budget remaining (seconds and formatted)
@@ -166,9 +169,9 @@ async def sensor_status(
     - Cooldown status
     - Whether artwork can start
     - Current running state
-    - Sensor's desired state (on/off)
+    - Desired state (on/off)
 
-    Useful for sensors with displays that want to show remaining budget.
+    Useful for external systems with displays that want to show remaining budget.
 
     **Status codes:**
     - 200: Status returned
@@ -190,7 +193,7 @@ async def sensor_status(
     status = await protection_service.get_protection_status(UUID(artwork_id))
 
     if not status.get("protected"):
-        return SensorStatusResponse(
+        return ProtectStatusResponse(
             protected=False,
             can_start=True,
         )
@@ -198,7 +201,7 @@ async def sensor_status(
     state = status.get("state", {})
     time_slice = state.get("time_slice")
 
-    return SensorStatusResponse(
+    return ProtectStatusResponse(
         protected=True,
         budget_remaining=time_slice.get("remaining") if time_slice else None,
         budget_remaining_formatted=time_slice.get("remaining_formatted") if time_slice else None,

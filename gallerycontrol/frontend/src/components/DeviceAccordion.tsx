@@ -198,6 +198,33 @@ function DeviceInfoPanel({ info, loading, error, deviceType, cachedAt, isStale }
   );
 }
 
+/** Copyable API link component */
+function ApiLink({ label, url }: { label: string; url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Fallback: select the text
+    }
+  };
+
+  return (
+    <div className="api-link-row">
+      <span className="api-link-label">{label}:</span>
+      <a href={url} className="api-link-url" onClick={(e) => e.preventDefault()}>{url}</a>
+      <button className="btn-copy-small" onClick={handleCopy} title="Copy to clipboard">
+        {copied ? '✓' : '📋'}
+      </button>
+    </div>
+  );
+}
+
 /** Protection status panel for artwork */
 function ProtectionStatusPanel({ artwork, isOpen }: { artwork: Artwork; isOpen: boolean }) {
   const [fetchedStatus, setFetchedStatus] = useState<ProtectionStatus | null>(null);
@@ -312,6 +339,17 @@ function ProtectionStatusPanel({ artwork, isOpen }: { artwork: Artwork; isOpen: 
             <i className="bi bi-x-circle"></i> {state.block_reason}
           </span>
         )}
+      </div>
+
+      {/* External API Links */}
+      <div className="protection-api-links">
+        <div className="api-links-header">
+          <i className="bi bi-link-45deg"></i>
+          <span>External API</span>
+        </div>
+        <ApiLink label="ON" url={`/external/protect/artwork/${artwork.id}/on`} />
+        <ApiLink label="OFF" url={`/external/protect/artwork/${artwork.id}/off`} />
+        <ApiLink label="Status" url={`/external/protect/artwork/${artwork.id}/status`} />
       </div>
     </div>
   );

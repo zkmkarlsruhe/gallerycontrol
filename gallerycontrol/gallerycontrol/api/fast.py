@@ -1,6 +1,12 @@
 # Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 # SPDX-License-Identifier: MIT
-"""Fast lane API endpoints for external triggers."""
+"""Fast lane API endpoints for external triggers.
+
+Simple fire-and-forget control for external systems. Only checks the
+accepting_triggers gate - no budget tracking or cooldown.
+
+Use /external/protect/* for budget-managed artworks.
+"""
 
 import logging
 from typing import Literal
@@ -16,7 +22,7 @@ from gallerycontrol.utils.api_errors import api_error_handler
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/fast", tags=["fast-lane"])
+router = APIRouter(prefix="/external/fast", tags=["external-fast"])
 
 
 def get_orchestrator():
@@ -26,7 +32,7 @@ def get_orchestrator():
     return app.state.orchestrator
 
 
-@router.post("/artwork/{artwork_id}/{command}")
+@router.api_route("/artwork/{artwork_id}/{command}", methods=["GET", "POST"])
 @api_error_handler("fast lane control")
 async def fast_control_artwork(
     artwork_id: str,
@@ -36,12 +42,14 @@ async def fast_control_artwork(
     """
     Fast lane control for external triggers (artwork level).
 
+    Supports both GET and POST for easy integration with various systems.
+
     **Behavior:**
     - Only works when artwork.accepting_triggers is True
     - Fire once, no retry
     - No OFF verification
     - No stagger delay
-    - Time slice protection rules still apply
+    - No budget tracking (use /external/protect/* for that)
 
     **Gate check:**
     - Artwork must be "open for business" (turned ON via web/scheduler)
@@ -80,7 +88,7 @@ async def fast_control_artwork(
 @api_error_handler("getting artwork state")
 async def fast_get_artwork_state(artwork_id: str):
     """
-    Fast lane state query for artwork.
+    Get artwork state for external systems.
 
     Returns artwork state including:
     - accepting_triggers status
