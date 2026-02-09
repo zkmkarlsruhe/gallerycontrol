@@ -25,7 +25,7 @@
 /* Debug section */
 @import './styles/debug.css';
 
-/* Log viewer, mobile responsive */
+/* Log viewer */
 @import './styles/logs.css';
 
 /* State timeline / Gantt view */
@@ -36,3 +36,6 @@
 
 /* Schedule manager modals */
 @import './styles/schedule.css';
+
+/* Mobile and responsive overrides (must be last) */
+@import './styles/mobile.css';

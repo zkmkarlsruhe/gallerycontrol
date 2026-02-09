@@ -182,3 +182,85 @@
     transform: translateX(0);
   }
 }
+
+/* ========== Anchor scroll offset for sticky header ========== */
+[id] {
+  scroll-margin-top: 60px;
+}
+/* ========== Shared Sub-Page Header ========== */
+.sub-page-header,
+.timeline-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  flex-shrink: 0;
+}
+
+.sub-page-header-left,
+.timeline-page-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.sub-page-header-left h2,
+.timeline-page-header-left h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #212529;
+  font-weight: 600;
+}
+
+.sub-page-header-right,
+.timeline-page-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sub-page-header-right .form-select,
+.timeline-page-header-right .form-select {
+  font-size: 0.85rem;
+}
+
+/* Sub-page action row - uses Bootstrap btn-sm for buttons */
+.sub-page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  padding: 0.25rem 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  flex-shrink: 0;
+}
+
+.sub-page-actions .zoom-level {
+  color: #6c757d;
+  font-size: 0.75rem;
+  margin-right: 0.5rem;
+}
+
+/* Sub-page secondary filters row */
+.sub-page-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.sub-page-filters form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.sub-page-filters input.form-control {
+  max-width: 300px;
+}
