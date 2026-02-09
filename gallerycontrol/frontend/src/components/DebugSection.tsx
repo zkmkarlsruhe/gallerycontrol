@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
+import { formatLogTime } from '../utils/dateFormat';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
@@ -43,15 +44,6 @@ const STATE_NAMES: Record<number, string> = {
   2: 'COOL',
   3: 'WARM',
 };
-
-function formatLogTime(timestamp: string): string {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString('de-DE', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
-}
 
 function formatLogLine(entry: TimelineEntry): { time: string; level: string; message: string } {
   const time = formatLogTime(entry.timestamp);

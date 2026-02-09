@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Modal } from '../ui/Modal';
 import { ConfirmButton } from '../ui/ConfirmButton';
+import { formatDateTime, formatCronExpression } from '../../utils/dateFormat';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
@@ -38,43 +39,6 @@ interface ScheduleManagerModalProps {
   targetName: string;
   availableActions?: DeviceAction[];
   showToast: (message: string, type: 'success' | 'danger' | 'info') => void;
-}
-
-function formatDateTime(isoString: string | null): string {
-  if (!isoString) return 'Never';
-  // Backend stores UTC but returns naive ISO strings - append Z to parse as UTC
-  const utcString = isoString.endsWith('Z') ? isoString : isoString + 'Z';
-  const date = new Date(utcString);
-  return date.toLocaleString();
-}
-
-function formatCronExpression(cron: string): string {
-  const parts = cron.split(' ');
-  if (parts.length !== 5) return cron;
-
-  const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
-
-  // Common patterns
-  if (minute !== '*' && hour !== '*' && dayOfMonth === '*' && month === '*') {
-    const timeStr = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
-    if (dayOfWeek === '*') {
-      return `Daily at ${timeStr}`;
-    }
-    if (dayOfWeek === '1-5') {
-      return `Weekdays at ${timeStr}`;
-    }
-    if (dayOfWeek === '0,6') {
-      return `Weekends at ${timeStr}`;
-    }
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const dayParts = dayOfWeek.split(',');
-    if (dayParts.length <= 2) {
-      const dayNames = dayParts.map(d => days[parseInt(d)] || d).join(', ');
-      return `${dayNames} at ${timeStr}`;
-    }
-  }
-
-  return cron;
 }
 
 export function ScheduleManagerModal({

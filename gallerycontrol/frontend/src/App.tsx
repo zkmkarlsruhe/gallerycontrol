@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApi } from './hooks/useApi';
-import type { Exhibition, Credential, Device, ShellTemplate, ServiceHealth, Artwork, ProtectionConfig } from './types';
+import { useDeviceControl } from './hooks/useDeviceControl';
+import { useDataLoader } from './hooks/useDataLoader';
+import type { Exhibition, Device, Artwork, ProtectionConfig } from './types';
 import {
   Header,
   Toast,
@@ -116,16 +118,52 @@ function App() {
     fetchServiceHealth,
   } = useApi();
 
-  const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
-  const [credentials, setCredentials] = useState<Credential[]>([]);
-  const [templates, setTemplates] = useState<ShellTemplate[]>([]);
-  const [serviceHealth, setServiceHealth] = useState<ServiceHealth[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(() => parseHash().editMode);
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [newExhibitionName, setNewExhibitionName] = useState('');
+
+  // Toast helper
+  const showToast = useCallback((message: string, type: 'success' | 'danger' | 'info' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  // Use data loader hook for fetching and auto-refreshing data
+  const {
+    exhibitions,
+    credentials,
+    templates,
+    serviceHealth,
+    loading,
+    error,
+    loadData,
+    loadCredentials,
+    loadTemplates,
+  } = useDataLoader({
+    fetchExhibitions,
+    fetchCredentials,
+    fetchShellTemplates,
+    fetchServiceHealth,
+  });
+
+  // Use device control hook for control handlers and pending states
+  const {
+    pendingStates,
+    handleDeviceControl,
+    handleArtworkControl,
+    handleExhibitionControl,
+    handleAllControl,
+    handleAction,
+  } = useDeviceControl({
+    exhibitions,
+    controlDevice,
+    controlArtwork,
+    controlExhibition,
+    executeAction,
+    showToast,
+    loadData,
+  });
 
   // Modal states
   const [showAddExhibitionModal, setShowAddExhibitionModal] = useState(false);
@@ -138,9 +176,6 @@ function App() {
   // View state - which page/view is currently active
   const [currentView, setCurrentView] = useState<ViewType>(() => parseHash().view);
   const [logFilterDeviceId, setLogFilterDeviceId] = useState<string | null>(null);
-
-  // Pending state changes (deviceId -> target state)
-  const [pendingStates, setPendingStates] = useState<Map<string, 'on' | 'off'>>(new Map());
 
   const [editExhibitionData, setEditExhibitionData] = useState<Exhibition | null>(null);
   const [editArtworkData, setEditArtworkData] = useState<{
@@ -191,11 +226,6 @@ function App() {
     return devices;
   }, [exhibitions]);
 
-  const showToast = useCallback((message: string, type: 'success' | 'danger' | 'info' = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
-
   // Navigation with browser history support
   const navigateTo = useCallback((view: ViewType, edit: boolean = false) => {
     const newHash = buildHash(view, edit);
@@ -213,54 +243,6 @@ function App() {
     navigateTo('main');
     setLogFilterDeviceId(null);
   }, [navigateTo]);
-
-  const loadData = useCallback(async () => {
-    try {
-      const data = await fetchExhibitions();
-      setExhibitions(data);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load');
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchExhibitions]);
-
-  const loadCredentials = useCallback(async () => {
-    try {
-      const data = await fetchCredentials();
-      setCredentials(data);
-    } catch {
-      // Credentials are optional, don't show error
-    }
-  }, [fetchCredentials]);
-
-  const loadTemplates = useCallback(async () => {
-    try {
-      const data = await fetchShellTemplates();
-      setTemplates(data);
-    } catch {
-      // Templates are optional, don't show error
-    }
-  }, [fetchShellTemplates]);
-
-  const loadServiceHealth = useCallback(async () => {
-    const data = await fetchServiceHealth();
-    setServiceHealth(data);
-  }, [fetchServiceHealth]);
-
-  useEffect(() => {
-    loadData();
-    loadCredentials();
-    loadTemplates();
-    loadServiceHealth();
-    const interval = setInterval(loadData, 5000);
-    const healthInterval = setInterval(loadServiceHealth, 15000); // Check service health every 15s
-    return () => {
-      clearInterval(interval);
-      clearInterval(healthInterval);
-    };
-  }, [loadData, loadCredentials, loadTemplates, loadServiceHealth]);
 
   // Sync URL hash with view/edit mode
   useEffect(() => {
@@ -280,171 +262,6 @@ function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
-
-  // Clear pending states when device states match targets AND not in fast polling
-  useEffect(() => {
-    if (pendingStates.size === 0) return;
-
-    const deviceInfoMap = new Map<string, { state: number; isVerifying: boolean }>();
-    for (const exhibition of exhibitions) {
-      for (const artwork of exhibition.artworks) {
-        for (const device of artwork.devices) {
-          deviceInfoMap.set(device.id, {
-            state: device.state,
-            isVerifying: device.poll_status?.is_verifying || false,
-          });
-        }
-      }
-    }
-
-    const toRemove: string[] = [];
-    pendingStates.forEach((targetCommand, deviceId) => {
-      const deviceInfo = deviceInfoMap.get(deviceId);
-      if (deviceInfo !== undefined) {
-        // Don't clear while device is verifying (fast polling in progress)
-        if (deviceInfo.isVerifying) return;
-
-        // State 1 = on, State 0 = off
-        const targetState = targetCommand === 'on' ? 1 : 0;
-        if (deviceInfo.state === targetState) {
-          toRemove.push(deviceId);
-        }
-      }
-    });
-
-    if (toRemove.length > 0) {
-      setPendingStates(prev => {
-        const next = new Map(prev);
-        toRemove.forEach(id => next.delete(id));
-        return next;
-      });
-    }
-  }, [exhibitions, pendingStates]);
-
-  // Control handlers
-  const handleDeviceControl = async (deviceId: string, command: 'on' | 'off', deviceName: string) => {
-    // Set pending state immediately for visual feedback
-    setPendingStates(prev => new Map(prev).set(deviceId, command));
-
-    try {
-      const result = await controlDevice(deviceId, command);
-      if (result.success) {
-        showToast(`${command.toUpperCase()} sent to ${deviceName}`, 'success');
-        setTimeout(loadData, 1000);
-      } else {
-        showToast(`Failed: ${result.error || 'Unknown error'}`, 'danger');
-        // Clear pending state on failure
-        setPendingStates(prev => {
-          const next = new Map(prev);
-          next.delete(deviceId);
-          return next;
-        });
-      }
-    } catch {
-      showToast('Network error', 'danger');
-      // Clear pending state on error
-      setPendingStates(prev => {
-        const next = new Map(prev);
-        next.delete(deviceId);
-        return next;
-      });
-    }
-  };
-
-  const handleArtworkControl = async (artworkId: string, command: 'on' | 'off', artworkName: string) => {
-    // Set pending state for all automation-enabled devices in this artwork
-    const artwork = exhibitions.flatMap(e => e.artworks).find(a => a.id === artworkId);
-    if (artwork) {
-      setPendingStates(prev => {
-        const next = new Map(prev);
-        artwork.devices.filter(d => d.automation_enabled && d.enabled).forEach(d => next.set(d.id, command));
-        return next;
-      });
-    }
-
-    try {
-      const result = await controlArtwork(artworkId, command);
-      if (result.success) {
-        showToast(`${command.toUpperCase()} sent to ${artworkName}`, 'success');
-        setTimeout(loadData, 1000);
-      } else {
-        showToast(`Failed: ${result.error || 'Unknown error'}`, 'danger');
-      }
-    } catch {
-      showToast('Network error', 'danger');
-    }
-  };
-
-  const handleExhibitionControl = async (exhibitionId: string, command: 'on' | 'off', exhibitionName: string) => {
-    // Set pending state for all automation-enabled devices in this exhibition
-    const exhibition = exhibitions.find(e => e.id === exhibitionId);
-    if (exhibition) {
-      setPendingStates(prev => {
-        const next = new Map(prev);
-        exhibition.artworks.flatMap(a => a.devices).filter(d => d.automation_enabled && d.enabled).forEach(d => next.set(d.id, command));
-        return next;
-      });
-    }
-
-    try {
-      const result = await controlExhibition(exhibitionId, command);
-      if (result.success) {
-        showToast(`${command.toUpperCase()} sent to ${exhibitionName}`, 'success');
-        setTimeout(loadData, 2000);
-      } else {
-        showToast(`Failed: ${result.error || 'Unknown error'}`, 'danger');
-      }
-    } catch {
-      showToast('Network error', 'danger');
-    }
-  };
-
-  const handleAllControl = async (command: 'on' | 'off') => {
-    const enabledExhibitions = exhibitions.filter(e => e.enabled);
-    if (enabledExhibitions.length === 0) {
-      showToast('No enabled exhibitions to control', 'info');
-      return;
-    }
-
-    // Set pending state for all automation-enabled devices in all exhibitions
-    setPendingStates(prev => {
-      const next = new Map(prev);
-      enabledExhibitions.flatMap(e => e.artworks).flatMap(a => a.devices).filter(d => d.automation_enabled && d.enabled).forEach(d => next.set(d.id, command));
-      return next;
-    });
-
-    showToast(`Sending ${command.toUpperCase()} to all exhibitions...`, 'info');
-
-    // Send commands to all enabled exhibitions in parallel
-    const results = await Promise.allSettled(
-      enabledExhibitions.map(e => controlExhibition(e.id, command))
-    );
-
-    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
-    const failed = enabledExhibitions.length - successful;
-
-    if (failed === 0) {
-      showToast(`${command.toUpperCase()} sent to all ${successful} exhibitions`, 'success');
-    } else {
-      showToast(`${command.toUpperCase()}: ${successful} succeeded, ${failed} failed`, 'danger');
-    }
-
-    setTimeout(loadData, 2000);
-  };
-
-  const handleAction = async (deviceId: string, actionName: string, deviceName: string) => {
-    try {
-      showToast(`Executing ${actionName}...`, 'info');
-      const result = await executeAction(deviceId, actionName);
-      if (result.success) {
-        showToast(`${actionName} executed on ${deviceName}`, 'success');
-      } else {
-        showToast(`${actionName} failed: ${result.error || 'Unknown error'}`, 'danger');
-      }
-    } catch {
-      showToast('Network error', 'danger');
-    }
-  };
 
   // Navigation
   const scrollToExhibition = (exhibitionId: string) => {

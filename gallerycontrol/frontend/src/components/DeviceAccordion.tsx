@@ -6,6 +6,7 @@ import { ConfirmButton } from './ui/ConfirmButton';
 import { useDevicePollProgress, useProtectionStatus } from '../context/PollStatusContext';
 import { useDeviceInfo } from '../hooks/useDeviceInfo';
 import { formatDeviceDisplayName } from '../utils/deviceDisplay';
+import { formatRelativeTime, formatSeconds } from '../utils/dateFormat';
 import { portUtils } from '../utils/portUtils';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
@@ -88,20 +89,6 @@ function PollProgressBar({ progress, isFastPolling, isVerifying }: { progress: n
       />
     </div>
   );
-}
-
-/** Format relative time for freshness display */
-function formatRelativeTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${diffDays}d ago`;
 }
 
 /** Display extended device info based on device type */
@@ -204,17 +191,6 @@ function DeviceInfoPanel({ info, loading, error, deviceType, cachedAt, isStale }
       ))}
     </div>
   );
-}
-
-/** Format seconds to human-readable time */
-function formatSeconds(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins < 60) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  const remainingMins = mins % 60;
-  return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
 }
 
 /** Protection status panel for artwork */

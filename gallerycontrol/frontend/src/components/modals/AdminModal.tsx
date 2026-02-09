@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { useState, useEffect, useCallback } from 'react';
 import { Modal } from '../ui/Modal';
+import { formatTimeAgo, formatTimeUntil } from '../../utils/dateFormat';
 import type { Satellite, PendingSatellite } from '../../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
@@ -29,31 +30,6 @@ interface AdminModalProps {
   isOpen: boolean;
   onClose: () => void;
   showToast: (message: string, type: 'success' | 'danger' | 'info') => void;
-}
-
-function formatTimeAgo(isoString: string | null): string {
-  if (!isoString) return 'Never';
-  const date = new Date(isoString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-
-  if (diffSec < 60) return `${diffSec}s ago`;
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
-  return date.toLocaleDateString();
-}
-
-function formatTimeUntil(isoString: string): string {
-  const date = new Date(isoString);
-  const now = new Date();
-  const diffMs = date.getTime() - now.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-
-  if (diffSec <= 0) return 'now';
-  if (diffSec < 60) return `in ${diffSec}s`;
-  if (diffSec < 3600) return `in ${Math.floor(diffSec / 60)}m`;
-  return `in ${Math.floor(diffSec / 3600)}h`;
 }
 
 export function AdminModal({ isOpen, onClose, showToast }: AdminModalProps) {

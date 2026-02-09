@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Modal } from '../ui/Modal';
 import { ConfirmButton } from '../ui/ConfirmButton';
+import { formatShortDateTime, formatShortDate } from '../../utils/dateFormat';
 import type { Exhibition } from '../../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
@@ -25,18 +26,6 @@ interface QuickScheduleModalProps {
   onClose: () => void;
   exhibitions: Exhibition[];
   showToast: (message: string, type: 'success' | 'danger' | 'info') => void;
-}
-
-function formatShortDateTime(isoString: string | null): string {
-  if (!isoString) return 'Never';
-  const utcString = isoString.endsWith('Z') ? isoString : isoString + 'Z';
-  const date = new Date(utcString);
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
-    ' ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatShortDate(date: Date): string {
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 function getNextFiveDays(): Date[] {

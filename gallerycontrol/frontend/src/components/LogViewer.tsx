@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMobile } from '../hooks/useMobile';
+import { formatLogTime, formatLogTimeFull, formatTimeAgo } from '../utils/dateFormat';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
@@ -65,39 +66,6 @@ const STATE_NAMES: Record<number, string> = {
   2: 'COOL',
   3: 'WARM',
 };
-
-function formatLogTime(timestamp: string): string {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString('de-DE', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
-}
-
-function formatLogTimeFull(timestamp: string): string {
-  const date = new Date(timestamp);
-  return date.toLocaleString('de-DE', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
-}
-
-function formatTimeAgo(isoString: string | null): string {
-  if (!isoString) return 'Never';
-  const date = new Date(isoString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-
-  if (diffSec < 60) return `${diffSec}s ago`;
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
-  return date.toLocaleDateString();
-}
 
 function formatLogLine(entry: TimelineEntry, advanced: boolean): { time: string; level: string; message: string; details?: string } {
   const time = advanced ? formatLogTimeFull(entry.timestamp) : formatLogTime(entry.timestamp);
