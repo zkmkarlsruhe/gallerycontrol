@@ -2395,6 +2395,51 @@ async def trigger_scheduled_job(job_id: str, request: Request, session=Depends(g
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/scheduler/trigger/{task_name}")
+async def trigger_system_task_by_name(
+    task_name: str, request: Request, session=Depends(get_session)
+):
+    """Trigger immediate execution of a system task by its task name.
+
+    This is a convenience endpoint to trigger system tasks like 'asset_linker'
+    without needing to look up the job ID first.
+    """
+    cron_scheduler = getattr(request.app.state, "cron_scheduler", None)
+    if not cron_scheduler:
+        raise HTTPException(status_code=503, detail="Cron scheduler not available")
+
+    try:
+        # Find the system job with this task_name
+        stmt = select(ScheduledJob).where(
+            ScheduledJob.job_type == "system",
+            ScheduledJob.task_name == task_name,
+            ScheduledJob.enabled == True,
+        )
+        result = await session.execute(stmt)
+        job = result.scalar_one_or_none()
+
+        if not job:
+            raise HTTPException(
+                status_code=404,
+                detail=f"System task '{task_name}' not found or not enabled",
+            )
+
+        success = await cron_scheduler.trigger_job(job.id)
+        if not success:
+            raise HTTPException(
+                status_code=400,
+                detail="Job circuit open or already running",
+            )
+
+        return {"status": "triggered", "task_name": task_name, "job_id": str(job.id)}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error triggering system task: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/scheduled-jobs/{job_id}/reset-circuit")
 async def reset_scheduled_job_circuit(
     job_id: str, request: Request, session=Depends(get_session)
