@@ -153,7 +153,11 @@ export function QuickScheduleModal({
     setSaving(true);
     try {
       // Build datetime string in local time format (backend expects local time)
-      const dateStr = selectedDate.toISOString().split('T')[0];
+      // Use local date methods to avoid UTC conversion issues
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
       const runAt = `${dateStr}T${runAtTime}:00`;
 
       const name = `${actionType.toUpperCase()} ${exhibition.name}`;
@@ -360,6 +364,7 @@ export function QuickScheduleModal({
                       className="form-control form-control-sm w-auto"
                       value={runAtTime}
                       onChange={(e) => setRunAtTime(e.target.value)}
+                      step="60"
                     />
                   </div>
                 </div>
