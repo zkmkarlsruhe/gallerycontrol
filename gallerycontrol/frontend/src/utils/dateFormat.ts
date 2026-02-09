@@ -17,7 +17,13 @@ export function formatDateTime(isoString: string | null): string {
   // Backend stores UTC but returns naive ISO strings - append Z to parse as UTC
   const utcString = isoString.endsWith('Z') ? isoString : isoString + 'Z';
   const date = new Date(utcString);
-  return date.toLocaleString();
+  return date.toLocaleString('de-DE', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 }
 
 /**
