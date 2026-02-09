@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Exhibition, ControlResult } from '../types';
 
 type PendingCommand = 'on' | 'off';
@@ -39,6 +39,24 @@ export function useDeviceControl({
   loadData,
 }: UseDeviceControlOptions): UseDeviceControlReturn {
   const [pendingStates, setPendingStates] = useState<Map<string, PendingCommand>>(new Map());
+  const timersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  // Cleanup all timers on unmount
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach(timer => clearTimeout(timer));
+      timersRef.current.clear();
+    };
+  }, []);
+
+  // Helper to schedule data reload with cleanup
+  const scheduleLoadData = useCallback((delayMs: number) => {
+    const timer = setTimeout(() => {
+      timersRef.current.delete(timer);
+      loadData();
+    }, delayMs);
+    timersRef.current.add(timer);
+  }, [loadData]);
 
   // Clear pending states when device states match targets AND not in fast polling
   useEffect(() => {
@@ -92,7 +110,7 @@ export function useDeviceControl({
       const result = await controlDevice(deviceId, command);
       if (result.success) {
         showToast(`${command.toUpperCase()} sent to ${deviceName}`, 'success');
-        setTimeout(loadData, 1000);
+        scheduleLoadData(1000);
       } else {
         showToast(`Failed: ${result.error || 'Unknown error'}`, 'danger');
         // Clear pending state on failure
@@ -111,7 +129,7 @@ export function useDeviceControl({
         return next;
       });
     }
-  }, [controlDevice, showToast, loadData]);
+  }, [controlDevice, showToast, scheduleLoadData]);
 
   const handleArtworkControl = useCallback(async (
     artworkId: string,
@@ -120,10 +138,12 @@ export function useDeviceControl({
   ) => {
     // Set pending state for all automation-enabled devices in this artwork
     const artwork = exhibitions.flatMap(e => e.artworks).find(a => a.id === artworkId);
+    const deviceIds: string[] = [];
     if (artwork) {
+      artwork.devices.filter(d => d.automation_enabled && d.enabled).forEach(d => deviceIds.push(d.id));
       setPendingStates(prev => {
         const next = new Map(prev);
-        artwork.devices.filter(d => d.automation_enabled && d.enabled).forEach(d => next.set(d.id, command));
+        deviceIds.forEach(id => next.set(id, command));
         return next;
       });
     }
@@ -132,14 +152,26 @@ export function useDeviceControl({
       const result = await controlArtwork(artworkId, command);
       if (result.success) {
         showToast(`${command.toUpperCase()} sent to ${artworkName}`, 'success');
-        setTimeout(loadData, 1000);
+        scheduleLoadData(1000);
       } else {
         showToast(`Failed: ${result.error || 'Unknown error'}`, 'danger');
+        // Clear pending state on failure
+        setPendingStates(prev => {
+          const next = new Map(prev);
+          deviceIds.forEach(id => next.delete(id));
+          return next;
+        });
       }
     } catch {
       showToast('Network error', 'danger');
+      // Clear pending state on error
+      setPendingStates(prev => {
+        const next = new Map(prev);
+        deviceIds.forEach(id => next.delete(id));
+        return next;
+      });
     }
-  }, [exhibitions, controlArtwork, showToast, loadData]);
+  }, [exhibitions, controlArtwork, showToast, scheduleLoadData]);
 
   const handleExhibitionControl = useCallback(async (
     exhibitionId: string,
@@ -148,10 +180,12 @@ export function useDeviceControl({
   ) => {
     // Set pending state for all automation-enabled devices in this exhibition
     const exhibition = exhibitions.find(e => e.id === exhibitionId);
+    const deviceIds: string[] = [];
     if (exhibition) {
+      exhibition.artworks.flatMap(a => a.devices).filter(d => d.automation_enabled && d.enabled).forEach(d => deviceIds.push(d.id));
       setPendingStates(prev => {
         const next = new Map(prev);
-        exhibition.artworks.flatMap(a => a.devices).filter(d => d.automation_enabled && d.enabled).forEach(d => next.set(d.id, command));
+        deviceIds.forEach(id => next.set(id, command));
         return next;
       });
     }
@@ -160,14 +194,26 @@ export function useDeviceControl({
       const result = await controlExhibition(exhibitionId, command);
       if (result.success) {
         showToast(`${command.toUpperCase()} sent to ${exhibitionName}`, 'success');
-        setTimeout(loadData, 2000);
+        scheduleLoadData(2000);
       } else {
         showToast(`Failed: ${result.error || 'Unknown error'}`, 'danger');
+        // Clear pending state on failure
+        setPendingStates(prev => {
+          const next = new Map(prev);
+          deviceIds.forEach(id => next.delete(id));
+          return next;
+        });
       }
     } catch {
       showToast('Network error', 'danger');
+      // Clear pending state on error
+      setPendingStates(prev => {
+        const next = new Map(prev);
+        deviceIds.forEach(id => next.delete(id));
+        return next;
+      });
     }
-  }, [exhibitions, controlExhibition, showToast, loadData]);
+  }, [exhibitions, controlExhibition, showToast, scheduleLoadData]);
 
   const handleAllControl = useCallback(async (command: PendingCommand) => {
     const enabledExhibitions = exhibitions.filter(e => e.enabled);
@@ -199,8 +245,8 @@ export function useDeviceControl({
       showToast(`${command.toUpperCase()}: ${successful} succeeded, ${failed} failed`, 'danger');
     }
 
-    setTimeout(loadData, 2000);
-  }, [exhibitions, controlExhibition, showToast, loadData]);
+    scheduleLoadData(2000);
+  }, [exhibitions, controlExhibition, showToast, scheduleLoadData]);
 
   const handleAction = useCallback(async (
     deviceId: string,
