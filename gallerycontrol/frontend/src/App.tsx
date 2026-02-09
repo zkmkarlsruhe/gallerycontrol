@@ -25,6 +25,7 @@ import {
 import { EmailInventoryModal } from './components/modals/EmailInventoryModal';
 import { AdminModal } from './components/modals/AdminModal';
 import { ScheduleManagerModal } from './components/modals/ScheduleManagerModal';
+import { QuickScheduleModal } from './components/modals/QuickScheduleModal';
 import { ProtectionConfigModal } from './components/modals/ProtectionConfigModal';
 import { DisplayLinksModal } from './components/modals/DisplayLinksModal';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -132,6 +133,7 @@ function App() {
   const [showShellTemplatesModal, setShowShellTemplatesModal] = useState(false);
   const [showEmailInventoryModal, setShowEmailInventoryModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [showQuickScheduleModal, setShowQuickScheduleModal] = useState(false);
 
   // View state - which page/view is currently active
   const [currentView, setCurrentView] = useState<ViewType>(() => parseHash().view);
@@ -661,6 +663,7 @@ function App() {
         onOpenLogs={() => openLogViewer()}
         onOpenTimeline={() => navigateTo('timeline')}
         onOpenAssets={() => navigateTo('assets')}
+        onOpenQuickSchedule={() => setShowQuickScheduleModal(true)}
         showingLogs={currentView === 'logs'}
         showingTimeline={currentView === 'timeline'}
         showingAssets={currentView === 'assets'}
@@ -854,6 +857,13 @@ function App() {
       <AdminModal
         isOpen={showAdminModal}
         onClose={() => setShowAdminModal(false)}
+        showToast={showToast}
+      />
+
+      <QuickScheduleModal
+        isOpen={showQuickScheduleModal}
+        onClose={() => setShowQuickScheduleModal(false)}
+        exhibitions={exhibitions}
         showToast={showToast}
       />
 

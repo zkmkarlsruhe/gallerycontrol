@@ -10,6 +10,7 @@ interface HeaderProps {
   onOpenLogs?: () => void;
   onOpenTimeline?: () => void;
   onOpenAssets?: () => void;
+  onOpenQuickSchedule?: () => void;
   showingLogs?: boolean;
   showingTimeline?: boolean;
   showingAssets?: boolean;
@@ -25,6 +26,7 @@ export function Header({
   onOpenLogs,
   onOpenTimeline,
   onOpenAssets,
+  onOpenQuickSchedule,
   showingLogs,
   showingTimeline,
   showingAssets,
@@ -60,6 +62,16 @@ export function Header({
           <i className="bi bi-journal-text me-1"></i>
           Logs
         </button>
+        {!editMode && onOpenQuickSchedule && (
+          <button
+            className="btn btn-sm btn-quick-schedule"
+            onClick={onOpenQuickSchedule}
+            title="Quick schedule on/off for exhibitions"
+          >
+            <i className="bi bi-calendar-plus me-1"></i>
+            Schedule
+          </button>
+        )}
 
         {/* Separator */}
         {editMode && <span className="header-separator">|</span>}
