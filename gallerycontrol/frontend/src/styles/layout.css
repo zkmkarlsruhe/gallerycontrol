@@ -77,6 +77,77 @@
   color: white;
 }
 
+/* Timeline button (header) */
+.btn-timeline {
+  background: #238636;
+  color: white;
+  border: none;
+}
+
+.btn-timeline:hover {
+  background: #2ea043;
+  color: white;
+}
+
+.btn-timeline-active {
+  background: #2ea043;
+  color: white;
+  border: 2px solid #3fb950;
+}
+
+/* Quick Schedule button (header) */
+.btn-quick-schedule {
+  background: #6f42c1;
+  color: white;
+  border: none;
+}
+
+.btn-quick-schedule:hover {
+  background: #8250df;
+  color: white;
+}
+
+/* Logs button (header) */
+.btn-logs {
+  background: #238636;
+  color: white;
+  border: none;
+}
+
+.btn-logs:hover {
+  background: #2ea043;
+  color: white;
+}
+
+.btn-logs-active {
+  background: #f85149;
+  color: white;
+  border: none;
+}
+
+.btn-logs-active:hover {
+  background: #da3633;
+  color: white;
+}
+
+/* Assets/Projectors button (header) */
+.btn-assets {
+  background: #1f6feb;
+  color: white;
+  border: none;
+}
+
+.btn-assets:hover {
+  background: #388bfd;
+  color: white;
+}
+
+.btn-assets-active {
+  background: #388bfd;
+  color: white;
+  border: 2px solid #58a6ff;
+}
+
 /* Admin Modal Styles */
 .admin-modal {
   min-height: 200px;

@@ -5,23 +5,6 @@
  */
 /* ========== Asset Browser Page ========== */
 
-.btn-assets {
-  background: #ff9800;
-  color: white;
-  border: none;
-}
-
-.btn-assets:hover {
-  background: #f57c00;
-  color: white;
-}
-
-.btn-assets-active {
-  background: #e65100;
-  color: white;
-  border: none;
-}
-
 .asset-browser-page {
   flex: 1;
   min-height: 0; /* Allow flex shrinking */

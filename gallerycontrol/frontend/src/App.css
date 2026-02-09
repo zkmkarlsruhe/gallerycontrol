@@ -7,6 +7,9 @@
 /* CSS Custom Properties (colors, spacing, etc.) */
 @import './styles/variables.css';
 
+/* Common/shared utilities */
+@import './styles/common.css';
+
 /* Base layout (header, body, toast, admin modal) */
 @import './styles/layout.css';
 

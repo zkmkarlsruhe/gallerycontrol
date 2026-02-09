@@ -386,27 +386,6 @@
   font-size: 0.72rem;
 }
 
-/* Header button styles */
-.btn-logs {
-  background: #238636 !important;
-  color: white !important;
-  border: none !important;
-}
-
-.btn-logs:hover {
-  background: #2ea043 !important;
-}
-
-.btn-logs-active {
-  background: #f85149 !important;
-  color: white !important;
-  border: none !important;
-}
-
-.btn-logs-active:hover {
-  background: #da3633 !important;
-}
-
 /* Device log button */
 .btn-device-logs {
   background: #238636 !important;
