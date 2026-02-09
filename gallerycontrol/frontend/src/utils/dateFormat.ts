@@ -29,8 +29,8 @@ export function formatShortDateTime(isoString: string | null): string {
   if (!isoString) return 'Never';
   const utcString = isoString.endsWith('Z') ? isoString : isoString + 'Z';
   const date = new Date(utcString);
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
-    ' ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' }) +
+    ' ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 
 /**
@@ -39,7 +39,7 @@ export function formatShortDateTime(isoString: string | null): string {
  * @returns Formatted short date string
  */
 export function formatShortDate(date: Date): string {
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 /**
