@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: MIT
 """Fast lane API endpoints for external triggers.
 
-Simple fire-and-forget control for external systems. Only checks the
-accepting_triggers gate - no budget tracking or cooldown.
+Simple fire-and-forget control for external systems. Checks the
+accepting_triggers gate, and routes through the protection service
+when timeslice_enabled is True (budget/runtime/cooldown enforcement).
 
-Use /external/protect/* for budget-managed artworks.
+Use /external/protect/* for the dedicated budget-managed endpoint.
 """
 
 import logging
@@ -32,12 +33,20 @@ def get_orchestrator():
     return app.state.orchestrator
 
 
+def get_protection_service():
+    """Dependency to get protection service instance."""
+    from gallerycontrol.main import app
+
+    return app.state.protection_service
+
+
 @router.api_route("/artwork/{artwork_id}/{command}", methods=["GET", "POST"])
 @api_error_handler("fast lane control")
 async def fast_control_artwork(
     artwork_id: str,
     command: Literal["on", "off"],
     orchestrator=Depends(get_orchestrator),
+    protection_service=Depends(get_protection_service),
 ):
     """
     Fast lane control for external triggers (artwork level).
@@ -46,10 +55,10 @@ async def fast_control_artwork(
 
     **Behavior:**
     - Only works when artwork.accepting_triggers is True
+    - If artwork has timeslice_enabled, routes through protection service
     - Fire once, no retry
     - No OFF verification
     - No stagger delay
-    - No budget tracking (use /external/protect/* for that)
 
     **Gate check:**
     - Artwork must be "open for business" (turned ON via web/scheduler)
@@ -75,7 +84,28 @@ async def fast_control_artwork(
                 detail="Artwork not accepting triggers. Turn on via web/scheduler first.",
             )
 
-    # Execute command via orchestrator
+        # Capture fields while session is open
+        artwork_name = artwork.name
+        timeslice_enabled = artwork.timeslice_enabled
+
+    # If protection is enabled, route through protection service
+    if timeslice_enabled:
+        success, reason = await protection_service.handle_sensor_signal(
+            artwork_id=UUID(artwork_id),
+            desired_state=command,
+        )
+        if success:
+            logger.info(
+                f"Fast lane -> protection accepted {command.upper()} for {artwork_name} ({artwork_id[:8]})"
+            )
+            return {"success": True, "artwork_id": artwork_id, "action": command, "routed": "protection"}
+        else:
+            logger.info(
+                f"Fast lane -> protection rejected {command.upper()} for {artwork_name} ({artwork_id[:8]}): {reason}"
+            )
+            return {"success": False, "artwork_id": artwork_id, "action": command, "message": reason, "routed": "protection"}
+
+    # Execute command via orchestrator (no protection)
     return await orchestrator.execute_control_command(
         target_type="artwork",
         target_id=artwork_id,
