@@ -29,7 +29,7 @@ pytest-cov = "^7.0.0"
 black = "^24.3.0"
 ruff = "^0.14.0"
 mypy = "^1.19.0"
-python-socks = {extras = ["asyncio"], version = "^2.0.0"}  # For remote dev SOCKS proxy
+python-socks = {extras = ["asyncio"], version = "^2.8.1"}  # For remote dev SOCKS proxy
 httpx-socks = "^0.11.0"  # For remote dev SOCKS proxy
 pysocks = "^1.7.1"
 requests = "^2.32.5"
