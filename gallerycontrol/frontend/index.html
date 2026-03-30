@@ -31,6 +31,13 @@
             .then(reg => console.log('[App] Service worker registered:', reg.scope))
             .catch(err => console.error('[App] Service worker registration failed:', err));
         });
+        // Listen for guardian-locked messages from the service worker
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data?.type === 'guardian-locked') {
+            console.log('[App] Guardian lock detected, reloading for auth...');
+            window.location.reload();
+          }
+        });
       }
     </script>
   </body>

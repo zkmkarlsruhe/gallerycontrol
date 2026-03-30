@@ -17,6 +17,22 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
+/**
+ * Wrapper around fetch that detects Traefik guardian (forward auth) redirects.
+ * When the guardian is locked, Traefik returns a 302 redirect to the auth page
+ * (cross-origin). Using redirect:'manual' prevents the browser from following it
+ * silently (which would fail with CORS). Instead we get an opaque redirect response
+ * that we can detect and trigger a full page reload to hit the guardian login.
+ */
+async function guardedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const response = await fetch(input, { redirect: 'manual', ...init });
+  if (response.type === 'opaqueredirect' || response.status === 0) {
+    window.location.reload();
+    throw new Error('Authentication required');
+  }
+  return response;
+}
+
 export function useApi() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +42,7 @@ export function useApi() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/api/state/exhibitions`);
+      const response = await guardedFetch(`${API_BASE}/api/state/exhibitions`);
       if (!response.ok) throw new Error('Failed to fetch exhibitions');
       const data = await response.json();
       return data;
@@ -323,6 +339,7 @@ export function useApi() {
   const fetchServiceHealth = useCallback(async (): Promise<ServiceHealth[]> => {
     try {
       const response = await fetch(`${API_BASE}/api/state/services`);
+
       if (!response.ok) return [];
       return response.json();
     } catch {

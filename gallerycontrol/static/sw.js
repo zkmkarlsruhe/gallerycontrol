@@ -3,11 +3,10 @@
 // MuTech Control Service Worker
 // Version: 1.0.0
 
-const CACHE_NAME = 'mutech-v1';
+const CACHE_NAME = 'mutech-v4';
 
 // Static assets to precache on install
 const PRECACHE_ASSETS = [
-  '/',
   '/manifest.json',
   '/icon-192x192.png',
   '/icon-512x512.png',
@@ -52,36 +51,37 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Notify all clients to reload so the browser hits the guardian login page
+function notifyClientsToReload() {
+  self.clients.matchAll({ type: 'window' }).then(clients => {
+    clients.forEach(client => client.postMessage({ type: 'guardian-locked' }));
+  });
+}
+
 // Fetch event: handle requests
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Never cache API requests - always go to network
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        // Return a simple error response when offline
-        return new Response(
-          JSON.stringify({ error: 'offline', message: 'Network unavailable' }),
-          {
-            status: 503,
-            headers: { 'Content-Type': 'application/json' }
-          }
-        );
-      })
-    );
+  // Let the browser handle navigation requests (HTML pages) and API/WS calls directly.
+  // This ensures guardian redirects work naturally for page loads.
+  if (event.request.mode === 'navigate' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws/')) {
     return;
   }
 
-  // For static assets: try cache first, then network
+  // For static subresources (JS, CSS, images): try cache first, then network
   event.respondWith(
     caches.match(event.request)
       .then(cachedResponse => {
         if (cachedResponse) {
-          // Return cached response, but also update cache in background
+          // Return cached response, but check for guardian redirect in background
           event.waitUntil(
-            fetch(event.request)
+            fetch(event.request, { redirect: 'manual' })
               .then(networkResponse => {
+                if (networkResponse.type === 'opaqueredirect') {
+                  // Guardian is locked — purge cache and notify clients to reload
+                  caches.delete(CACHE_NAME).then(() => notifyClientsToReload());
+                  return;
+                }
                 if (networkResponse.ok) {
                   caches.open(CACHE_NAME)
                     .then(cache => cache.put(event.request, networkResponse));
@@ -92,23 +92,16 @@ self.addEventListener('fetch', (event) => {
           return cachedResponse;
         }
 
-        // Not in cache, fetch from network
+        // Not in cache — fetch from network
         return fetch(event.request)
           .then(networkResponse => {
-            // Cache successful responses for static assets
+            // Cache successful responses
             if (networkResponse.ok && event.request.method === 'GET') {
               const responseToCache = networkResponse.clone();
               caches.open(CACHE_NAME)
                 .then(cache => cache.put(event.request, responseToCache));
             }
             return networkResponse;
-          })
-          .catch(() => {
-            // If it's an HTML request and we're offline, try to return cached index
-            if (event.request.headers.get('accept')?.includes('text/html')) {
-              return caches.match('/');
-            }
-            throw new Error('Network unavailable');
           });
       })
   );
