@@ -257,13 +257,17 @@ async def send_inventory_email(
         # Attach HTML version
         html_content = generate_inventory_html(exhibitions)
         html_part = MIMEText(html_content, "html", "utf-8")
+        msg.attach(html_part)
 
         # Send email
-        if smtp_use_tls:
-            server = smtplib.SMTP(smtp_host, smtp_port)
+        # Port 465 uses implicit SSL (SMTP_SSL), other ports use STARTTLS
+        if smtp_port == 465:
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30)
+        elif smtp_use_tls:
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
             server.starttls()
         else:
-            server = smtplib.SMTP(smtp_host, smtp_port)
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
 
         if smtp_user and smtp_password:
             server.login(smtp_user, smtp_password)

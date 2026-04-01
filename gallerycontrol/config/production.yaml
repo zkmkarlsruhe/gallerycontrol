@@ -12,12 +12,12 @@ logging:
 # Email configuration for ZKM internal network
 # smtp.zkm.de does not require authentication from internal network
 email:
-  smtp_host: "smtp.zkm.de"
-  smtp_port: 465
+  smtp_host: "mail.zkm.de"
+  smtp_port: 25
   smtp_user: ""
   smtp_password: ""
-  smtp_use_tls: true
-  from_address: "gallerycontrol@zkm.de"
+  smtp_use_tls: false
+  from_address: "steuerung@zkm.de"
   from_name: "GalleryControl"
   subject: "GalleryControl Device Status Report"
   recipients:
