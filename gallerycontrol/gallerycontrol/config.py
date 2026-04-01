@@ -64,12 +64,17 @@ class ConfigLoader:
         elif isinstance(obj, list):
             return [self._substitute_env_vars(item) for item in obj]
         elif isinstance(obj, str):
-            # Match ${VAR_NAME} pattern
+            # Match ${VAR_NAME} or ${VAR_NAME:-default} pattern
             pattern = r"\$\{([^}]+)\}"
             matches = re.findall(pattern, obj)
-            for var_name in matches:
-                env_value = os.getenv(var_name, "")
-                obj = obj.replace(f"${{{var_name}}}", env_value)
+            for match in matches:
+                # Support ${VAR:-default} syntax
+                if ":-" in match:
+                    var_name, default_value = match.split(":-", 1)
+                else:
+                    var_name, default_value = match, ""
+                env_value = os.getenv(var_name, default_value)
+                obj = obj.replace(f"${{{match}}}", env_value)
             return obj
         else:
             return obj
