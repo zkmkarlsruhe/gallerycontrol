@@ -2517,6 +2517,111 @@ async def get_cron_scheduler_status(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/scheduler/status")
+async def get_scheduler_status(request: Request):
+    """Get system task scheduler status in legacy format for AdminModal.
+
+    Returns status keyed by task_name for system jobs.
+    """
+    cron_scheduler = getattr(request.app.state, "cron_scheduler", None)
+    if not cron_scheduler:
+        raise HTTPException(status_code=503, detail="Cron scheduler not available")
+
+    try:
+        full_status = await cron_scheduler.get_status()
+        # Convert jobs array to tasks dict keyed by task_name (system jobs only)
+        tasks = {}
+        for job in full_status.get("jobs", []):
+            if job.get("job_type") == "system" and job.get("task_name"):
+                tasks[job["task_name"]] = {
+                    "enabled": job.get("enabled", False),
+                    "interval_seconds": 0,
+                    "last_run_at": job.get("last_run_at"),
+                    "next_run_at": job.get("next_run_at", ""),
+                    "fail_count": job.get("fail_count", 0),
+                    "circuit_open": job.get("circuit_open", False),
+                    "is_running": False,
+                    "last_error": job.get("last_error"),
+                    "last_result": None,
+                }
+        return {
+            "enabled": full_status.get("enabled", False),
+            "running": full_status.get("running", False),
+            "check_interval_seconds": full_status.get("check_interval_seconds", 60),
+            "tasks": tasks,
+        }
+    except Exception as e:
+        logger.error(f"Error getting scheduler status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/scheduler/trigger-all")
+async def trigger_all_system_tasks(request: Request, session=Depends(get_session)):
+    """Trigger all enabled system tasks immediately."""
+    cron_scheduler = getattr(request.app.state, "cron_scheduler", None)
+    if not cron_scheduler:
+        raise HTTPException(status_code=503, detail="Cron scheduler not available")
+
+    try:
+        stmt = select(ScheduledJob).where(
+            ScheduledJob.job_type == "system",
+            ScheduledJob.enabled == True,
+        )
+        result = await session.execute(stmt)
+        jobs = result.scalars().all()
+
+        triggered = []
+        skipped = []
+        for job in jobs:
+            success = await cron_scheduler.trigger_job(job.id)
+            if success:
+                triggered.append(job.task_name or job.name)
+            else:
+                skipped.append(job.task_name or job.name)
+
+        return {"triggered": triggered, "skipped": skipped}
+
+    except Exception as e:
+        logger.error(f"Error triggering all system tasks: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/scheduler/reset/{task_name}")
+async def reset_system_task_circuit(
+    task_name: str, request: Request, session=Depends(get_session)
+):
+    """Reset circuit breaker for a system task by task name."""
+    cron_scheduler = getattr(request.app.state, "cron_scheduler", None)
+    if not cron_scheduler:
+        raise HTTPException(status_code=503, detail="Cron scheduler not available")
+
+    try:
+        stmt = select(ScheduledJob).where(
+            ScheduledJob.job_type == "system",
+            ScheduledJob.task_name == task_name,
+        )
+        result = await session.execute(stmt)
+        job = result.scalar_one_or_none()
+
+        if not job:
+            raise HTTPException(
+                status_code=404,
+                detail=f"System task '{task_name}' not found",
+            )
+
+        success = await cron_scheduler.reset_circuit(job.id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Job not found in scheduler")
+
+        return {"status": "reset", "task_name": task_name}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resetting system task circuit: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Satellite endpoints
 @router.get("/satellites")
 async def list_satellites(request: Request):

@@ -415,7 +415,7 @@ async def info():
         "orchestrator": {
             "on_stagger_delay": config.get("orchestrator.on_stagger_delay_seconds"),
             "max_concurrent_on": config.get("orchestrator.max_concurrent_on_commands"),
-            "off_verification_enabled": config.get("orchestrator.enable_off_verification"),
+            "verification_enabled": config.get("orchestrator.enable_verification", True),
         },
     }
 
