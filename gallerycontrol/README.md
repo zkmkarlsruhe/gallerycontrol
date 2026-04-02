@@ -1,57 +1,89 @@
 # GalleryControl
 
-Museum and gallery device control system.
+Open-source device control system for museums and galleries. Manages daily power-on/off routines for projectors, power strips, and custom devices across multiple exhibitions.
 
 ## Features
 
-- FastAPI REST API for device control
-- Support for multiple device types: PJLink, NETIO, ANEL, Shell
-- Intelligent ON command staggering (1s delay)
-- OFF command verification with retry logic
-- Fast lane API for external triggers
-- Hot-reloadable YAML configuration
-- PostgreSQL database for 1000+ devices
-- Per-device cooldown management
+- **Multi-device support**: PJLink projectors, NETIO/ANEL power strips, custom shell commands
+- **Scheduled automation**: Cron-based schedules for exhibitions, artworks, and individual devices
+- **Artwork protection**: Runtime limits and cooldown timers for sensor-triggered installations
+- **Real-time monitoring**: Live device state polling with SSE push updates
+- **Visitor displays**: Configurable kiosk screens showing artwork availability
+- **Satellite daemon**: Control devices on remote/NATed networks via WebSocket relay
+- **Inventory email**: Emergency device list sent via email when the system is offline
+- **Asset tracking**: Link physical devices to inventory assets, track projector lamp hours
 
-## Installation
+## Quick Start
 
 ```bash
-# Install dependencies with Poetry
+cp docker-compose.example.yml docker-compose.yml
+cp .env.example .env
+# Edit .env with your DB_PASSWORD
+
+docker compose up -d
+```
+
+The web UI is available at `http://localhost:8000`.
+
+## Development Setup
+
+```bash
+# Backend
+cd gallerycontrol
 poetry install
-
-# Setup database
+export DATABASE_URL="postgresql+asyncpg://gallerycontrol:password@localhost:5432/gallerycontrol"
 alembic upgrade head
-
-# Run development server
 poetry run uvicorn gallerycontrol.main:app --reload --host 0.0.0.0 --port 8000
+
+# Frontend
+cd frontend
+npm install
+npm run dev
 ```
 
 ## Configuration
 
-Configuration is managed via YAML files in the `config/` directory:
+YAML configuration with environment variable substitution (`${VAR:-default}`):
 
-- `default.yaml` - Base configuration
-- `development.yaml` - Development overrides
-- `production.yaml` - Production settings
+```
+config/
+  default.yaml      # Base config (all settings with defaults)
+  production.yaml   # Production overrides
+```
 
-Environment variables can be used to override config values using `${VAR_NAME}` syntax.
+Key config sections: `server`, `database`, `device_types`, `orchestrator`, `monitoring`, `scheduler`, `email`, `display`, `hostname_templates`.
+
+## Supported Device Types
+
+| Type | Protocol | Use Case |
+|------|----------|----------|
+| **PJLink** | TCP/4352 | Projectors (on/off, lamp hours, status) |
+| **NETIO** | HTTP JSON | Network power strips (per-outlet control) |
+| **ANEL** | UDP | Network power strips (per-outlet control) |
+| **Shell** | SSH/HTTP | Custom commands for any device |
+
+## Architecture
+
+```
+gallerycontrol/          # FastAPI backend (Python 3.12+)
+  api/                   # REST API endpoints
+  database/              # SQLAlchemy models + Alembic migrations
+  devices/               # Device protocol managers
+  orchestrator/          # Command orchestration + verification
+  monitoring/            # State polling + service health
+  scheduler/             # Cron-based task scheduler
+  services/              # Business logic (protection, SSE, inventory)
+  display_assets/        # Visitor kiosk display templates
+
+frontend/                # React 19 + TypeScript + Vite
+satellite-daemon/        # Remote device relay (Python)
+anel_runner/             # ANEL UDP protocol service
+```
 
 ## API Documentation
 
-Once running, visit:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## Testing
-
-```bash
-# Run all tests
-poetry run pytest
-
-# Run with coverage
-poetry run pytest --cov=gallerycontrol
-```
+Once running: `http://localhost:8000/docs` (Swagger UI)
 
 ## License
 
-MIT
+MIT - see [LICENSE](LICENSE)
