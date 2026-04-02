@@ -23,6 +23,11 @@ email:
   recipients:
     - "museumstechnik@zkm.de"
 
+# Hostname quick-generate templates for device forms
+hostname_templates:
+  netio: "netzwerksteckdose-netio-{num:03d}.zkm.de"
+  anel: "netzwerksteckdose{num}.zkm.de"
+
 # API settings
 api:
   cors_origins:
