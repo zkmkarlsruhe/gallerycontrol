@@ -10,11 +10,12 @@ from datetime import datetime, timezone
 
 
 def utc_now() -> datetime:
-    """Get current UTC time as timezone-aware datetime.
+    """Get current UTC time as naive datetime (for DB compatibility).
 
-    Use this instead of datetime.utcnow() which is deprecated.
+    Use this instead of datetime.utcnow() which is deprecated in Python 3.12+.
+    Returns naive UTC to match the database DateTime columns.
     """
-    return datetime.utcnow()
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def ensure_utc(dt: datetime | None) -> datetime | None:

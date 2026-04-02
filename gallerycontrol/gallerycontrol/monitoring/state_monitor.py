@@ -6,7 +6,9 @@ import asyncio
 import socket
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from gallerycontrol.utils.datetime_utils import utc_now
 from typing import TYPE_CHECKING, Awaitable, Callable, Dict, List, Optional
 
 from sqlalchemy import select, update
@@ -316,7 +318,7 @@ class StateMonitor:
             return True
 
         interval = self._get_poll_interval(device_id)
-        elapsed = (datetime.utcnow() - last).total_seconds()
+        elapsed = (utc_now() - last).total_seconds()
         return elapsed >= interval
 
     async def _poll_due_devices(self):
@@ -377,7 +379,7 @@ class StateMonitor:
                         batch_results.append(("success" if result else "failed", device.name))
                     except asyncio.TimeoutError:
                         # Mark as polled to prevent retry storm
-                        poll_time = datetime.utcnow()
+                        poll_time = utc_now()
                         device_id = str(device.id)
                         self._last_polled[device_id] = poll_time
 
@@ -465,7 +467,7 @@ class StateMonitor:
         manager = self.device_managers.get(device.device_type)
 
         # Mark as polled at the start (even if it fails, to prevent retry storm)
-        poll_time = datetime.utcnow()
+        poll_time = utc_now()
         self._last_polled[device_id] = poll_time
         poll_interval = self._get_poll_interval(device_id)
         next_poll_at = poll_time + timedelta(seconds=poll_interval)
@@ -694,7 +696,7 @@ class StateMonitor:
 
         seconds_until_next = 0
         if last_polled:
-            elapsed = (datetime.utcnow() - last_polled).total_seconds()
+            elapsed = (utc_now() - last_polled).total_seconds()
             seconds_until_next = max(0, int(interval - elapsed))
 
         return {
@@ -733,7 +735,7 @@ class StateMonitor:
             return True
 
         # Use naive UTC comparison (DB stores naive datetimes)
-        now = datetime.utcnow()
+        now = utc_now()
         resolved_at = device.resolved_at
         # Strip timezone info if present (shouldn't be, but be safe)
         if resolved_at.tzinfo is not None:
@@ -801,7 +803,7 @@ class StateMonitor:
                     .where(Device.id == device.id)
                     .values(
                         resolved=resolved,
-                        resolved_at=datetime.utcnow(),
+                        resolved_at=utc_now(),
                     )
                 )
                 await session.execute(stmt)
@@ -819,7 +821,7 @@ class StateMonitor:
                 stmt = (
                     update(Device)
                     .where(Device.id == device.id)
-                    .values(resolved_at=datetime.utcnow())
+                    .values(resolved_at=utc_now())
                 )
                 await session.execute(stmt)
                 await session.commit()

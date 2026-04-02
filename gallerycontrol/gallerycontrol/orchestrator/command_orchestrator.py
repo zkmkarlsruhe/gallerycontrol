@@ -3,7 +3,9 @@
 """Command orchestrator - coordinates device control operations."""
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from gallerycontrol.utils.datetime_utils import utc_now
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional
 from uuid import UUID
 
@@ -740,7 +742,7 @@ class CommandOrchestrator:
             return
 
         # Schedule 7 minutes from now (wait for projector cooldown)
-        run_at = datetime.utcnow() + timedelta(minutes=7)
+        run_at = utc_now() + timedelta(minutes=7)
         dedupe_name = f"lamp_hours:{device_id}"
 
         try:

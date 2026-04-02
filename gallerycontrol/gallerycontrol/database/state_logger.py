@@ -3,6 +3,8 @@
 """State change logging utilities."""
 
 from datetime import datetime
+
+from gallerycontrol.utils.datetime_utils import utc_now
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -62,7 +64,7 @@ async def update_device_state_with_log(
                 .where(Device.id == device_id)
                 .values(
                     state=new_state,
-                    last_checked_at=datetime.utcnow()
+                    last_checked_at=utc_now()
                 )
             )
             await session.execute(update_stmt)

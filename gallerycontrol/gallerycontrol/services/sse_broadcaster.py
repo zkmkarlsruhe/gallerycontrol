@@ -6,7 +6,9 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime
+
+from gallerycontrol.utils.datetime_utils import utc_now
 from typing import AsyncGenerator
 
 logger = logging.getLogger(__name__)
@@ -45,7 +47,7 @@ class SSEBroadcaster:
         """Send heartbeat to all clients."""
         await self.broadcast({
             "type": "heartbeat",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "client_count": len(self._clients),
         })
 
@@ -105,7 +107,7 @@ class SSEBroadcaster:
             "duration_ms": duration_ms,
             "next_poll_at": next_poll_at.isoformat(),
             "poll_interval": poll_interval,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
         })
 
     async def send_config_change(self, monitoring_config: dict):
@@ -114,7 +116,7 @@ class SSEBroadcaster:
         await self.broadcast({
             "type": "config_change",
             "monitoring": monitoring_config,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
         })
 
     async def send_verification_change(
@@ -130,7 +132,7 @@ class SSEBroadcaster:
             "type": event_type,
             "device_id": device_id,
             "poll_interval": poll_interval,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
         })
 
     async def send_initial_state(self, monitoring_config: dict) -> str:
@@ -138,7 +140,7 @@ class SSEBroadcaster:
         event = {
             "type": "connected",
             "monitoring": monitoring_config,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
         }
         return f"data: {json.dumps(event)}\n\n"
 
@@ -156,7 +158,7 @@ class SSEBroadcaster:
             "type": "protection_status",
             "artwork_id": artwork_id,
             "status": status,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
         })
 
     async def send_protection_forced_off(
@@ -173,7 +175,7 @@ class SSEBroadcaster:
             "type": "protection_forced_off",
             "artwork_id": artwork_id,
             "reason": reason,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
         })
 
     async def send_accepting_triggers_change(
@@ -190,7 +192,7 @@ class SSEBroadcaster:
             "type": "accepting_triggers_change",
             "artwork_id": artwork_id,
             "accepting_triggers": accepting,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
         })
 
     async def send_satellite_pending_count(self, count: int):
@@ -201,7 +203,7 @@ class SSEBroadcaster:
         await self.broadcast({
             "type": "satellite_pending_count",
             "count": count,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
         })
 
     async def send_satellite_status(
@@ -222,5 +224,5 @@ class SSEBroadcaster:
             "satellite_id": satellite_id,
             "name": name,
             "is_connected": is_connected,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
         })

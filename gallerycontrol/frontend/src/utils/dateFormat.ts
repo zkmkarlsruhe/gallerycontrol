@@ -55,7 +55,8 @@ export function formatShortDate(date: Date): string {
  */
 export function formatTimeAgo(isoString: string | null): string {
   if (!isoString) return 'Never';
-  const date = new Date(isoString);
+  const utcString = isoString.endsWith('Z') ? isoString : isoString + 'Z';
+  const date = new Date(utcString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffSec = Math.floor(diffMs / 1000);
@@ -72,7 +73,8 @@ export function formatTimeAgo(isoString: string | null): string {
  * @returns Relative future time string
  */
 export function formatTimeUntil(isoString: string): string {
-  const date = new Date(isoString);
+  const utcString = isoString.endsWith('Z') ? isoString : isoString + 'Z';
+  const date = new Date(utcString);
   const now = new Date();
   const diffMs = date.getTime() - now.getTime();
   const diffSec = Math.floor(diffMs / 1000);

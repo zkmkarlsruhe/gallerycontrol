@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: MIT
 """Device operation logging for debug data with raw responses."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+
+from gallerycontrol.utils.datetime_utils import utc_now
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -110,7 +112,7 @@ async def cleanup_old_operation_logs(
         Number of deleted records
     """
     try:
-        cutoff = datetime.utcnow() - timedelta(hours=retention_hours)
+        cutoff = utc_now() - timedelta(hours=retention_hours)
 
         async with db_manager.session() as session:
             stmt = delete(DeviceOperationLog).where(

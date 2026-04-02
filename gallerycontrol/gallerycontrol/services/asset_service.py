@@ -5,7 +5,9 @@
 import asyncio
 import re
 import socket
-from datetime import datetime, timezone
+from datetime import datetime
+
+from gallerycontrol.utils.datetime_utils import utc_now
 from typing import Dict, Optional
 from uuid import UUID
 
@@ -112,7 +114,7 @@ class AssetService:
             # Update hostname if different and not manually set by user
             if hostname and asset.hostname != hostname and not asset.hostname_manual:
                 asset.hostname = hostname
-                asset.updated_at = datetime.utcnow()
+                asset.updated_at = utc_now()
             return asset
 
         # Create new asset
@@ -272,7 +274,7 @@ class AssetService:
         resolved = await self.resolve_dns(device.host)
         if resolved:
             device.resolved = resolved
-            device.resolved_at = datetime.utcnow()
+            device.resolved_at = utc_now()
 
         # Extract asset number - try both host and resolved to find a hostname with asset pattern
         # Priority: prefer the value that contains the asset number
@@ -388,7 +390,7 @@ class AssetService:
                         resolved = await self.resolve_dns(device.host)
                         if resolved:
                             device.resolved = resolved
-                            device.resolved_at = datetime.utcnow()
+                            device.resolved_at = utc_now()
 
                         # Extract asset number - try both host and resolved
                         asset_number = None
@@ -642,7 +644,7 @@ class AssetService:
         resolved_at = device.resolved_at
         if resolved_at.tzinfo is not None:
             resolved_at = resolved_at.replace(tzinfo=None)
-        elapsed = (datetime.utcnow() - resolved_at).total_seconds()
+        elapsed = (utc_now() - resolved_at).total_seconds()
         return elapsed >= self.dns_resolve_interval
 
     async def update_device_dns(self, device_id: UUID) -> Optional[str]:
@@ -665,7 +667,7 @@ class AssetService:
             resolved = await self.resolve_dns(device.host)
             if resolved:
                 device.resolved = resolved
-                device.resolved_at = datetime.utcnow()
+                device.resolved_at = utc_now()
                 await session.commit()
 
             return resolved

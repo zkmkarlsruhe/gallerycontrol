@@ -4,7 +4,9 @@
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+from gallerycontrol.utils.datetime_utils import utc_now
 from typing import Any, Dict, List
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -799,7 +801,7 @@ async def cleanup_state_changes(
     from gallerycontrol.database.models import StateChangeLog
 
     try:
-        cutoff_date = datetime.utcnow() - timedelta(days=retention_days)
+        cutoff_date = utc_now() - timedelta(days=retention_days)
 
         stmt = delete(StateChangeLog).where(StateChangeLog.timestamp < cutoff_date)
         result = await session.execute(stmt)
@@ -1346,7 +1348,7 @@ async def export_inventory(session=Depends(get_session)):
 
         lines = [
             "GalleryControl Device Inventory",
-            f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+            f"Generated: {utc_now().strftime('%Y-%m-%d %H:%M UTC')}",
             "",
         ]
 
@@ -1382,7 +1384,7 @@ async def export_inventory(session=Depends(get_session)):
 
         return {
             "content": "\n".join(lines),
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": utc_now().isoformat(),
             "exhibition_count": len(exhibitions),
         }
 
@@ -2047,7 +2049,7 @@ async def create_one_shot_job(
             if not target:
                 raise HTTPException(status_code=404, detail=f"Target {job.target_type} not found")
 
-        # Convert to UTC for DB storage (scheduler uses datetime.utcnow())
+        # Convert to UTC for DB storage (scheduler uses utc_now())
         next_run_at = job.run_at
         if next_run_at.tzinfo is None:
             # Naive datetime: assume it's in local timezone (Europe/Berlin)
@@ -2198,7 +2200,7 @@ async def create_scheduled_job(
             if not job.run_at:
                 raise HTTPException(status_code=400, detail="run_at required for one-shot jobs")
             next_run_at = job.run_at
-            # Convert to UTC for DB storage (scheduler uses datetime.utcnow())
+            # Convert to UTC for DB storage (scheduler uses utc_now())
             if next_run_at.tzinfo is None:
                 # Naive datetime: assume it's in local timezone (Europe/Berlin)
                 next_run_at = next_run_at.replace(tzinfo=LOCAL_TZ)

@@ -18,6 +18,8 @@ Features:
 
 import asyncio
 from datetime import datetime, timedelta, timezone
+
+from gallerycontrol.utils.datetime_utils import utc_now
 from typing import Any, Callable, Dict, Optional
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
@@ -154,7 +156,7 @@ class CronScheduler:
 
     async def _check_and_execute_jobs(self) -> None:
         """Check for due jobs and execute them."""
-        now = datetime.utcnow()
+        now = utc_now()
 
         async with self.db_manager.session() as session:
             # Find enabled jobs that are due
@@ -461,7 +463,7 @@ class CronScheduler:
         result: Optional[dict] = None,
     ) -> None:
         """Record job execution and update job state."""
-        now = datetime.utcnow()
+        now = utc_now()
 
         try:
             async with self.db_manager.session() as session:
@@ -527,7 +529,7 @@ class CronScheduler:
         """Record a job failure without full execution logging."""
         await self._record_execution(
             job_id=job_id,
-            scheduled_at=datetime.utcnow(),
+            scheduled_at=utc_now(),
             success=False,
             error_message=error,
             duration_ms=0,
@@ -542,7 +544,7 @@ class CronScheduler:
         Returns:
             Next run time in UTC (naive datetime for DB compatibility)
         """
-        now = datetime.utcnow()
+        now = utc_now()
         cron = croniter(cron_expression, now)
         next_run = cron.get_next(datetime)
 
@@ -743,7 +745,7 @@ class CronScheduler:
 
             job.fail_count = 0
             job.backoff_until = None
-            job.next_run_at = datetime.utcnow()
+            job.next_run_at = utc_now()
 
             logger.info("Reset circuit breaker", job=job.name)
             return True
@@ -768,7 +770,7 @@ class CronScheduler:
         Returns:
             List of next run times in UTC (timezone-aware for API responses)
         """
-        now = datetime.utcnow()
+        now = utc_now()
         cron = croniter(cron_expression, now)
         runs = []
 

@@ -14,7 +14,9 @@ Uses semaphore-based concurrency control to:
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime
+
+from gallerycontrol.utils.datetime_utils import utc_now
 from typing import Any, Dict
 
 from sqlalchemy import select
@@ -107,7 +109,7 @@ async def run_device_info_cache(
                                     update_session,
                                     device.id,
                                     core_info,
-                                    datetime.utcnow(),
+                                    utc_now(),
                                 )
                             return "updated"
                         return "skipped"

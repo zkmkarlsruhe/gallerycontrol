@@ -3,6 +3,8 @@
 """SQLAlchemy database models."""
 
 from datetime import datetime
+
+from gallerycontrol.utils.datetime_utils import utc_now
 from typing import Optional
 from uuid import uuid4
 
@@ -42,8 +44,8 @@ class Satellite(Base):
     approved_at = Column(DateTime, nullable=True)
     last_seen_at = Column(DateTime, nullable=True)
     version = Column(String(50), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
     exhibitions = relationship("Exhibition", back_populates="satellite")
@@ -72,8 +74,8 @@ class Exhibition(Base):
         ForeignKey("satellites.id", ondelete="SET NULL"),
         nullable=True,
     )
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
     artworks = relationship("Artwork", back_populates="exhibition", cascade="all, delete-orphan")
@@ -99,8 +101,8 @@ class Artwork(Base):
     accepting_triggers = Column(Boolean, default=False, nullable=False)  # Gate for fast-lane API
     timeslice_enabled = Column(Boolean, default=False, nullable=False)  # Enable time slice protection
     schedules_enabled = Column(Boolean, default=False, nullable=False)  # Enable schedules feature
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
     exhibition = relationship("Exhibition", back_populates="artworks")
@@ -143,7 +145,7 @@ class Device(Base):
     # State management
     state = Column(Integer, default=-1, nullable=False)  # -1=error, 0=off, 1=on, 2=cooling, 3=warming
     last_checked_at = Column(DateTime, nullable=True)
-    next_check_allowed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    next_check_allowed_at = Column(DateTime, default=utc_now, nullable=False)
 
     # DNS resolution (all device types)
     resolved = Column(String(255), nullable=True)  # Resolved hostname or IP
@@ -160,8 +162,8 @@ class Device(Base):
         nullable=True
     )
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
     artwork = relationship("Artwork", back_populates="devices")
@@ -194,7 +196,7 @@ class CommandLog(Base):
     success = Column(Boolean, nullable=False)
     error_message = Column(Text, nullable=True)
     duration_ms = Column(Integer, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     device = relationship("Device", back_populates="command_logs")
@@ -220,8 +222,8 @@ class Credential(Base):
     username = Column(String(255), nullable=True)
     password = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     # Indexes
     __table_args__ = (Index("idx_credentials_type", "credential_type"),)
@@ -245,8 +247,8 @@ class ShellTemplate(Base):
     off_command = Column(Text, nullable=True)
     actions = Column(JSON, nullable=True)  # Array of {name, cmd} for custom actions
     onoff_mode = Column(Boolean, default=True, nullable=False)  # True=ON/OFF mode, False=Actions mode
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     def __repr__(self) -> str:
         return f"<ShellTemplate(id={self.id}, name='{self.name}')>"
@@ -265,7 +267,7 @@ class StateChangeLog(Base):
     previous_state = Column(Integer, nullable=False)  # -1=error, 0=off, 1=on, 2=cooling, 3=warming
     new_state = Column(Integer, nullable=False)
     trigger = Column(String(50), nullable=False)  # 'polling', 'command', 'verification'
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     device = relationship("Device", back_populates="state_changes")
@@ -301,7 +303,7 @@ class DeviceOperationLog(Base):
     raw_response = Column(Text, nullable=True)
     error_message = Column(Text, nullable=True)
     duration_ms = Column(Integer, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     device = relationship("Device", backref="operation_logs")
@@ -333,8 +335,8 @@ class Asset(Base):
     hostname = Column(String(255), nullable=True)  # Full resolved hostname
     hostname_manual = Column(Boolean, default=False, nullable=False)  # True if user manually set hostname
     notes = Column(Text, nullable=True)  # Optional human notes
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
     lamp_history = relationship("LampHoursLog", back_populates="asset", cascade="all, delete-orphan")
@@ -365,7 +367,7 @@ class LampHoursLog(Base):
     artwork_name = Column(String(255), nullable=True)
     device_name = Column(String(255), nullable=True)
 
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     asset = relationship("Asset", back_populates="lamp_history")
@@ -432,8 +434,8 @@ class ScheduledJob(Base):
     backoff_until = Column(DateTime, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
     target_device = relationship("Device", backref="scheduled_jobs")
@@ -503,7 +505,7 @@ class ScheduledJobLog(Base):
         nullable=False,
     )
     scheduled_at = Column(DateTime, nullable=False)
-    executed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    executed_at = Column(DateTime, default=utc_now, nullable=False)
     success = Column(Boolean, nullable=False)
     error_message = Column(Text, nullable=True)
     duration_ms = Column(Integer, nullable=True)
@@ -563,7 +565,7 @@ class ArtworkProtectionState(Base):
     time_slice_usage = Column(JSON, default=dict, nullable=False)  # {"15": 420, "60": 1200}
     last_window_reset = Column(JSON, default=dict, nullable=False)  # {"15": "2024-...", "60": "..."}
     desired_state = Column(String(10), default="off", nullable=False)  # Sensor's desired state
-    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     artwork = relationship("Artwork", back_populates="protection_state")
