@@ -77,7 +77,7 @@ async def create_sample_data():
             port=4352,
             enabled=True,
             automation_enabled=True,
-                        config={"password": "panasonic"},
+                        config={"password": "panasonic"},  # manufacturer default
             state=0,
         )
 
@@ -91,7 +91,7 @@ async def create_sample_data():
             port=1,
             enabled=True,
             automation_enabled=True,
-                        config={"username": "netio", "password": "netio"},
+                        config={"username": "netio", "password": "netio"},  # manufacturer default
             state=0,
         )
 
@@ -105,7 +105,7 @@ async def create_sample_data():
             port=0,
             enabled=True,
             automation_enabled=True,
-                        config={"username": "admin", "password": "anel"},
+                        config={"username": "admin", "password": "anel"},  # manufacturer default
             state=0,
         )
 

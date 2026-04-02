@@ -1,9 +1,9 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
-// MuTech Control Service Worker
+// GalleryControl Service Worker
 // Version: 1.0.0
 
-const CACHE_NAME = 'mutech-v4';
+const CACHE_NAME = 'gallerycontrol-v1';
 
 // Static assets to precache on install
 const PRECACHE_ASSETS = [

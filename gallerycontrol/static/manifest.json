@@ -1,6 +1,6 @@
 {
-  "name": "MuTech Control",
-  "short_name": "MuTech",
+  "name": "GalleryControl",
+  "short_name": "GalleryControl",
   "description": "Museum device control system",
   "start_url": "/",
   "scope": "/",

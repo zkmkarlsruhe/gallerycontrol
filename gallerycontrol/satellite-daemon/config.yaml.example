@@ -2,8 +2,8 @@
 # Copy this file to /etc/satellite-daemon/config.yaml
 
 # Server WebSocket URL (required)
-# This is the MuTech Control server the satellite will connect to
-server_url: wss://steuerung.example.com
+# This is the GalleryControl server the satellite will connect to
+server_url: wss://gallerycontrol.example.com
 
 # Optional settings
 # reconnect_delay: 5.0        # Seconds to wait before reconnecting

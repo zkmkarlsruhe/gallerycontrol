@@ -29,8 +29,8 @@ export function DisplayLinksModal({
   baseUrl = window.location.origin,
 }: DisplayLinksModalProps) {
   const suggestedSlug = generateSlug(artworkName);
-  const displayUrl = `${baseUrl}/steuerung/${suggestedSlug}`;
-  const statusUrl = `${baseUrl}/steuerung/${suggestedSlug}/status`;
+  const displayUrl = `${baseUrl}/display/${suggestedSlug}`;
+  const statusUrl = `${baseUrl}/display/${suggestedSlug}/status`;
 
   return (
     <Modal
@@ -74,7 +74,7 @@ export function DisplayLinksModal({
         <div className="mb-3">
           <h6 className="text-muted">Setup Instructions</h6>
           <ol className="small text-muted mb-2">
-            <li>Create a folder: <code>steuerung/artworks/{suggestedSlug}/</code></li>
+            <li>Create a folder: <code>display_assets/artworks/{suggestedSlug}/</code></li>
             <li>Create <code>config.yaml</code> in that folder</li>
             <li>Set <code>artwork_uuid</code> in the config to link it to this artwork</li>
           </ol>

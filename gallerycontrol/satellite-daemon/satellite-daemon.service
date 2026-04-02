@@ -1,6 +1,6 @@
 [Unit]
-Description=MuTech Control Satellite Daemon
-Documentation=https://github.com/your-org/mutech-control
+Description=GalleryControl Satellite Daemon
+Documentation=https://github.com/your-org/gallerycontrol
 After=network-online.target
 Wants=network-online.target
 

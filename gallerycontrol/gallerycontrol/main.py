@@ -325,15 +325,15 @@ static_dir = Path(__file__).parent.parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-# Mount steuerung templates directory for display assets (fonts, D3.js, etc.)
-steuerung_templates_dir = Path(__file__).parent / "steuerung" / "templates"
-if steuerung_templates_dir.exists():
-    app.mount("/steuerung/templates", StaticFiles(directory=str(steuerung_templates_dir)), name="steuerung-templates")
+# Mount display templates directory for display assets (fonts, D3.js, etc.)
+display_templates_dir = Path(__file__).parent / "display_assets" / "templates"
+if display_templates_dir.exists():
+    app.mount("/display/templates", StaticFiles(directory=str(display_templates_dir)), name="display-templates")
 
-# Mount steuerung fonts directory
-steuerung_fonts_dir = Path(__file__).parent / "steuerung" / "fonts"
-if steuerung_fonts_dir.exists():
-    app.mount("/steuerung/fonts", StaticFiles(directory=str(steuerung_fonts_dir)), name="steuerung-fonts")
+# Mount display fonts directory
+display_fonts_dir = Path(__file__).parent / "display_assets" / "fonts"
+if display_fonts_dir.exists():
+    app.mount("/display/fonts", StaticFiles(directory=str(display_fonts_dir)), name="display-fonts")
 
 
 # Root endpoint - serve web interface
@@ -416,6 +416,10 @@ async def info():
             "on_stagger_delay": config.get("orchestrator.on_stagger_delay_seconds"),
             "max_concurrent_on": config.get("orchestrator.max_concurrent_on_commands"),
             "verification_enabled": config.get("orchestrator.enable_verification", True),
+        },
+        "hostname_templates": {
+            "netio": config.get("hostname_templates.netio", ""),
+            "anel": config.get("hostname_templates.anel", ""),
         },
     }
 

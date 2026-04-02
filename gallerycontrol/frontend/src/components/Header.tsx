@@ -33,7 +33,7 @@ export function Header({
 }: HeaderProps) {
   return (
     <div className="app-header">
-      <h1>MuTech Control</h1>
+      <h1>GalleryControl</h1>
       <div className="header-controls">
         {/* View Tools */}
         <button

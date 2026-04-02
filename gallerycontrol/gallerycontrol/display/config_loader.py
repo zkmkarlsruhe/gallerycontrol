@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Config loader for visitor display configurations.
 
-Loads YAML configs from steuerung/artworks/{slug}/config.yaml with TTL caching
+Loads YAML configs from display_assets/artworks/{slug}/config.yaml with TTL caching
 for hot-reload support without excessive file I/O.
 """
 
@@ -135,7 +135,7 @@ class CacheEntry:
 class DisplayConfigLoader:
     """Loads and caches display configurations from YAML files.
 
-    Configs are loaded from steuerung/artworks/{slug}/config.yaml with a TTL cache
+    Configs are loaded from display_assets/artworks/{slug}/config.yaml with a TTL cache
     to balance hot-reload capability with file I/O efficiency.
     """
 
@@ -147,12 +147,12 @@ class DisplayConfigLoader:
         """Initialize the config loader.
 
         Args:
-            base_path: Base path to steuerung/artworks directory.
-                      Defaults to gallerycontrol/steuerung/artworks.
+            base_path: Base path to display_assets/artworks directory.
+                      Defaults to gallerycontrol/display_assets/artworks.
             cache_ttl: Cache time-to-live in seconds.
         """
         if base_path is None:
-            # Default to gallerycontrol/steuerung/artworks relative to this file
+            # Default to gallerycontrol/display_assets/artworks relative to this file
             base_path = Path(__file__).parent.parent / "steuerung" / "artworks"
         elif isinstance(base_path, str):
             base_path = Path(base_path)

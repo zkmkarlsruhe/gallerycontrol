@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Build and push script for MuTech Control Service
+# Build and push script for GalleryControl
 
 set -e
 

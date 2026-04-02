@@ -1,6 +1,6 @@
-# MuTech Control Service
+# GalleryControl
 
-Main control service for the MuTech museum device control system.
+Museum and gallery device control system.
 
 ## Features
 
@@ -54,4 +54,4 @@ poetry run pytest --cov=gallerycontrol
 
 ## License
 
-GPL-3.0
+MIT

@@ -1,7 +1,7 @@
 [project]
 name = "satellite-daemon"
 version = "0.1.0"
-description = "Satellite relay daemon for MuTech Control Service"
+description = "Satellite relay daemon for GalleryControl"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

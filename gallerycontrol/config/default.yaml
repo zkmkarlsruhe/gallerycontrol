@@ -127,8 +127,14 @@ email:
   smtp_use_tls: true
   from_address: "${EMAIL_FROM}"
   subject: "GalleryControl Device Inventory"
-  recipients:
-    - "technik@zkm.de"
+  recipients: []
+
+# Hostname templates for quick-generate buttons in device forms
+# Use {num} for the device number, {num:03d} for zero-padded
+# Leave empty to disable the quick-generate feature
+hostname_templates:
+  netio: ""    # e.g., "netio-{num:03d}.example.com"
+  anel: ""     # e.g., "anel-{num}.example.com"
 
 # Visitor display system for kiosk screens showing protection status
 display:

@@ -40,7 +40,7 @@ class AssetService:
 
         Default pattern: -(\d{6,})\. matches asset numbers like:
         - projector-100018987.local -> 100018987
-        - pj-123456.zkm.de -> 123456
+        - pj-123456.example.com -> 123456
         """
         if not hostname:
             return None

@@ -4,14 +4,7 @@ import { useState, useEffect } from 'react';
 import type { Credential } from '../../types';
 import { useHostReachability, type ReachabilityStatus } from '../../hooks/useHostReachability';
 import { SettingsSection, ReachabilityIndicator, getHostInputClass, CredentialSelector, PortSelector } from './shared';
-
-// Generate NETIO hostname from number: 49 -> netzwerksteckdose-netio-049.zkm.de
-function generateNetioHostname(num: string): string {
-  const n = parseInt(num, 10);
-  if (isNaN(n) || n < 1) return '';
-  const padded = n.toString().padStart(3, '0');
-  return `netzwerksteckdose-netio-${padded}.zkm.de`;
-}
+import { useHostnameTemplate } from '../../hooks/useHostnameTemplate';
 
 interface NetioFormData {
   name: string;
@@ -32,13 +25,23 @@ interface NetioFormProps {
 
 export function NetioForm({ data, onChange, credentials = [], onReachabilityChange, usedPorts = [] }: NetioFormProps) {
   const [quickNum, setQuickNum] = useState('');
+  const hostnameTemplate = useHostnameTemplate('netio');
 
   const update = (field: keyof NetioFormData, value: string | number | boolean) => {
     onChange({ ...data, [field]: value });
   };
 
+  const generateHostname = (num: string): string => {
+    if (!hostnameTemplate) return '';
+    const n = parseInt(num, 10);
+    if (isNaN(n) || n < 1) return '';
+    return hostnameTemplate
+      .replace('{num:03d}', n.toString().padStart(3, '0'))
+      .replace('{num}', n.toString());
+  };
+
   const handleQuickHostname = () => {
-    const hostname = generateNetioHostname(quickNum);
+    const hostname = generateHostname(quickNum);
     if (hostname) {
       update('host', hostname);
       setQuickNum('');
@@ -78,30 +81,34 @@ export function NetioForm({ data, onChange, credentials = [], onReachabilityChan
         <div className="mb-3">
           <label className="form-label">Host / IP Address</label>
           <div className="hostname-inline-entry">
-            <input
-              type="text"
-              className="form-control form-control-sm quick-num-input"
-              placeholder="049"
-              value={quickNum}
-              onChange={(e) => setQuickNum(e.target.value.replace(/\D/g, ''))}
-              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleQuickHostname())}
-              maxLength={3}
-              title="Enter device number"
-            />
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary quick-apply-btn"
-              onClick={handleQuickHostname}
-              disabled={!quickNum}
-              title={quickNum ? `Generate netzwerksteckdose-netio-${quickNum.padStart(3, '0')}.zkm.de` : 'Enter a number first'}
-            >
-              <i className="bi bi-arrow-right"></i>
-            </button>
+            {hostnameTemplate && (
+              <>
+                <input
+                  type="text"
+                  className="form-control form-control-sm quick-num-input"
+                  placeholder="#"
+                  value={quickNum}
+                  onChange={(e) => setQuickNum(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleQuickHostname())}
+                  maxLength={3}
+                  title="Enter device number"
+                />
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary quick-apply-btn"
+                  onClick={handleQuickHostname}
+                  disabled={!quickNum}
+                  title={quickNum ? `Generate ${generateHostname(quickNum)}` : 'Enter a number first'}
+                >
+                  <i className="bi bi-arrow-right"></i>
+                </button>
+              </>
+            )}
             <div className="host-input-wrapper flex-grow-1">
               <input
                 type="text"
                 className={`form-control ${getHostInputClass(reachabilityStatus)}`}
-                placeholder="netzwerksteckdose-netio-049.zkm.de"
+                placeholder="192.168.1.100"
                 value={data.host}
                 onChange={(e) => update('host', e.target.value)}
               />

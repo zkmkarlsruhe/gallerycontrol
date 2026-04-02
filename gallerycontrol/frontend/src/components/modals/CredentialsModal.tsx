@@ -228,7 +228,7 @@ export function CredentialsModal({
               <input
                 type="text"
                 className="form-control form-control-sm"
-                placeholder="e.g., museumstechnik"
+                placeholder="e.g., operator"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />

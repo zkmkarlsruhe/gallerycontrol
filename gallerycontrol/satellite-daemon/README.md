@@ -1,11 +1,11 @@
 # Satellite Daemon
 
-A relay daemon for MuTech Control that allows controlling devices on NATed or isolated networks.
+A relay daemon for GalleryControl that allows controlling devices on NATed or isolated networks.
 
 ## Overview
 
 The satellite daemon runs on a Raspberry Pi (or similar device) within the target network and:
-1. Connects to the main MuTech Control server via WebSocket
+1. Connects to the main GalleryControl server via WebSocket
 2. Receives device commands from the server
 3. Executes commands on local devices (ANEL, NETIO, PJLink, Shell)
 4. Reports results back to the server
@@ -34,7 +34,7 @@ sudo chown satellite:satellite /var/lib/satellite-daemon
 ```bash
 sudo cp config.yaml.example /etc/satellite-daemon/config.yaml
 sudo nano /etc/satellite-daemon/config.yaml
-# Set server_url to your MuTech Control server
+# Set server_url to your GalleryControl server
 ```
 
 ### Install Systemd Service
@@ -70,7 +70,7 @@ The daemon automatically creates `/var/lib/satellite-daemon/state.yaml` to store
 ## Onboarding Flow
 
 1. Start the daemon - it will connect to the server's onboarding endpoint
-2. In the MuTech Control web UI, go to Admin > Satellites
+2. In the GalleryControl web UI, go to Admin > Satellites
 3. You'll see the pending satellite listed with its hostname
 4. Enter a name and click "Approve"
 5. The daemon will automatically reconnect to the main endpoint
@@ -104,7 +104,7 @@ sudo journalctl -u satellite-daemon -n 100
 
 1. Increase `command_timeout` in config
 2. Check device is reachable from satellite network
-3. Verify device credentials in MuTech Control
+3. Verify device credentials in GalleryControl
 
 ### Authentication Errors
 

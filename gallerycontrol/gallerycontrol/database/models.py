@@ -217,7 +217,7 @@ class Credential(Base):
     __tablename__ = "credentials"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    name = Column(String(100), unique=True, nullable=False)  # e.g., "museumstechnik"
+    name = Column(String(100), unique=True, nullable=False)  # e.g., "operator"
     credential_type = Column(String(20), nullable=False, default="shell")  # shell, pjlink, netio, anel
     username = Column(String(255), nullable=True)
     password = Column(String(255), nullable=False)

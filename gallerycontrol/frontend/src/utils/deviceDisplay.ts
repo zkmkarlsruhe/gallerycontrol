@@ -5,8 +5,8 @@ import { portUtils } from './portUtils';
 
 /**
  * Format device name for display in UI.
- * - NETIO hostname: "netzwerksteckdose-netio-009.zkm.de" -> "netio-009:1"
- * - ANEL hostname: "netzwerksteckdose21.zkm.de" -> "anel-21:1"
+ * - NETIO hostname: "netzwerksteckdose-netio-009.example.com" -> "netio-009:1"
+ * - ANEL hostname: "netzwerksteckdose21.example.com" -> "anel-21:1"
  * - IP addresses: "192.168.232.69" -> "232.69"
  * - Real names (e.g. "Devecchi", "Americas Finest"): name as-is
  */

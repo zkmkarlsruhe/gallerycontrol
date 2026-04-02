@@ -15,7 +15,7 @@
     const body = document.body;
     const slug = body.dataset.slug;
     const chartType = body.dataset.chartType || 'donut';
-    const statusUrl = `/steuerung/${slug}/status`;
+    const statusUrl = `/display/${slug}/status`;
 
     // State
     let lastStatus = null;

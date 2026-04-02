@@ -24,10 +24,10 @@ from gallerycontrol.display.config_loader import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/steuerung", tags=["display"])
+router = APIRouter(prefix="/display", tags=["display"])
 
 # Path to templates directory
-TEMPLATES_PATH = Path(__file__).parent.parent / "steuerung" / "templates"
+TEMPLATES_PATH = Path(__file__).parent.parent / "display_assets" / "templates"
 
 
 class DisplayStatusResponse(BaseModel):
@@ -159,7 +159,7 @@ def _render_template(
     html = html.replace("{{ warning_en }}", config.texts.get("warning_en", ""))
 
     # Inject status endpoint URL
-    html = html.replace("{{ status_url }}", f"/steuerung/{slug}/status")
+    html = html.replace("{{ status_url }}", f"/display/{slug}/status")
 
     return html
 
@@ -169,7 +169,7 @@ async def display_page(slug: str, request: Request) -> HTMLResponse:
     """Render the visitor display page for an artwork.
 
     Args:
-        slug: Artwork slug (directory name in steuerung/artworks/).
+        slug: Artwork slug (directory name in display_assets/artworks/).
 
     Returns:
         Rendered HTML page for the kiosk display.
@@ -221,7 +221,7 @@ async def display_status(slug: str) -> DisplayStatusResponse:
     """Get current protection status for JS polling.
 
     Args:
-        slug: Artwork slug (directory name in steuerung/artworks/).
+        slug: Artwork slug (directory name in display_assets/artworks/).
 
     Returns:
         JSON status response for the display.
@@ -311,8 +311,8 @@ async def list_displays() -> JSONResponse:
                 "artwork_uuid": config.artwork_uuid,
                 "artwork_name": config.texts.get("artwork_name", slug),
                 "template": config.template,
-                "display_url": f"/steuerung/{slug}",
-                "status_url": f"/steuerung/{slug}/status",
+                "display_url": f"/display/{slug}",
+                "status_url": f"/display/{slug}/status",
             })
 
     return JSONResponse(content={"displays": displays})
