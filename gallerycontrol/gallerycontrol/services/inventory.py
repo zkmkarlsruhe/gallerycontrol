@@ -12,6 +12,15 @@ from gallerycontrol.config import get_config
 
 logger = logging.getLogger(__name__)
 
+# Sort order for device types within an artwork
+_DEVICE_TYPE_ORDER = {"pjlink": 0, "netio": 1, "anel": 2, "shell": 3}
+
+
+def _device_sort_key(device: dict) -> tuple:
+    """Sort devices by type (projectors first, then power strips, then shell)."""
+    device_type = device.get("device_type", "")
+    return (_DEVICE_TYPE_ORDER.get(device_type, 99), device.get("host", ""))
+
 
 def format_device_line(device: dict, for_html: bool = False) -> str:
     """Format a single device into inventory line(s).
@@ -26,16 +35,20 @@ def format_device_line(device: dict, for_html: bool = False) -> str:
     device_type = device.get("device_type", "")
     host = device.get("host", "")
     port = device.get("port")
+    name = device.get("name", "")
     config = device.get("config") or {}
 
     prefix = "  - " if not for_html else ""
 
     if device_type == "pjlink":
-        return f"{prefix}Projektor: http://{host}"
+        label = f"{name}: " if name else "Projektor: "
+        return f"{prefix}{label}http://{host}"
 
     elif device_type in ("netio", "anel"):
-        port_num = port if port is not None else 1
-        return f"{prefix}Steckdose: http://{host} Port: {port_num}"
+        # Display 1-indexed port (matches physical device labeling)
+        port_num = (port + 1) if port is not None else 1
+        label = f"{name}: " if name else "Steckdose: "
+        return f"{prefix}{label}http://{host} Port {port_num}"
 
     elif device_type == "shell":
         # Extract status command from config
@@ -53,18 +66,19 @@ def format_device_line(device: dict, for_html: bool = False) -> str:
                     status_cmd = cmd.get("cmd")
                     break
 
+        label = name or "Shell"
         if status_cmd:
             if for_html:
-                return f"Shell Magic<br>&nbsp;&nbsp;&nbsp;&nbsp;Reachable: {status_cmd}"
+                return f"{label}<br>&nbsp;&nbsp;&nbsp;&nbsp;{status_cmd}"
             else:
-                return f"{prefix}Shell Magic\n      Reachable: {status_cmd}"
+                return f"{prefix}{label}\n      {status_cmd}"
         else:
-            # Fallback to device name if no status command
-            return f"{prefix}Shell: {device.get('name', host)}"
+            return f"{prefix}{label}"
 
     else:
         # Unknown device type
-        return f"{prefix}{device_type}: {host}"
+        label = name or device_type
+        return f"{prefix}{label}: {host}"
 
 
 def generate_inventory_text(exhibitions: list[dict]) -> str:
@@ -118,8 +132,8 @@ def generate_inventory_text(exhibitions: list[dict]) -> str:
             lines.append("")
             lines.append(artwork_name)
 
-            # Add device lines
-            for device in devices:
+            # Add device lines (sorted by type)
+            for device in sorted(devices, key=_device_sort_key):
                 lines.append(format_device_line(device))
 
     return "\n".join(lines)
@@ -187,7 +201,7 @@ def generate_inventory_html(exhibitions: list[dict]) -> str:
             html_lines.append('<div class="artwork">')
             html_lines.append(f'<div class="artwork-name">{artwork_name}</div>')
 
-            for device in devices:
+            for device in sorted(devices, key=_device_sort_key):
                 device_line = format_device_line(device, for_html=True)
                 html_lines.append(f'<div class="device">{device_line}</div>')
 

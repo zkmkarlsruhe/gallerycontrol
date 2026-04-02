@@ -21,7 +21,7 @@ email:
   from_name: "GalleryControl"
   subject: "GalleryControl Device Status Report"
   recipients:
-    - "${EMAIL_RECIPIENT:-marc@zkm.de}"
+    - "museumstechnik@zkm.de"
 
 # API settings
 api:
