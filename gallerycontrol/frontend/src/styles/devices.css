@@ -907,6 +907,12 @@
   margin-left: 0.15rem;
 }
 
+/* Satellite routing indicator in badge */
+.badge-satellite {
+  font-size: 0.8em;
+  margin-left: 0.15rem;
+}
+
 /* Lamp warning indicator - glowing orange */
 .lamp-warning {
   font-size: 0.9em;

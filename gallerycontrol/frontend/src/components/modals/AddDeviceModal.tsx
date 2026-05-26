@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
 import { useState, useCallback } from 'react';
-import type { Credential, ShellTemplate, Device } from '../../types';
+import type { Credential, ShellTemplate, Device, SatelliteInfo } from '../../types';
 import { Modal } from '../ui/Modal';
 import { DeviceTypeSelector } from '../forms/DeviceTypeSelector';
 import { PJLinkForm } from '../forms/PJLinkForm';
@@ -21,6 +21,7 @@ interface AddDeviceModalProps {
   credentials?: Credential[];
   templates?: ShellTemplate[];
   existingDevices?: Device[];
+  availableSatellites?: SatelliteInfo[];
 }
 
 export function AddDeviceModal({
@@ -33,8 +34,10 @@ export function AddDeviceModal({
   credentials = [],
   templates = [],
   existingDevices = [],
+  availableSatellites = [],
 }: AddDeviceModalProps) {
   const [saving, setSaving] = useState(false);
+  const [satelliteId, setSatelliteId] = useState<string | null>(null);
 
   // Use shared form state hook
   const {
@@ -62,6 +65,7 @@ export function AddDeviceModal({
 
   const handleClose = useCallback(() => {
     reset();
+    setSatelliteId(null);
     onClose();
   }, [reset, onClose]);
 
@@ -70,6 +74,7 @@ export function AddDeviceModal({
     try {
       // Build payload using shared helper
       const data = buildDevicePayload(deviceType, slices, true);
+      data.satellite_id = satelliteId;
       await onSave(artworkId, data);
       handleClose();
     } finally {
@@ -110,10 +115,34 @@ export function AddDeviceModal({
       <DeviceTypeSelector selectedType={deviceType} onSelect={setDeviceType!} />
 
       {/* Device-specific forms */}
-      {deviceType === 'pjlink' && <PJLinkForm data={pjlinkData} onChange={setPjlinkData} credentials={credentials} onReachabilityChange={handleReachabilityChange} />}
-      {deviceType === 'netio' && <NetioForm data={netioData} onChange={setNetioData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={netioUsedPorts} />}
-      {deviceType === 'anel' && <AnelForm data={anelData} onChange={setAnelData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={anelUsedPorts} />}
+      {deviceType === 'pjlink' && <PJLinkForm data={pjlinkData} onChange={setPjlinkData} credentials={credentials} onReachabilityChange={handleReachabilityChange} satelliteId={satelliteId} />}
+      {deviceType === 'netio' && <NetioForm data={netioData} onChange={setNetioData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={netioUsedPorts} satelliteId={satelliteId} />}
+      {deviceType === 'anel' && <AnelForm data={anelData} onChange={setAnelData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={anelUsedPorts} satelliteId={satelliteId} />}
       {deviceType === 'shell' && <ShellForm data={shellData} onChange={setShellData} credentials={credentials} templates={templates} />}
+
+      {availableSatellites.length > 0 && (
+        <div className="mt-3">
+          <label className="form-label" htmlFor="add-device-satellite">
+            Satellite Relay
+          </label>
+          <select
+            id="add-device-satellite"
+            className="form-select form-select-sm"
+            value={satelliteId ?? ''}
+            onChange={(e) => setSatelliteId(e.target.value || null)}
+          >
+            <option value="">Direct connection (default)</option>
+            {availableSatellites.map((sat) => (
+              <option key={sat.id} value={sat.id}>
+                {sat.name} {sat.is_connected ? '(online)' : '(offline)'}
+              </option>
+            ))}
+          </select>
+          <div className="small text-muted mt-1">
+            Choose from the satellites assigned to this exhibition
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }

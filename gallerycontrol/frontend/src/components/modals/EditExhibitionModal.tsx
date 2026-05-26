@@ -1,13 +1,14 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
 /**
- * Modal for editing exhibition properties including schedules feature toggle
- * and satellite relay assignment.
+ * Modal for editing exhibition properties: name/enabled/schedules + the set of
+ * satellites available to its devices. Each device then picks one of these
+ * satellites (or "Direct connection") in the device modal.
  */
 
 import { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
-import type { Satellite } from '../../types';
+import type { Satellite, SatelliteInfo } from '../../types';
 
 interface EditExhibitionModalProps {
   isOpen: boolean;
@@ -16,12 +17,13 @@ interface EditExhibitionModalProps {
     name: string;
     enabled: boolean;
     schedules_enabled: boolean;
-    satellite_id: string | null;
+    satellite_ids?: string[];
+    satellites?: SatelliteInfo[];
   } | null;
   onClose: () => void;
   onSave: (
     id: string,
-    data: { name: string; enabled: boolean; schedules_enabled: boolean; satellite_id: string | null }
+    data: { name: string; enabled: boolean; schedules_enabled: boolean; satellite_ids: string[] }
   ) => Promise<void>;
 }
 
@@ -34,26 +36,24 @@ export function EditExhibitionModal({
   const [name, setName] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [schedulesEnabled, setSchedulesEnabled] = useState(false);
-  const [satelliteId, setSatelliteId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [satellites, setSatellites] = useState<Satellite[]>([]);
   const [loadingSatellites, setLoadingSatellites] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Load satellites when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setLoadingSatellites(true);
-      fetch('/api/admin/satellites')
-        .then((res) => res.json())
-        .then((data) => {
-          setSatellites(data.filter((s: Satellite) => s.status === 'approved'));
-        })
-        .catch((err) => {
-          console.error('Failed to load satellites:', err);
-          setSatellites([]);
-        })
-        .finally(() => setLoadingSatellites(false));
-    }
+    if (!isOpen) return;
+    setLoadingSatellites(true);
+    fetch('/api/admin/satellites')
+      .then((res) => res.json())
+      .then((data) => {
+        setSatellites(data.filter((s: Satellite) => s.status === 'approved'));
+      })
+      .catch((err) => {
+        console.error('Failed to load satellites:', err);
+        setSatellites([]);
+      })
+      .finally(() => setLoadingSatellites(false));
   }, [isOpen]);
 
   useEffect(() => {
@@ -61,11 +61,24 @@ export function EditExhibitionModal({
       setName(exhibition.name);
       setEnabled(exhibition.enabled);
       setSchedulesEnabled(exhibition.schedules_enabled);
-      setSatelliteId(exhibition.satellite_id);
+      const ids =
+        exhibition.satellite_ids ??
+        exhibition.satellites?.map((s) => s.id) ??
+        [];
+      setSelectedIds(new Set(ids));
     }
   }, [exhibition]);
 
   if (!exhibition) return null;
+
+  const toggle = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -75,15 +88,13 @@ export function EditExhibitionModal({
         name: name.trim(),
         enabled,
         schedules_enabled: schedulesEnabled,
-        satellite_id: satelliteId,
+        satellite_ids: Array.from(selectedIds),
       });
       onClose();
     } finally {
       setSaving(false);
     }
   };
-
-  const selectedSatellite = satellites.find((s) => s.id === satelliteId);
 
   return (
     <Modal
@@ -92,11 +103,7 @@ export function EditExhibitionModal({
       onClose={onClose}
       footer={
         <>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={onClose}
-          >
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
             Close
           </button>
           <button
@@ -143,7 +150,6 @@ export function EditExhibitionModal({
         </div>
       </div>
 
-      {/* Settings Section */}
       <hr />
       <div className="mb-3">
         <label className="form-label d-block mb-2"><strong>Settings</strong></label>
@@ -164,34 +170,35 @@ export function EditExhibitionModal({
         </div>
       </div>
 
-      {/* Satellite Section */}
       <div className="mb-3">
-        <label className="form-label" htmlFor="exhibition-satellite">
-          <strong>Satellite Relay</strong>
-        </label>
-        <select
-          id="exhibition-satellite"
-          className="form-select"
-          value={satelliteId || ''}
-          onChange={(e) => setSatelliteId(e.target.value || null)}
-          disabled={loadingSatellites}
-        >
-          <option value="">No satellite (direct connection)</option>
-          {satellites.map((sat) => (
-            <option key={sat.id} value={sat.id}>
-              {sat.name} {sat.is_connected ? '(online)' : '(offline)'}
-            </option>
-          ))}
-        </select>
-        <div className="small text-muted mt-1">
-          Assign a satellite relay to route commands for devices in this exhibition
+        <label className="form-label d-block mb-2"><strong>Satellite Relays</strong></label>
+        <div className="small text-muted mb-2">
+          Make these satellites available for devices in this exhibition. Each device then picks one (or "Direct connection") in its own edit form.
         </div>
-        {selectedSatellite && !selectedSatellite.is_connected && (
-          <div className="alert alert-warning mt-2 py-2 small">
-            <i className="bi bi-exclamation-triangle me-1"></i>
-            Selected satellite is currently offline. Commands will fail until it reconnects.
-          </div>
+        {loadingSatellites && <div className="small text-muted">Loading satellites...</div>}
+        {!loadingSatellites && satellites.length === 0 && (
+          <div className="small text-muted">No approved satellites yet. Approve one in Admin → Satellites first.</div>
         )}
+        {satellites.map((sat) => (
+          <div className="form-check" key={sat.id}>
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id={`exhibition-satellite-${sat.id}`}
+              checked={selectedIds.has(sat.id)}
+              onChange={() => toggle(sat.id)}
+            />
+            <label className="form-check-label" htmlFor={`exhibition-satellite-${sat.id}`}>
+              {sat.name}{' '}
+              <span className={`badge ${sat.is_connected ? 'bg-success' : 'bg-secondary'} ms-1`}>
+                {sat.is_connected ? 'online' : 'offline'}
+              </span>
+            </label>
+          </div>
+        ))}
+        <div className="small text-muted mt-2">
+          Removing a satellite that's still used by a device in this exhibition will clear that device's routing back to direct.
+        </div>
       </div>
     </Modal>
   );

@@ -80,6 +80,9 @@ class CommandOrchestrator:
     def set_satellite_router(self, satellite_router: "SatelliteRouter") -> None:
         """Set satellite router reference for routing commands through satellites."""
         self._satellite_router = satellite_router
+        # Also propagate to the verifier so its mid-enforcement corrections and
+        # final state check route through the satellite for satellite-owned devices.
+        self.command_verifier._satellite_router = satellite_router
 
     def _on_verification_done(self, task: asyncio.Task) -> None:
         """Callback for verification task completion - logs any errors."""

@@ -71,6 +71,11 @@ export function DeviceBadge({ device, isExpanded, pendingState, onClick }: Devic
     return ':' + device.port;
   };
 
+  const satelliteOffline = device.satellite && !device.satellite.is_connected;
+  const satelliteTitle = device.satellite
+    ? `Routed via ${device.satellite.name} (${device.satellite.is_connected ? 'online' : 'offline'})`
+    : '';
+
   return (
     <div
       className={`device-badge ${getDeviceStateClass(state)} ${isExpanded ? 'active' : ''} ${hasCooldown ? 'has-cooldown' : ''} ${isDisabled ? 'disabled' : ''} ${pendingClass}`}
@@ -83,6 +88,12 @@ export function DeviceBadge({ device, isExpanded, pendingState, onClick }: Devic
         <span className="badge-name">{formatDeviceDisplayName(device)}</span>
         {!device.automation_enabled && (
           <i className="bi bi-hand-index badge-manual" title="Manual control only"></i>
+        )}
+        {device.satellite && (
+          <i
+            className={`bi bi-broadcast-pin badge-satellite ${satelliteOffline ? 'text-warning' : 'text-muted'}`}
+            title={satelliteTitle}
+          ></i>
         )}
       </span>
       {hasCooldown && <span className="cooldown-indicator"></span>}

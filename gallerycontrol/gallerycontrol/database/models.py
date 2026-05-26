@@ -17,6 +17,7 @@ from sqlalchemy import (
     Integer,
     JSON,
     String,
+    Table,
     Text,
     UniqueConstraint,
     text,
@@ -29,6 +30,16 @@ class Base(DeclarativeBase):
     """Base class for all models."""
 
     pass
+
+
+# M:N join: which satellites are usable by an exhibition.
+# Devices pick from this set (validated in the admin API).
+exhibition_satellites = Table(
+    "exhibition_satellites",
+    Base.metadata,
+    Column("exhibition_id", UUID(as_uuid=True), ForeignKey("exhibitions.id", ondelete="CASCADE"), primary_key=True),
+    Column("satellite_id", UUID(as_uuid=True), ForeignKey("satellites.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class Satellite(Base):
@@ -48,7 +59,12 @@ class Satellite(Base):
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
-    exhibitions = relationship("Exhibition", back_populates="satellite")
+    exhibitions = relationship(
+        "Exhibition",
+        secondary=exhibition_satellites,
+        back_populates="satellites",
+    )
+    devices = relationship("Device", back_populates="satellite")
 
     # Indexes
     __table_args__ = (
@@ -69,20 +85,16 @@ class Exhibition(Base):
     name = Column(String(255), nullable=False)
     enabled = Column(Boolean, default=True, nullable=False)
     schedules_enabled = Column(Boolean, default=False, nullable=False)  # Enable schedules feature
-    satellite_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("satellites.id", ondelete="SET NULL"),
-        nullable=True,
-    )
     created_at = Column(DateTime, default=utc_now, nullable=False)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
     artworks = relationship("Artwork", back_populates="exhibition", cascade="all, delete-orphan")
-    satellite = relationship("Satellite", back_populates="exhibitions")
-
-    # Indexes
-    __table_args__ = (Index("idx_exhibitions_satellite", "satellite_id"),)
+    satellites = relationship(
+        "Satellite",
+        secondary=exhibition_satellites,
+        back_populates="exhibitions",
+    )
 
     def __repr__(self) -> str:
         return f"<Exhibition(id={self.id}, name='{self.name}', enabled={self.enabled})>"
@@ -137,7 +149,11 @@ class Device(Base):
     enabled = Column(Boolean, default=True, nullable=False)
     automation_enabled = Column(Boolean, default=True, nullable=False)
     schedules_enabled = Column(Boolean, default=False, nullable=False)  # Enable schedules feature
-    use_satellite = Column(Boolean, default=False, nullable=False)  # Route via exhibition satellite
+    satellite_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("satellites.id", ondelete="SET NULL"),
+        nullable=True,
+    )  # Picked from this device's exhibition.satellites set, or NULL = direct
 
     # Configuration (device-specific JSON)
     config = Column(JSON, default=dict, nullable=False)
@@ -170,6 +186,7 @@ class Device(Base):
     command_logs = relationship("CommandLog", back_populates="device")
     state_changes = relationship("StateChangeLog", back_populates="device", cascade="all, delete-orphan")
     asset = relationship("Asset", back_populates="devices")
+    satellite = relationship("Satellite", back_populates="devices")
 
     # Indexes and constraints
     __table_args__ = (
@@ -177,6 +194,7 @@ class Device(Base):
         Index("idx_devices_enabled", "enabled"),
         Index("idx_devices_type", "device_type"),
         Index("idx_devices_asset", "asset_id"),
+        Index("idx_devices_satellite", "satellite_id"),
         UniqueConstraint("host", "port", "device_type", name="unique_device"),
     )
 

@@ -64,10 +64,12 @@ class CommandVerifier:
         device_managers: Dict,
         config: dict,
         state_monitor: "StateMonitor | None" = None,
+        satellite_router=None,
     ):
         self.db_manager = db_manager
         self.device_managers = device_managers
         self.config = config
+        self._satellite_router = satellite_router
         self.state_monitor = state_monitor
         self._active_verifications: Dict[str, VerificationTask] = {}
         # Lock to prevent race conditions during verification start/cancel
@@ -274,7 +276,11 @@ class CommandVerifier:
                         is_on = task_info.direction == VerificationDirection.ON
                         command = "on" if is_on else "off"
 
-                        result = await manager.set_power(device, is_on)
+                        # Route through satellite if device.satellite_id is set
+                        if self._satellite_router is not None:
+                            result = await self._satellite_router.set_power(device, is_on)
+                        else:
+                            result = await manager.set_power(device, is_on)
 
                         logger.info(
                             "Correction command sent",
@@ -358,7 +364,10 @@ class CommandVerifier:
             # Enforcement period ended - do final state check
             await self.state_monitor.unregister_fast_poll(device_id)
 
-            result = await manager.get_state(device)
+            if self._satellite_router is not None:
+                result = await self._satellite_router.get_state(device)
+            else:
+                result = await manager.get_state(device)
 
             if result.success and result.state in success_states:
                 # SUCCESS! Device is in correct state at end of enforcement

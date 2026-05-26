@@ -326,24 +326,28 @@ Asset browser shows usage history
 
 ## Satellite Command Routing
 
-When a device has `use_satellite = true`:
+Two-level model:
+- `exhibition_satellites` (M:N): set of satellites enabled for an exhibition
+- `devices.satellite_id` (nullable FK): the device's choice from that set
 
 ```
 Command to Device
     ↓
-Check: use_satellite && exhibition.satellite_id
+Check: device.satellite_id
     ↓
-YES → Route through satellite:
+SET → Route through satellite:
     1. Find connected WebSocket for satellite
     2. Send command payload
     3. Satellite executes locally
     4. Return result
     ↓
-NO → Direct execution:
+NULL → Direct execution:
     1. Connect to device directly
     2. Send protocol command
     3. Return result
 ```
+
+The admin API enforces that `device.satellite_id` ∈ `device.artwork.exhibition.satellites` on create/update. Removing a satellite from an exhibition's set clears `satellite_id` on every device in that exhibition still pointing at it.
 
 **Why satellites?** Devices on isolated networks can't be reached directly. The satellite runs on that network and relays commands.
 

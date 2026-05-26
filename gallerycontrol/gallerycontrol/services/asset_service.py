@@ -24,10 +24,11 @@ logger = get_logger(__name__)
 class AssetService:
     """Service for tracking projector assets and lamp hours."""
 
-    def __init__(self, db_manager, device_managers: Dict, config: dict):
+    def __init__(self, db_manager, device_managers: Dict, config: dict, satellite_router=None):
         self.db_manager = db_manager
         self.device_managers = device_managers
         self.config = config
+        self.satellite_router = satellite_router
 
         # Get asset tracking config
         asset_config = config.get("asset_tracking", {})
@@ -191,7 +192,10 @@ class AssetService:
                 logger.error("PJLink manager not available")
                 return None
 
-            info = await manager.get_device_info(device)
+            if self.satellite_router is not None:
+                info = await self.satellite_router.get_device_info(device)
+            else:
+                info = await manager.get_device_info(device)
             lamp_hours = info.get('lamp_hours')
 
             if lamp_hours is None:

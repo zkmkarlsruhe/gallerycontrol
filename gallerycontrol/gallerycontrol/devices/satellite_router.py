@@ -40,62 +40,63 @@ class SatelliteRouter:
         """
         Check if a device should be routed via satellite.
 
-        Returns the satellite_id if routing should happen, None otherwise.
-
-        Routing happens when:
-        1. device.use_satellite is True
-        2. device.artwork.exhibition has a satellite_id set
-        3. The satellite is currently connected
+        Returns device.satellite_id if set, None otherwise. Devices pick from
+        their exhibition's satellite set in the admin UI; the application API
+        validates that constraint at write time.
+        If the satellite is offline, still returns the id so the caller can
+        surface the failure rather than silently fall back to direct.
         """
-        if not device.use_satellite:
-            return None
-
-        # Get exhibition from artwork
-        artwork = getattr(device, "artwork", None)
-        if not artwork:
-            logger.debug(
-                "Device has use_satellite but no artwork",
-                device_id=str(device.id)[:8],
-            )
-            return None
-
-        exhibition = getattr(artwork, "exhibition", None)
-        if not exhibition:
-            logger.debug(
-                "Device has use_satellite but artwork has no exhibition",
-                device_id=str(device.id)[:8],
-            )
-            return None
-
-        satellite_id = exhibition.satellite_id
+        satellite_id = device.satellite_id
         if not satellite_id:
-            logger.debug(
-                "Device has use_satellite but exhibition has no satellite",
-                device_id=str(device.id)[:8],
-            )
             return None
 
-        # Check if satellite is connected
         if not self._satellite_manager.is_connected(satellite_id):
             logger.warning(
                 "Device satellite is not connected",
                 device_id=str(device.id)[:8],
                 satellite_id=str(satellite_id)[:8],
             )
-            # Still return the satellite_id - we'll handle the error in routing
-            return satellite_id
 
         return satellite_id
 
     def _build_device_config(self, device: Device) -> dict:
-        """Build device configuration for satellite command."""
+        """Build device configuration for satellite command.
+
+        Resolves credential_id → username/password server-side so the daemon
+        (which has no access to the credentials table) can use them directly.
+        """
+        from gallerycontrol.devices.credential_utils import resolve_credentials
+
+        # Defaults per device type — match the values the direct managers use.
+        default_creds = {
+            "anel": ("admin", "anel"),
+            "netio": ("admin", "admin"),
+            "pjlink": ("", ""),
+        }.get(device.device_type, ("", ""))
+
+        device_config = dict(device.config or {})
+        if device.device_type in ("anel", "netio", "pjlink", "shell"):
+            try:
+                creds = resolve_credentials(device, *default_creds)
+                # Only inject if resolution found a real credential (not the defaults).
+                if creds.password or creds.username:
+                    device_config["username"] = creds.username
+                    device_config["password"] = creds.password
+            except Exception as e:
+                logger.warning(
+                    "Failed to resolve credentials for satellite-routed device",
+                    device_id=str(device.id)[:8],
+                    device_type=device.device_type,
+                    error=str(e),
+                )
+
         config = {
             "id": str(device.id),
             "device_type": device.device_type,
             "name": device.name,
             "host": device.host,
             "port": device.port,
-            "config": device.config or {},
+            "config": device_config,
         }
 
         # Include resolved address if available
@@ -201,3 +202,32 @@ class SatelliteRouter:
                     error=f"No manager for device type: {device.device_type}",
                 )
             return await manager.get_state(device)
+
+    async def get_device_info(self, device: Device) -> dict:
+        """
+        Fetch device metadata (MAC, firmware, etc.), routing via satellite if configured.
+
+        Returns a dict matching the device manager's get_device_info contract.
+        """
+        satellite_id = self.should_route_via_satellite(device)
+
+        if satellite_id:
+            device_config = self._build_device_config(device)
+            logger.debug(
+                "Routing info query via satellite",
+                device_id=str(device.id)[:8],
+                satellite_id=str(satellite_id)[:8],
+            )
+            result = await self._satellite_manager.send_command(
+                satellite_id=satellite_id,
+                device_config=device_config,
+                command="info",
+                timeout=30.0,
+            )
+            # The daemon returns a dict; pass through (may include 'success', 'info', etc.)
+            return result if isinstance(result, dict) else {}
+
+        manager = self._device_managers.get(device.device_type)
+        if not manager or not hasattr(manager, "get_device_info"):
+            return {}
+        return await manager.get_device_info(device)

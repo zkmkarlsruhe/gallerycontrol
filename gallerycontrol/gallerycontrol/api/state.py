@@ -15,7 +15,7 @@ from sqlalchemy.orm import selectinload
 
 from gallerycontrol.config import get_config
 from gallerycontrol.database.connection import get_session
-from gallerycontrol.database.models import Artwork, Device, Exhibition, LampHoursLog, Satellite
+from gallerycontrol.database.models import Artwork, Device, Exhibition, LampHoursLog
 from gallerycontrol.devices.base import STATE_NAMES, state_to_name
 
 logger = logging.getLogger(__name__)
@@ -104,6 +104,8 @@ class DeviceState(BaseModel):
     resolved: str | None = None  # Resolved hostname/IP from DNS
     asset_id: str | None = None  # Linked asset ID (PJLink only)
     lamp_hours: int | None = None  # Last recorded lamp hours (PJLink only)
+    satellite_id: str | None = None  # Picked from this device's exhibition.satellites
+    satellite: "SatelliteInfo | None" = None  # Resolved satellite info (for badge display)
 
     class Config:
         from_attributes = True
@@ -127,11 +129,14 @@ class ArtworkState(BaseModel):
 
 
 class SatelliteInfo(BaseModel):
-    """Satellite info for exhibition state."""
+    """Satellite info: belongs to a device (denormalized for the badge) and lists in exhibition.satellites."""
 
     id: str
     name: str
     is_connected: bool
+
+
+DeviceState.model_rebuild()
 
 
 class ExhibitionState(BaseModel):
@@ -142,7 +147,7 @@ class ExhibitionState(BaseModel):
     enabled: bool
     effective_enabled: bool  # For exhibitions, same as enabled
     schedules_enabled: bool = False  # Enable schedules feature
-    satellite: SatelliteInfo | None = None  # Assigned satellite info
+    satellites: List[SatelliteInfo] = []  # Satellites usable by devices in this exhibition
     artworks: List[ArtworkState]
 
     class Config:
@@ -188,14 +193,16 @@ def _build_device_state(
     device,
     request: Request,
     effective_enabled: bool,
+    satellite_manager=None,
     lamp_hours: int | None = None,
 ) -> dict:
     """Build device state dictionary.
 
     Args:
-        device: Device model instance
+        device: Device model instance (with satellite relationship loaded)
         request: FastAPI request for poll status
         effective_enabled: Computed enabled state considering parent chain
+        satellite_manager: For including satellite connection status
         lamp_hours: Optional lamp hours from asset
 
     Returns:
@@ -220,23 +227,32 @@ def _build_device_state(
         "resolved": device.resolved,
         "asset_id": str(device.asset_id) if device.asset_id else None,
         "lamp_hours": lamp_hours,
+        "satellite_id": str(device.satellite_id) if device.satellite_id else None,
+        "satellite": _satellite_info_for_device(device, satellite_manager),
     }
 
 
-def _get_satellite_info(exhibition, satellite_manager) -> dict | None:
-    """Build satellite info for an exhibition if one is assigned."""
-    if not exhibition.satellite_id or not exhibition.satellite:
+def _satellite_info_for_device(device, satellite_manager) -> dict | None:
+    """Build satellite info for a device based on its own satellite_id."""
+    if not device.satellite_id or not device.satellite:
         return None
-
     is_connected = False
     if satellite_manager:
-        is_connected = satellite_manager.is_connected(exhibition.satellite_id)
-
+        is_connected = satellite_manager.is_connected(device.satellite_id)
     return {
-        "id": str(exhibition.satellite.id),
-        "name": exhibition.satellite.name,
+        "id": str(device.satellite.id),
+        "name": device.satellite.name,
         "is_connected": is_connected,
     }
+
+
+def _satellite_list_for_exhibition(exhibition, satellite_manager) -> list[dict]:
+    """List of satellites available to an exhibition (M:N), each with connection status."""
+    out = []
+    for sat in exhibition.satellites:
+        is_connected = satellite_manager.is_connected(sat.id) if satellite_manager else False
+        out.append({"id": str(sat.id), "name": sat.name, "is_connected": is_connected})
+    return out
 
 
 @router.get("/exhibitions", response_model=List[ExhibitionState])
@@ -246,8 +262,10 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
         stmt = (
             select(Exhibition)
             .options(
-                selectinload(Exhibition.artworks).selectinload(Artwork.devices),
-                selectinload(Exhibition.satellite),
+                selectinload(Exhibition.artworks)
+                .selectinload(Artwork.devices)
+                .selectinload(Device.satellite),
+                selectinload(Exhibition.satellites),
             )
             .order_by(Exhibition.name)
         )
@@ -278,7 +296,7 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
                 "enabled": ex.enabled,
                 "effective_enabled": ex.enabled,
                 "schedules_enabled": ex.schedules_enabled,
-                "satellite": _get_satellite_info(ex, satellite_manager),
+                "satellites": _satellite_list_for_exhibition(ex, satellite_manager),
                 "artworks": [
                     {
                         "id": str(aw.id),
@@ -294,6 +312,7 @@ async def list_all_exhibitions(request: Request, session=Depends(get_session)):
                                 dev,
                                 request,
                                 dev.enabled and aw.enabled and ex.enabled,
+                                satellite_manager,
                                 lamp_hours_map.get(dev.asset_id) if dev.asset_id else None,
                             )
                             for dev in aw.devices
@@ -318,8 +337,10 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
             select(Exhibition)
             .where(Exhibition.id == UUID(exhibition_id))
             .options(
-                selectinload(Exhibition.artworks).selectinload(Artwork.devices),
-                selectinload(Exhibition.satellite),
+                selectinload(Exhibition.artworks)
+                .selectinload(Artwork.devices)
+                .selectinload(Device.satellite),
+                selectinload(Exhibition.satellites),
             )
         )
         result = await session.execute(stmt)
@@ -348,7 +369,7 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
             "enabled": exhibition.enabled,
             "effective_enabled": exhibition.enabled,
             "schedules_enabled": exhibition.schedules_enabled,
-            "satellite": _get_satellite_info(exhibition, satellite_manager),
+            "satellites": _satellite_list_for_exhibition(exhibition, satellite_manager),
             "artworks": [
                 {
                     "id": str(aw.id),
@@ -364,6 +385,7 @@ async def get_exhibition_state(request: Request, exhibition_id: str, session=Dep
                             dev,
                             request,
                             dev.enabled and aw.enabled and exhibition.enabled,
+                            satellite_manager,
                         )
                         for dev in aw.devices
                     ],
@@ -386,7 +408,10 @@ async def get_device_state(request: Request, device_id: str, session=Depends(get
         stmt = (
             select(Device)
             .where(Device.id == UUID(device_id))
-            .options(selectinload(Device.artwork).selectinload(Artwork.exhibition))
+            .options(
+                selectinload(Device.artwork).selectinload(Artwork.exhibition),
+                selectinload(Device.satellite),
+            )
         )
         result = await session.execute(stmt)
         device = result.scalar_one_or_none()
@@ -401,7 +426,8 @@ async def get_device_state(request: Request, device_id: str, session=Depends(get
             if device.artwork.exhibition:
                 effective_enabled = effective_enabled and device.artwork.exhibition.enabled
 
-        return _build_device_state(device, request, effective_enabled)
+        satellite_manager = getattr(request.app.state, "satellite_manager", None)
+        return _build_device_state(device, request, effective_enabled, satellite_manager)
 
     except HTTPException:
         raise

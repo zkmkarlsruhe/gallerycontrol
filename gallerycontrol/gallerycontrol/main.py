@@ -90,14 +90,24 @@ async def lifespan(app: FastAPI):
     await sse_broadcaster.start()
     logger.info("SSE broadcaster initialized")
 
-    # Initialize state monitor with SSE broadcaster
+    # Initialize satellite manager + router FIRST so downstream services
+    # (StateMonitor, AssetService, scheduler tasks) can route via satellite
+    # for devices that are behind one.
+    satellite_manager = SatelliteManager(db_manager, sse_broadcaster=sse_broadcaster)
+    satellite_router = SatelliteRouter(satellite_manager, device_managers)
+    logger.info("Satellite manager + router initialized")
+
+    # Initialize state monitor with satellite_router for state polling routing
     state_monitor = StateMonitor(
-        db_manager, device_managers, orchestrator_config, sse_broadcaster=sse_broadcaster
+        db_manager, device_managers, orchestrator_config,
+        sse_broadcaster=sse_broadcaster, satellite_router=satellite_router,
     )
     logger.info("State monitor initialized")
 
     # Initialize asset service for lamp hours tracking
-    asset_service = AssetService(db_manager, device_managers, orchestrator_config)
+    asset_service = AssetService(
+        db_manager, device_managers, orchestrator_config, satellite_router=satellite_router,
+    )
     logger.info("Asset service initialized")
 
     # Initialize protection service for artwork overuse prevention
@@ -105,14 +115,6 @@ async def lifespan(app: FastAPI):
         db_manager, sse_broadcaster=sse_broadcaster, config=orchestrator_config
     )
     logger.info("Protection service initialized")
-
-    # Initialize satellite manager for WebSocket relay connections
-    satellite_manager = SatelliteManager(db_manager, sse_broadcaster=sse_broadcaster)
-    logger.info("Satellite manager initialized")
-
-    # Initialize satellite router for command routing through satellites
-    satellite_router = SatelliteRouter(satellite_manager, device_managers)
-    logger.info("Satellite router initialized")
 
     # Initialize service health monitor for external services (runners, etc.)
     services_config = config.get("services", {})
@@ -142,7 +144,7 @@ async def lifespan(app: FastAPI):
     )
     cron_scheduler.register_system_task(
         "device_info_cache",
-        lambda **kwargs: run_device_info_cache(db_manager, orchestrator, **kwargs),
+        lambda **kwargs: run_device_info_cache(db_manager, orchestrator, satellite_router=satellite_router, **kwargs),
         {"max_concurrent": 5, "timeout_seconds": 10},
     )
     cron_scheduler.register_system_task(
@@ -203,6 +205,7 @@ async def lifespan(app: FastAPI):
     app.state.service_monitor = service_monitor
     app.state.protection_service = protection_service
     app.state.satellite_manager = satellite_manager
+    app.state.satellite_router = satellite_router
 
     # Start config watching (hot-reload) with SSE broadcast
     def on_config_change(loader):

@@ -21,9 +21,10 @@ interface AnelFormProps {
   credentials?: Credential[];
   onReachabilityChange?: (status: ReachabilityStatus) => void;
   usedPorts?: number[];
+  satelliteId?: string | null;
 }
 
-export function AnelForm({ data, onChange, credentials = [], onReachabilityChange, usedPorts = [] }: AnelFormProps) {
+export function AnelForm({ data, onChange, credentials = [], onReachabilityChange, usedPorts = [], satelliteId = null }: AnelFormProps) {
   const [quickNum, setQuickNum] = useState('');
   const hostnameTemplate = useHostnameTemplate('anel');
 
@@ -52,7 +53,8 @@ export function AnelForm({ data, onChange, credentials = [], onReachabilityChang
   const { status: reachabilityStatus, error: reachabilityError } = useHostReachability(
     data.host,
     80,
-    'anel'
+    'anel',
+    satelliteId
   );
 
   // Notify parent of reachability changes

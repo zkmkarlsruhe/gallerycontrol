@@ -32,7 +32,7 @@ PJLink is an industry-standard protocol for projector control, supported by most
 | **Device Enabled** | No | Include in state polling |
 | **Include in Automation** | No | Include in bulk ON/OFF |
 | **Enable Schedules** | No | Show schedule button for automated ON/OFF |
-| **Route via Satellite** | No | Send commands through satellite relay (if exhibition has one assigned) |
+| **Satellite Relay** | No | Pick one of the satellites enabled on this device's exhibition, or "Direct connection" |
 
 ### Features
 
@@ -143,7 +143,7 @@ NETIO devices support these additional settings:
 | Setting | Description |
 |---------|-------------|
 | **Enable Schedules** | Show schedule button for automated ON/OFF |
-| **Route via Satellite** | Send commands through satellite relay (if exhibition has one) |
+| **Satellite Relay** | No | Pick one of the satellites enabled on this device's exhibition, or "Direct connection" |
 
 ---
 

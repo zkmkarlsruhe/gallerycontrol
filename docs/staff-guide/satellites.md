@@ -37,7 +37,7 @@ Satellites are small daemons that run on remote networks and relay device comman
 1. Satellite connects to the MuTech Control server via Server-Sent Events (SSE)
 2. Satellite appears in Admin panel as "Pending Approval"
 3. Administrator approves the satellite with a friendly name
-4. Commands for assigned exhibitions are routed through the satellite
+4. The satellite becomes selectable in any exhibition's "Satellite Relays" checklist. Devices in those exhibitions can then pick it from their dropdown.
 5. Satellite executes commands locally and reports results
 
 ## Managing Satellites
@@ -87,20 +87,24 @@ If a satellite is no longer needed or compromised:
 | **Offline** (gray) | Satellite is not connected |
 | **Pending** (yellow) | Awaiting approval |
 
-## Assigning Satellites to Exhibitions
+## Enabling Satellites on an Exhibition
 
-Once a satellite is approved, you can assign it to exhibitions:
+Each exhibition has a set of satellites available to its devices. Devices then pick one.
 
 1. In Edit Mode, click the **pencil icon** on an exhibition
-2. Find the **Satellite Relay** dropdown
-3. Select the satellite to use for this exhibition
-4. Click **Save Changes**
+2. In the **Satellite Relays** section, check the satellites this exhibition's devices may use (multiple allowed)
+3. Click **Save Changes**
 
-**Options:**
-- **No satellite (direct connection)** - Commands sent directly from server
-- **[Satellite name] (online/offline)** - Commands routed through this satellite
+Then, for each device in that exhibition:
 
-**Warning:** If you select an offline satellite, commands will fail until it reconnects.
+1. Open the device's edit/add modal
+2. Use the **Satellite Relay** dropdown to pick one of the exhibition's enabled satellites, or leave on **Direct connection**
+3. Save
+
+**Notes:**
+- Removing a satellite from an exhibition's set automatically clears any device in that exhibition that was using it (falls back to direct).
+- Devices using a satellite show a small broadcast icon on their card; the icon turns yellow if the satellite goes offline.
+- If you pick an offline satellite, commands for that device will fail until it reconnects.
 
 ## Best Practices
 
@@ -121,10 +125,7 @@ For the satellite to work, ensure:
 
 ### Redundancy
 
-Consider running multiple satellites for critical exhibitions:
-- Deploy on different machines
-- Only one needs to be connected at a time
-- Switch exhibitions between satellites if needed
+For critical exhibitions, enable a backup satellite in the same exhibition. If one goes down, switch the affected devices' dropdown to the backup.
 
 ### Monitoring
 

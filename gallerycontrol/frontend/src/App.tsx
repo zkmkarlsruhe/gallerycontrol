@@ -310,7 +310,7 @@ function App() {
   // Update handlers
   const handleUpdateExhibition = async (
     id: string,
-    data: { name: string; enabled: boolean; schedules_enabled: boolean }
+    data: { name: string; enabled: boolean; schedules_enabled: boolean; satellite_ids: string[] }
   ) => {
     try {
       await updateExhibition(id, data);
@@ -605,6 +605,9 @@ function App() {
           credentials={credentials}
           templates={templates}
           existingDevices={existingDevices}
+          availableSatellites={
+            exhibitions.find(e => e.id === addDeviceContext.exhibitionId)?.satellites ?? []
+          }
         />
       )}
 
@@ -645,13 +648,12 @@ function App() {
         templates={templates}
         onSaveAsTemplate={handleSaveDeviceAsTemplate}
         existingDevices={existingDevices}
-        satelliteName={
-          // Find satellite name for this device's exhibition
+        availableSatellites={
           editDeviceData
-            ? exhibitions
-                .find(e => e.artworks.some(a => a.devices.some(d => d.id === editDeviceData.id)))
-                ?.satellite?.name ?? null
-            : null
+            ? exhibitions.find(e =>
+                e.artworks.some(a => a.devices.some(d => d.id === editDeviceData.id))
+              )?.satellites ?? []
+            : []
         }
       />
 

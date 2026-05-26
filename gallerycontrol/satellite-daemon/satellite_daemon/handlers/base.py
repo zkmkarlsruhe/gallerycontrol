@@ -41,3 +41,10 @@ class BaseHandler(ABC):
                 - raw_response: Optional[str]
         """
         pass
+
+    async def get_device_info(self, device: Dict) -> Dict:
+        """Return device metadata (MAC, firmware, lamp hours, etc.).
+
+        Default impl returns an empty success — subclasses override as needed.
+        """
+        return {"success": True, "info": {}}

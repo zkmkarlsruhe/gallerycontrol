@@ -91,7 +91,8 @@ export interface Device {
   effective_enabled: boolean;
   automation_enabled: boolean; // false = manual device, needs inline buttons
   schedules_enabled: boolean; // Enable schedules feature
-  use_satellite: boolean; // Route commands through exhibition satellite
+  satellite_id?: string | null; // Picked from device's exhibition.satellites set
+  satellite?: SatelliteInfo | null; // Resolved satellite info (for badge display)
   last_checked_at: string | null;
   next_check_allowed_at: string | null;
   poll_status: PollStatus | null;
@@ -126,8 +127,8 @@ export interface Exhibition {
   name: string;
   enabled: boolean;
   schedules_enabled: boolean; // Enable schedules feature
-  satellite_id: string | null; // Assigned satellite relay
-  satellite: SatelliteInfo | null; // Satellite info with connection status
+  satellite_ids?: string[]; // M:N: satellites available for this exhibition (admin endpoint shape)
+  satellites?: SatelliteInfo[]; // Resolved satellites with connection status (state endpoint shape)
   artworks: Artwork[];
 }
 

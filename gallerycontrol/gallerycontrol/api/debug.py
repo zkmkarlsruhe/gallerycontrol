@@ -599,9 +599,14 @@ async def get_device_info(
     if not hasattr(manager, 'get_device_info'):
         raise HTTPException(status_code=500, detail=f"{device.device_type} manager does not support device info")
 
-    # Cache miss or stale: attempt live fetch
+    # Cache miss or stale: attempt live fetch — via satellite_router so devices
+    # routed through a satellite get info via the relay.
+    satellite_router = getattr(request.app.state, "satellite_router", None)
     try:
-        info = await manager.get_device_info(device)
+        if satellite_router is not None:
+            info = await satellite_router.get_device_info(device)
+        else:
+            info = await manager.get_device_info(device)
 
         # Check for error in response
         if info.get("error"):
@@ -705,6 +710,7 @@ async def get_all_device_info(
         return []
 
     orchestrator = request.app.state.orchestrator
+    satellite_router = getattr(request.app.state, "satellite_router", None)
 
     # Query info for each device
     responses = []
@@ -714,7 +720,10 @@ async def get_all_device_info(
             continue
 
         try:
-            info = await manager.get_device_info(device)
+            if satellite_router is not None:
+                info = await satellite_router.get_device_info(device)
+            else:
+                info = await manager.get_device_info(device)
             responses.append(DeviceInfoResponse(
                 device_id=str(device.id),
                 device_name=device.name,

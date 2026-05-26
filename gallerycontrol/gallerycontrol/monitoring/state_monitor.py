@@ -48,6 +48,7 @@ class StateMonitor:
         device_managers: Dict,
         config: dict,
         sse_broadcaster: "SSEBroadcaster | None" = None,
+        satellite_router=None,
     ):
         self.db_manager = db_manager
         self.device_managers = device_managers
@@ -55,6 +56,7 @@ class StateMonitor:
         self._running = False
         self._task = None
         self._sse = sse_broadcaster
+        self._satellite_router = satellite_router
 
         # Get monitoring config
         monitor_config = config.get("monitoring", {})
@@ -502,8 +504,13 @@ class StateMonitor:
 
         start_time = time.monotonic()
         try:
-            # Get device state
-            result = await manager.get_state(device)
+            # Get device state — go through SatelliteRouter so satellite-routed
+            # devices use the WebSocket relay; falls back to direct manager when
+            # device.satellite_id is null.
+            if self._satellite_router is not None:
+                result = await self._satellite_router.get_state(device)
+            else:
+                result = await manager.get_state(device)
             duration_ms = int((time.monotonic() - start_time) * 1000)
 
             # Log operation for debug

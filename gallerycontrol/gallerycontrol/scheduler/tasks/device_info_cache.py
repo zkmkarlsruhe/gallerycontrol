@@ -36,6 +36,7 @@ async def run_device_info_cache(
     orchestrator,
     max_concurrent: int = 5,
     timeout_seconds: float = 10.0,
+    satellite_router=None,
 ) -> Dict[str, Any]:
     """Cache device info for all online devices.
 
@@ -94,7 +95,10 @@ async def run_device_info_cache(
 
                 try:
                     async with asyncio.timeout(timeout_seconds):
-                        info = await manager.get_device_info(device)
+                        if satellite_router is not None:
+                            info = await satellite_router.get_device_info(device)
+                        else:
+                            info = await manager.get_device_info(device)
 
                         # Skip if error in response
                         if info.get("error"):

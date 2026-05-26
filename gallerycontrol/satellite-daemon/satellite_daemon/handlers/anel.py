@@ -2,136 +2,190 @@
 # SPDX-License-Identifier: MIT
 """ANEL NET-PwrCtrl device handler.
 
-ANEL devices use UDP for control:
-- Send commands to port 9975
-- Listen for state broadcasts on port 9977
+ANEL devices use UDP for control. Two firmware variants exist:
+- Classic firmware: send on UDP 75, listens for replies on UDP 77.
+- Newer firmware: 9975 / 9977.
+
+The defaults below match the classic firmware (which is what's deployed in the
+Subraum exhibition). Newer firmware can be configured per-device by setting
+`device.config.anel_send_port` and `device.config.anel_recv_port`.
+
+Status query: send the ASCII string "wer da?" — device replies with a
+colon-separated state record:
+
+    NET-PwrCtrl:<name>:<ip>:<mask>:<gw>:<mac>:<port1name>,<state>:<port2name>,<state>:...
 """
 
 import asyncio
 import logging
 import socket
-from typing import Dict, Optional
+import time
+from typing import Dict, Optional, Tuple
 
 from .base import BaseHandler
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SEND_PORT = 9975
-DEFAULT_RECV_PORT = 9977
-DEFAULT_TIMEOUT = 5.0
+DEFAULT_SEND_PORT = 75
+DEFAULT_RECV_PORT = 77
+DEFAULT_TIMEOUT = 3.0
+DEFAULT_USER = "admin"
+DEFAULT_PASSWORD = "anel"
 
 
 class ANELHandler(BaseHandler):
     """Handler for ANEL NET-PwrCtrl power sockets."""
 
     async def get_state(self, device: Dict) -> Dict:
-        """Get current power state from ANEL device."""
         host = device.get("resolved") or device.get("host")
-        port_index = device.get("config", {}).get("port_index", 0)
+        port_index = self._port_index(device)
+        send_port, recv_port = self._ports(device)
 
-        try:
-            # ANEL broadcasts state periodically, but we can trigger a query
-            response = await self._send_command(host, "wer da?")
-            if not response:
-                return {"success": False, "state": -1, "error": "No response from device"}
+        response = await self._query(host, "wer da?", send_port, recv_port)
+        if not response:
+            return {"success": False, "state": -1, "error": "No response from device"}
 
-            # Parse response to get port state
-            state = self._parse_state(response, port_index)
-            return {
-                "success": True,
-                "state": state,
-                "raw_response": response,
-            }
-
-        except Exception as e:
-            logger.error(f"Error getting ANEL state: {e}")
-            return {"success": False, "state": -1, "error": str(e)}
+        state = self._parse_port_state(response, port_index)
+        return {"success": True, "state": state, "raw_response": response}
 
     async def set_power(self, device: Dict, on: bool) -> Dict:
-        """Set power state on ANEL device."""
         host = device.get("resolved") or device.get("host")
-        config = device.get("config", {})
-        port_index = config.get("port_index", 0)
-        username = config.get("username", "admin")
-        password = config.get("password", "anel")
+        config = device.get("config", {}) or {}
+        port_index = self._port_index(device)
+        send_port, recv_port = self._ports(device)
+        username = config.get("username", DEFAULT_USER)
+        password = config.get("password", DEFAULT_PASSWORD)
 
-        try:
-            # ANEL command format: Sw_on<port><user><password> or Sw_off<port><user><password>
-            action = "on" if on else "off"
-            # Port numbering: 0-indexed in config, 1-indexed in protocol
-            cmd = f"Sw_{action}{port_index + 1}{username}{password}"
+        action = "on" if on else "off"
+        # Port numbering: 0-indexed in config, 1-indexed in protocol.
+        cmd = f"Sw_{action}{port_index + 1}{username}{password}"
 
-            response = await self._send_command(host, cmd)
-
-            # Verify state after command
-            state_response = await self._send_command(host, "wer da?")
-            state = self._parse_state(state_response or "", port_index) if state_response else (1 if on else 0)
-
+        send_resp = await self._query(host, cmd, send_port, recv_port)
+        # Re-query state to confirm.
+        state_resp = await self._query(host, "wer da?", send_port, recv_port)
+        if not state_resp:
             return {
-                "success": True,
-                "state": state,
-                "raw_response": response or state_response,
+                "success": False, "state": -1,
+                "error": "No state response after command",
+                "raw_response": send_resp,
             }
+        state = self._parse_port_state(state_resp, port_index)
+        expected = 1 if on else 0
+        return {
+            "success": state == expected,
+            "state": state,
+            "raw_response": state_resp,
+        }
 
-        except Exception as e:
-            logger.error(f"Error setting ANEL power: {e}")
-            return {"success": False, "state": -1, "error": str(e)}
+    async def get_device_info(self, device: Dict) -> Dict:
+        host = device.get("resolved") or device.get("host")
+        send_port, recv_port = self._ports(device)
+        response = await self._query(host, "wer da?", send_port, recv_port)
+        if not response:
+            return {"success": False, "info": {}, "error": "No response from device"}
 
-    async def _send_command(
-        self, host: str, command: str, timeout: float = DEFAULT_TIMEOUT
+        parts = response.split(":")
+        info = {}
+        if len(parts) >= 6:
+            info = {
+                "name": parts[1].strip(),
+                "ip": parts[2].strip(),
+                "netmask": parts[3].strip(),
+                "gateway": parts[4].strip(),
+                "mac": parts[5].strip(),
+            }
+        return {"success": True, "info": info, "raw_response": response}
+
+    # --- helpers ---
+
+    @staticmethod
+    def _ports(device: Dict) -> Tuple[int, int]:
+        config = device.get("config", {}) or {}
+        return (
+            int(config.get("anel_send_port", DEFAULT_SEND_PORT)),
+            int(config.get("anel_recv_port", DEFAULT_RECV_PORT)),
+        )
+
+    @staticmethod
+    def _port_index(device: Dict) -> int:
+        config = device.get("config", {}) or {}
+        # Accept either nested config.port_index or top-level port (the server's
+        # admin model stores the outlet number as `device.port`).
+        if "port_index" in config:
+            return int(config["port_index"])
+        port = device.get("port")
+        return int(port) if port is not None else 0
+
+    async def _query(
+        self, host: str, command: str, send_port: int, recv_port: int,
+        timeout: float = DEFAULT_TIMEOUT,
     ) -> Optional[str]:
-        """Send UDP command and wait for response."""
+        """Send a UDP command and wait for the device's reply on recv_port.
+
+        Uses the runner-proven dual-socket pattern: bind the listener on
+        recv_port BEFORE sending so a fast reply isn't lost. Send from a
+        separate ephemeral socket. Both sockets are closed at the end.
+        """
         loop = asyncio.get_event_loop()
 
-        def blocking_send():
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(timeout)
+        def blocking():
+            listener = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             try:
-                sock.sendto(command.encode(), (host, DEFAULT_SEND_PORT))
-                # Wait for response on same socket
-                sock.bind(("", 0))
-                try:
-                    data, _ = sock.recvfrom(1024)
-                    return data.decode(errors="replace")
-                except socket.timeout:
-                    # Try listening on broadcast port
-                    return None
+                listener.bind(("", recv_port))
+            except OSError as e:
+                listener.close()
+                logger.error(f"ANEL: failed to bind recv socket on port {recv_port}: {e}")
+                return None
+            listener.settimeout(timeout)
+
+            sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sender.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            try:
+                sender.sendto(command.encode(), (host, send_port))
+                deadline = time.monotonic() + timeout
+                while time.monotonic() < deadline:
+                    listener.settimeout(max(0.01, deadline - time.monotonic()))
+                    try:
+                        data, (src_ip, _) = listener.recvfrom(2048)
+                    except socket.timeout:
+                        return None
+                    if src_ip == host:
+                        return data.decode("latin-1", errors="replace")
+                    # Reply from a different device on the broadcast — ignore.
+                return None
+            except Exception as e:
+                logger.error(f"ANEL: send/recv error for {host}: {e}")
+                return None
             finally:
-                sock.close()
+                listener.close()
+                sender.close()
 
-        try:
-            return await asyncio.wait_for(
-                loop.run_in_executor(None, blocking_send),
-                timeout=timeout + 1,
-            )
-        except asyncio.TimeoutError:
-            return None
+        return await loop.run_in_executor(None, blocking)
 
-    def _parse_state(self, response: str, port_index: int) -> int:
-        """Parse ANEL response to get port state.
+    @staticmethod
+    def _parse_port_state(response: str, port_index: int) -> int:
+        """Parse a "wer da?" response and return the state of the requested outlet.
 
-        ANEL response format varies by firmware, but typically includes
-        a string of 0s and 1s for port states.
+        Response format (colon-separated):
+            NET-PwrCtrl:<name>:<ip>:<mask>:<gw>:<mac>:<n1>,<s1>:<n2>,<s2>:...
+        Port states `<sN>` are 0 or 1. Some firmwares append additional fields
+        (temperature, http port, firmware, flags) — we only look at the first 8
+        slots after the MAC.
         """
         if not response:
             return -1
-
-        try:
-            # Look for port state pattern in response
-            # Common format: "NET-PwrCtrl:... 11001100 ..."
-            # The 8 digits represent states of 8 ports
-            parts = response.split()
-            for part in parts:
-                if len(part) == 8 and all(c in "01" for c in part):
-                    if port_index < len(part):
-                        return 1 if part[port_index] == "1" else 0
-
-            # Fallback: try to find any 0/1 pattern
-            for char in response:
-                if char in "01":
-                    return int(char)
-
-        except Exception as e:
-            logger.debug(f"Error parsing ANEL response: {e}")
-
+        parts = response.split(":")
+        # First 6 parts are header (header, name, ip, mask, gw, mac).
+        port_slots = parts[6:14]
+        if port_index >= len(port_slots):
+            return -1
+        slot = port_slots[port_index]
+        # Slot format "name,state". State is 0 or 1.
+        if "," in slot:
+            _, state_str = slot.rsplit(",", 1)
+            state_str = state_str.strip()
+            if state_str in ("0", "1"):
+                return int(state_str)
         return -1

@@ -53,7 +53,7 @@ class ExhibitionUpdate(BaseModel):
     name: str | None = None
     enabled: bool | None = None
     schedules_enabled: bool | None = None
-    satellite_id: str | None = None  # Assigned satellite relay
+    satellite_ids: List[str] | None = None  # If set, replaces the exhibition's satellite set
 
 
 class ArtworkCreate(BaseModel):
@@ -102,6 +102,7 @@ class DeviceCreate(BaseModel):
     port: int | None = None
     enabled: bool = True
     automation_enabled: bool = True
+    satellite_id: str | None = None  # Must be in the device's exhibition.satellites set
     config: Dict[str, Any] = {}
 
 
@@ -115,7 +116,7 @@ class DeviceUpdate(BaseModel):
     enabled: bool | None = None
     automation_enabled: bool | None = None
     schedules_enabled: bool | None = None
-    use_satellite: bool | None = None  # Route via exhibition satellite
+    satellite_id: str | None = None  # Must be in the device's exhibition.satellites set
     config: Dict[str, Any] | None = None
 
 
@@ -127,12 +128,18 @@ class SatelliteApprove(BaseModel):
     name: str
 
 
+class SatelliteReject(BaseModel):
+    """Satellite reject request."""
+
+    api_key_hash: str
+
+
 # Exhibition endpoints
 @router.get("/exhibitions")
 async def list_exhibitions(session=Depends(get_session)):
     """List all exhibitions."""
     try:
-        stmt = select(Exhibition).order_by(Exhibition.name)
+        stmt = select(Exhibition).options(selectinload(Exhibition.satellites)).order_by(Exhibition.name)
         result = await session.execute(stmt)
         exhibitions = result.scalars().all()
 
@@ -142,6 +149,7 @@ async def list_exhibitions(session=Depends(get_session)):
                 "name": ex.name,
                 "enabled": ex.enabled,
                 "effective_enabled": ex.enabled,
+                "satellite_ids": [str(s.id) for s in ex.satellites],
                 "created_at": ex.created_at.isoformat(),
                 "updated_at": ex.updated_at.isoformat(),
             }
@@ -160,7 +168,7 @@ async def get_exhibition(exhibition_id: str, session=Depends(get_session)):
         stmt = (
             select(Exhibition)
             .where(Exhibition.id == UUID(exhibition_id))
-            .options(selectinload(Exhibition.artworks))
+            .options(selectinload(Exhibition.artworks), selectinload(Exhibition.satellites))
         )
         result = await session.execute(stmt)
         exhibition = result.scalar_one_or_none()
@@ -173,6 +181,7 @@ async def get_exhibition(exhibition_id: str, session=Depends(get_session)):
             "name": exhibition.name,
             "enabled": exhibition.enabled,
             "effective_enabled": exhibition.enabled,
+            "satellite_ids": [str(s.id) for s in exhibition.satellites],
             "created_at": exhibition.created_at.isoformat(),
             "updated_at": exhibition.updated_at.isoformat(),
             "artwork_count": len(exhibition.artworks),
@@ -212,39 +221,60 @@ async def update_exhibition(
 ):
     """Update an exhibition."""
     try:
-        values = {}
-        for key, value in exhibition.dict().items():
-            if value is not None:
-                if key == "satellite_id":
-                    # Convert satellite_id to UUID, or None to clear it
-                    values[key] = UUID(value) if value else None
-                else:
-                    values[key] = value
-            elif key == "satellite_id" and exhibition.satellite_id == "":
-                # Allow clearing satellite_id with empty string
-                values[key] = None
+        payload = exhibition.dict(exclude_unset=True)
+        satellite_ids = payload.pop("satellite_ids", None)
+        values = payload
 
-        if not values:
+        if not values and satellite_ids is None:
             raise HTTPException(status_code=400, detail="No fields to update")
 
-        stmt = (
-            update(Exhibition)
-            .where(Exhibition.id == UUID(exhibition_id))
-            .values(**values)
-            .returning(Exhibition)
-        )
-        result = await session.execute(stmt)
-        updated = result.scalar_one_or_none()
+        if values:
+            stmt = (
+                update(Exhibition)
+                .where(Exhibition.id == UUID(exhibition_id))
+                .values(**values)
+            )
+            await session.execute(stmt)
 
+        # Load with eager satellites + devices for set replacement + cleanup
+        result = await session.execute(
+            select(Exhibition)
+            .where(Exhibition.id == UUID(exhibition_id))
+            .options(
+                selectinload(Exhibition.satellites),
+                selectinload(Exhibition.artworks).selectinload(Artwork.devices),
+            )
+        )
+        updated = result.scalar_one_or_none()
         if not updated:
             raise HTTPException(status_code=404, detail="Exhibition not found")
+
+        if satellite_ids is not None:
+            new_ids = {UUID(s) for s in satellite_ids}
+            old_ids = {s.id for s in updated.satellites}
+            removed_ids = old_ids - new_ids
+
+            # Replace the M:N set
+            sat_result = await session.execute(
+                select(Satellite).where(Satellite.id.in_(new_ids))
+                if new_ids else select(Satellite).where(Satellite.id == None)  # noqa: E711
+            )
+            updated.satellites = list(sat_result.scalars().all())
+
+            # Clear device.satellite_id for any device in this exhibition still
+            # pointing at a removed satellite
+            if removed_ids:
+                for aw in updated.artworks:
+                    for dev in aw.devices:
+                        if dev.satellite_id in removed_ids:
+                            dev.satellite_id = None
 
         return {
             "id": str(updated.id),
             "name": updated.name,
             "enabled": updated.enabled,
             "schedules_enabled": updated.schedules_enabled,
-            "satellite_id": str(updated.satellite_id) if updated.satellite_id else None,
+            "satellite_ids": [str(s.id) for s in updated.satellites],
         }
 
     except HTTPException:
@@ -537,8 +567,9 @@ async def list_devices(
                 "enabled": dev.enabled,
                 "effective_enabled": compute_effective_enabled(dev),
                 "automation_enabled": dev.automation_enabled,
-                                "state": dev.state,
+                "state": dev.state,
                 "config": dev.config,
+                "satellite_id": str(dev.satellite_id) if dev.satellite_id else None,
                 "created_at": dev.created_at.isoformat(),
                 "updated_at": dev.updated_at.isoformat(),
             }
@@ -587,6 +618,7 @@ async def get_device(device_id: str, session=Depends(get_session)):
             "automation_enabled": device.automation_enabled,
             "state": device.state,
             "config": device.config,
+            "satellite_id": str(device.satellite_id) if device.satellite_id else None,
             "last_checked_at": device.last_checked_at.isoformat() if device.last_checked_at else None,
             "created_at": device.created_at.isoformat(),
             "updated_at": device.updated_at.isoformat(),
@@ -599,18 +631,47 @@ async def get_device(device_id: str, session=Depends(get_session)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _validate_satellite_for_artwork(
+    session, artwork_id: UUID, satellite_id: UUID | None
+) -> None:
+    """Ensure satellite_id is in the artwork's exhibition.satellites set, or null."""
+    if satellite_id is None:
+        return
+    result = await session.execute(
+        select(Artwork)
+        .where(Artwork.id == artwork_id)
+        .options(selectinload(Artwork.exhibition).selectinload(Exhibition.satellites))
+    )
+    artwork = result.scalar_one_or_none()
+    if not artwork:
+        raise HTTPException(status_code=400, detail="Invalid artwork_id")
+    if not artwork.exhibition:
+        raise HTTPException(status_code=400, detail="Artwork has no exhibition")
+    allowed = {s.id for s in artwork.exhibition.satellites}
+    if satellite_id not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Satellite {satellite_id} is not assigned to this exhibition",
+        )
+
+
 @router.post("/devices", status_code=201)
 async def create_device(device: DeviceCreate, request: Request, session=Depends(get_session)):
     """Create a new device."""
     try:
+        artwork_uuid = UUID(device.artwork_id)
+        sat_uuid = UUID(device.satellite_id) if device.satellite_id else None
+        await _validate_satellite_for_artwork(session, artwork_uuid, sat_uuid)
+
         new_device = Device(
-            artwork_id=UUID(device.artwork_id),
+            artwork_id=artwork_uuid,
             name=device.name,
             device_type=device.device_type,
             host=device.host,
             port=device.port,
             enabled=device.enabled,
             automation_enabled=device.automation_enabled,
+            satellite_id=sat_uuid,
             config=device.config,
         )
         session.add(new_device)
@@ -643,6 +704,7 @@ async def create_device(device: DeviceCreate, request: Request, session=Depends(
             "asset_id": str(new_device.asset_id) if new_device.asset_id else None,
             "asset_number": asset_number,
             "resolved": new_device.resolved,
+            "satellite_id": str(new_device.satellite_id) if new_device.satellite_id else None,
         }
 
     except Exception as e:
@@ -665,15 +727,19 @@ async def update_device(
             raise HTTPException(status_code=404, detail="Device not found")
 
         values = {}
-        for key, value in device.dict().items():
-            if value is not None:
-                if key == "artwork_id":
-                    values[key] = UUID(value)
-                else:
-                    values[key] = value
+        for key, value in device.dict(exclude_unset=True).items():
+            if key in ("artwork_id", "satellite_id"):
+                values[key] = UUID(value) if value else None
+            else:
+                values[key] = value
 
         if not values:
             raise HTTPException(status_code=400, detail="No fields to update")
+
+        # Validate satellite_id against the (new or existing) artwork's exhibition set
+        if "satellite_id" in values:
+            artwork_uuid = values.get("artwork_id", existing.artwork_id)
+            await _validate_satellite_for_artwork(session, artwork_uuid, values["satellite_id"])
 
         # Check if host/port/device_type is changing for PJLink devices
         asset_service = getattr(request.app.state, 'asset_service', None)
@@ -730,6 +796,7 @@ async def update_device(
             "enabled": updated.enabled,
             "automation_enabled": updated.automation_enabled,
             "asset_id": str(updated.asset_id) if updated.asset_id else None,
+            "satellite_id": str(updated.satellite_id) if updated.satellite_id else None,
         }
 
     except HTTPException:
@@ -1767,6 +1834,7 @@ class HostCheckRequest(BaseModel):
     host: str
     port: int = 80  # Default port for basic TCP check
     device_type: str = "generic"  # pjlink, netio, anel, or generic
+    satellite_id: str | None = None  # If set, treat as reachable when satellite is online
 
 
 class HostCheckResponse(BaseModel):
@@ -1780,17 +1848,44 @@ class HostCheckResponse(BaseModel):
 
 
 @router.post("/check-host")
-async def check_host_reachability(request: HostCheckRequest) -> HostCheckResponse:
-    """Check if a host is reachable via TCP connection.
+async def check_host_reachability(
+    request: HostCheckRequest, fastapi_request: Request
+) -> HostCheckResponse:
+    """Check if a host is reachable.
 
-    This performs a quick TCP connect test to verify the host is reachable.
-    For device-specific ports:
-    - pjlink: default port 4352
-    - netio: default port 80 (HTTP API)
-    - anel: default port 80 (HTTP API)
+    For satellite-routed devices (satellite_id set), the server cannot reach the
+    host directly — verification falls back to checking that the satellite is
+    online. The satellite executes the real connection at command time.
+
+    For direct devices, performs a quick TCP connect with device-specific port
+    defaults (pjlink=4352, netio/anel=80).
     """
     import socket
     import time
+
+    start_time = time.monotonic()
+
+    # Satellite-routed: don't try to TCP-connect from the server (we can't reach
+    # the isolated subnet). Trust the satellite is responsible for the device.
+    if request.satellite_id:
+        satellite_manager = getattr(fastapi_request.app.state, "satellite_manager", None)
+        try:
+            sat_uuid = UUID(request.satellite_id)
+        except ValueError:
+            return HostCheckResponse(
+                reachable=False, host=request.host, port=request.port,
+                error="Invalid satellite_id",
+            )
+        if not satellite_manager or not satellite_manager.is_connected(sat_uuid):
+            return HostCheckResponse(
+                reachable=False, host=request.host, port=request.port,
+                error="Satellite is offline; reachability cannot be verified",
+                duration_ms=int((time.monotonic() - start_time) * 1000),
+            )
+        return HostCheckResponse(
+            reachable=True, host=request.host, port=request.port,
+            duration_ms=int((time.monotonic() - start_time) * 1000),
+        )
 
     # Use device-specific default ports if port is default
     port = request.port
@@ -1798,8 +1893,6 @@ async def check_host_reachability(request: HostCheckRequest) -> HostCheckRespons
         port = 4352
     elif request.device_type in ("netio", "anel") and port == 80:
         port = 80  # HTTP API
-
-    start_time = time.monotonic()
 
     try:
         # First resolve the hostname
@@ -2688,14 +2781,14 @@ async def approve_satellite(data: SatelliteApprove, request: Request):
 
 
 @router.post("/satellites/reject")
-async def reject_satellite(api_key_hash: str, request: Request):
+async def reject_satellite(data: SatelliteReject, request: Request):
     """Reject a pending satellite."""
     satellite_manager = getattr(request.app.state, "satellite_manager", None)
     if not satellite_manager:
         raise HTTPException(status_code=503, detail="Satellite manager not available")
 
     try:
-        result = await satellite_manager.reject_satellite(api_key_hash)
+        result = await satellite_manager.reject_satellite(data.api_key_hash)
         if not result:
             raise HTTPException(status_code=404, detail="Pending satellite not found")
         return {"success": True}

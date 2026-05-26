@@ -29,5 +29,7 @@ async def handle_command(device_type: str, device: dict, command: str) -> dict:
         return await handler.set_power(device, False)
     elif command == "state":
         return await handler.get_state(device)
+    elif command == "info":
+        return await handler.get_device_info(device)
     else:
         return {"success": False, "state": -1, "error": f"Unknown command: {command}"}

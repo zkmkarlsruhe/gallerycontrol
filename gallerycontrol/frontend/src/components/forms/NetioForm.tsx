@@ -21,9 +21,10 @@ interface NetioFormProps {
   credentials?: Credential[];
   onReachabilityChange?: (status: ReachabilityStatus) => void;
   usedPorts?: number[];
+  satelliteId?: string | null;
 }
 
-export function NetioForm({ data, onChange, credentials = [], onReachabilityChange, usedPorts = [] }: NetioFormProps) {
+export function NetioForm({ data, onChange, credentials = [], onReachabilityChange, usedPorts = [], satelliteId = null }: NetioFormProps) {
   const [quickNum, setQuickNum] = useState('');
   const hostnameTemplate = useHostnameTemplate('netio');
 
@@ -52,7 +53,8 @@ export function NetioForm({ data, onChange, credentials = [], onReachabilityChan
   const { status: reachabilityStatus, error: reachabilityError } = useHostReachability(
     data.host,
     80,
-    'netio'
+    'netio',
+    satelliteId
   );
 
   // Notify parent of reachability changes

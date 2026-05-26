@@ -19,9 +19,10 @@ interface PJLinkFormProps {
   onChange: (data: PJLinkFormData) => void;
   credentials?: Credential[];
   onReachabilityChange?: (status: ReachabilityStatus) => void;
+  satelliteId?: string | null;
 }
 
-export function PJLinkForm({ data, onChange, credentials = [], onReachabilityChange }: PJLinkFormProps) {
+export function PJLinkForm({ data, onChange, credentials = [], onReachabilityChange, satelliteId = null }: PJLinkFormProps) {
   const update = (field: keyof PJLinkFormData, value: string | number | boolean) => {
     onChange({ ...data, [field]: value });
   };
@@ -30,7 +31,8 @@ export function PJLinkForm({ data, onChange, credentials = [], onReachabilityCha
   const { status: reachabilityStatus, error: reachabilityError } = useHostReachability(
     data.host,
     data.port,
-    'pjlink'
+    'pjlink',
+    satelliteId
   );
 
   // Notify parent of reachability changes

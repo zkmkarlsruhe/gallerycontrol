@@ -92,7 +92,10 @@ async def run_lamp_hours_check(
                         results["processed"] += 1
                         continue
 
-                    info = await manager.get_device_info(device)
+                    if asset_service.satellite_router is not None:
+                        info = await asset_service.satellite_router.get_device_info(device)
+                    else:
+                        info = await manager.get_device_info(device)
                     current_hours = info.get("lamp_hours")
 
                     if current_hours is None:

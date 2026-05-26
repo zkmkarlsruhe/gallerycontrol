@@ -142,7 +142,7 @@ export function useApi() {
   // CRUD: Update exhibition
   const updateExhibition = useCallback(async (
     id: string,
-    data: { name?: string; enabled?: boolean }
+    data: { name?: string; enabled?: boolean; schedules_enabled?: boolean; satellite_ids?: string[] }
   ): Promise<void> => {
     const response = await fetch(`${API_BASE}/api/admin/exhibitions/${id}`, {
       method: 'PUT',
@@ -186,6 +186,8 @@ export function useApi() {
       port?: number;
       enabled?: boolean;
       automation_enabled?: boolean;
+      schedules_enabled?: boolean;
+      satellite_id?: string | null;
       config?: Record<string, unknown>;
     }
   ): Promise<void> => {

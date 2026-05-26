@@ -26,6 +26,11 @@ ProtectHome=true
 PrivateTmp=true
 ReadWritePaths=/var/lib/satellite-daemon
 
+# Allow binding to privileged UDP ports for protocols like ANEL (port 77).
+# CAP_NET_BIND_SERVICE lets the non-root `satellite` user bind ports <1024.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
 # Allow network access
 PrivateNetwork=false
 

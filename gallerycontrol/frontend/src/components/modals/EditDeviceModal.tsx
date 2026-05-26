@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
 // SPDX-License-Identifier: MIT
 import { useState, useEffect } from 'react';
-import type { Device, Credential, ShellTemplate } from '../../types';
+import type { Device, Credential, ShellTemplate, SatelliteInfo } from '../../types';
 import { Modal } from '../ui/Modal';
 import { PJLinkForm } from '../forms/PJLinkForm';
 import { NetioForm } from '../forms/NetioForm';
@@ -20,7 +20,7 @@ interface EditDeviceModalProps {
   templates?: ShellTemplate[];
   onSaveAsTemplate?: (deviceId: string, name: string) => Promise<void>;
   existingDevices?: Device[];
-  satelliteName?: string | null; // Name of exhibition's satellite (if assigned)
+  availableSatellites?: SatelliteInfo[]; // Satellites the device may pick (from its exhibition)
 }
 
 export function EditDeviceModal({
@@ -33,20 +33,20 @@ export function EditDeviceModal({
   templates = [],
   onSaveAsTemplate,
   existingDevices = [],
-  satelliteName = null,
+  availableSatellites = [],
 }: EditDeviceModalProps) {
   const [saving, setSaving] = useState(false);
   const [showTemplatePrompt, setShowTemplatePrompt] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [schedulesEnabled, setSchedulesEnabled] = useState(device?.schedules_enabled ?? false);
-  const [useSatellite, setUseSatellite] = useState(device?.use_satellite ?? false);
+  const [satelliteId, setSatelliteId] = useState<string | null>(device?.satellite_id ?? null);
 
   // Sync state when device changes
   useEffect(() => {
     if (device) {
       setSchedulesEnabled(device.schedules_enabled ?? false);
-      setUseSatellite(device.use_satellite ?? false);
+      setSatelliteId(device.satellite_id ?? null);
     }
   }, [device]);
 
@@ -80,7 +80,7 @@ export function EditDeviceModal({
       const data = buildDevicePayload(deviceType, slices, false);
       // Add feature flags
       data.schedules_enabled = schedulesEnabled;
-      data.use_satellite = useSatellite;
+      data.satellite_id = satelliteId;
       await onSave(device.id, data);
       onClose();
     } finally {
@@ -173,9 +173,9 @@ export function EditDeviceModal({
       </div>
 
       {/* Device-specific forms */}
-      {deviceType === 'pjlink' && <PJLinkForm data={pjlinkData} onChange={setPjlinkData} credentials={credentials} onReachabilityChange={handleReachabilityChange} />}
-      {deviceType === 'netio' && <NetioForm data={netioData} onChange={setNetioData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={netioUsedPorts} />}
-      {deviceType === 'anel' && <AnelForm data={anelData} onChange={setAnelData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={anelUsedPorts} />}
+      {deviceType === 'pjlink' && <PJLinkForm data={pjlinkData} onChange={setPjlinkData} credentials={credentials} onReachabilityChange={handleReachabilityChange} satelliteId={satelliteId} />}
+      {deviceType === 'netio' && <NetioForm data={netioData} onChange={setNetioData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={netioUsedPorts} satelliteId={satelliteId} />}
+      {deviceType === 'anel' && <AnelForm data={anelData} onChange={setAnelData} credentials={credentials} onReachabilityChange={handleReachabilityChange} usedPorts={anelUsedPorts} satelliteId={satelliteId} />}
       {deviceType === 'shell' && <ShellForm data={shellData} onChange={setShellData} credentials={credentials} templates={templates} />}
 
       {/* Settings Section */}
@@ -197,24 +197,30 @@ export function EditDeviceModal({
           </div>
         </div>
 
-        {/* Satellite routing - only show if exhibition has satellite assigned */}
-        {satelliteName && (
-          <div className="form-check mt-3">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              id="device-use-satellite"
-              checked={useSatellite}
-              onChange={(e) => setUseSatellite(e.target.checked)}
-            />
-            <label className="form-check-label" htmlFor="device-use-satellite">
-              Route via Satellite ({satelliteName})
+        {availableSatellites.length > 0 && (
+          <div className="mt-3">
+            <label className="form-label" htmlFor="device-satellite">
+              Satellite Relay
             </label>
-            <div className="small text-muted">
-              Commands will be sent through the satellite relay instead of direct connection
+            <select
+              id="device-satellite"
+              className="form-select form-select-sm"
+              value={satelliteId ?? ''}
+              onChange={(e) => setSatelliteId(e.target.value || null)}
+            >
+              <option value="">Direct connection (default)</option>
+              {availableSatellites.map((sat) => (
+                <option key={sat.id} value={sat.id}>
+                  {sat.name} {sat.is_connected ? '(online)' : '(offline)'}
+                </option>
+              ))}
+            </select>
+            <div className="small text-muted mt-1">
+              Choose from the satellites assigned to this exhibition
             </div>
           </div>
         )}
+
       </div>
 
       {/* Template Name Prompt */}

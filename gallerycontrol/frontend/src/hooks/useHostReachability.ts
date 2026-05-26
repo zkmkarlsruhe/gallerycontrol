@@ -33,6 +33,7 @@ export function useHostReachability(
   host: string,
   port: number,
   deviceType: 'pjlink' | 'netio' | 'anel',
+  satelliteId: string | null = null,
   debounceMs: number = 500
 ): HostReachabilityResult {
   const [status, setStatus] = useState<ReachabilityStatus>('idle');
@@ -66,6 +67,7 @@ export function useHostReachability(
           host,
           port,
           device_type: deviceType,
+          satellite_id: satelliteId,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -91,7 +93,7 @@ export function useHostReachability(
       setStatus('unreachable');
       setError(err instanceof Error ? err.message : 'Check failed');
     }
-  }, [host, port, deviceType]);
+  }, [host, port, deviceType, satelliteId]);
 
   // Debounced effect to check host when host/port changes
   useEffect(() => {
