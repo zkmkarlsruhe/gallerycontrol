@@ -5,6 +5,17 @@ All notable changes to GalleryControl will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.1] - 2026-05-26
+
+### Security
+- `vite` → 8.0.5 (CVE bundled via renovate)
+- `ws` → 8.21.0 (CVE bundled via renovate; npm picked newer than the 8.20.1 target)
+- `pytest` → 9.0.3 (CVE bundled via renovate; dev only)
+- `brace-expansion` (transitive via typescript-eslint) → patched via `npm audit fix`
+- `postcss` → patched via `npm audit fix`
+
+All five are dev-only / lockfile-only; runtime behavior unchanged from 2.4.0.
+
 ## [2.4.0] - 2026-05-26
 
 ### Fixed
