@@ -5,6 +5,13 @@ All notable changes to GalleryControl will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.2] - 2026-05-27
+
+### Fixed
+- **Cron schedules fired in UTC instead of Europe/Berlin.** `CronScheduler._calculate_next_run` and `get_next_runs` passed a naive UTC anchor to `croniter`, so `30 9 * * *` was interpreted as 09:30 UTC and fired at 11:30 local during CEST (10:30 during CET). Both call sites now anchor `croniter` to `datetime.now(LOCAL_TZ)` and convert the next-run back to UTC for DB storage / API response.
+- **Frontend cron preview rendered "Invalid Date".** `dateFormat.ts` blindly appended `Z` to ISO strings even when they already carried a `+00:00` offset, producing strings like `"...+00:00Z"` that browsers reject. New `parseUtc()` helper detects already-tz-aware strings.
+- **Several frontend timestamps displayed 2 h off in CEST.** Device-info "freshness" timer (`useDeviceInfo`), satellite "Connected" / "Last seen" (`SatelliteApprovalModal`), lamp-hours log times (`AssetBrowserPage`) and the state-change timeline plot (`StateTimeline`) all parsed naive UTC strings as local time. Now use `parseUtc()`.
+
 ## [2.4.1] - 2026-05-26
 
 ### Security
