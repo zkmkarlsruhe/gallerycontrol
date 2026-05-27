@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import * as d3 from 'd3';
-import { formatDuration } from '../utils/dateFormat';
+import { formatDuration, parseUtc } from '../utils/dateFormat';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
@@ -167,12 +167,12 @@ export const StateTimeline = memo(function StateTimeline({
 
       const changes = deviceChanges.get(deviceId)!;
       // Sort changes by timestamp ascending
-      changes.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      changes.sort((a, b) => parseUtc(a.timestamp).getTime() - parseUtc(b.timestamp).getTime());
 
       // Create segments from state changes
       for (let i = 0; i < changes.length; i++) {
         const change = changes[i];
-        const changeTime = new Date(change.timestamp);
+        const changeTime = parseUtc(change.timestamp);
 
         // Add segment for previous_state from range start to first change
         if (i === 0 && change.previous_state !== undefined) {
@@ -190,7 +190,7 @@ export const StateTimeline = memo(function StateTimeline({
 
         // Add segment for new_state from this change to next change or range end
         const segmentEnd = i < changes.length - 1
-          ? new Date(changes[i + 1].timestamp)
+          ? parseUtc(changes[i + 1].timestamp)
           : to;
 
         segments.push({

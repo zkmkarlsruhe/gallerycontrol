@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { useState, useEffect } from 'react';
 import type { DeviceInfo } from '../types';
+import { parseUtc } from '../utils/dateFormat';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
@@ -67,7 +68,7 @@ export function useDeviceInfo(deviceId: string, deviceType: string, enabled: boo
             setIsStale(false);
           } else {
             setInfo(data.info);
-            setCachedAt(data.cached_at ? new Date(data.cached_at) : null);
+            setCachedAt(data.cached_at ? parseUtc(data.cached_at) : null);
             setIsStale(data.is_stale || false);
             // Clear error if we got data (even stale)
             if (data.info && Object.keys(data.info).length > 0) {

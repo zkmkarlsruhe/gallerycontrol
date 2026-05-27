@@ -538,21 +538,20 @@ class CronScheduler:
     def _calculate_next_run(self, cron_expression: str) -> datetime:
         """Calculate the next run time for a cron expression.
 
+        Cron fields are interpreted in LOCAL_TZ (Europe/Berlin) so that
+        `30 9 * * *` means 09:30 local wall-clock, not 09:30 UTC.
+
         Args:
             cron_expression: Standard cron expression
 
         Returns:
             Next run time in UTC (naive datetime for DB compatibility)
         """
-        now = utc_now()
-        cron = croniter(cron_expression, now)
-        next_run = cron.get_next(datetime)
+        now_local = datetime.now(LOCAL_TZ)
+        cron = croniter(cron_expression, now_local)
+        next_run_local = cron.get_next(datetime)
 
-        # Ensure naive datetime for DB compatibility
-        if next_run.tzinfo is not None:
-            next_run = next_run.replace(tzinfo=None)
-
-        return next_run
+        return next_run_local.astimezone(timezone.utc).replace(tzinfo=None)
 
     async def _update_all_next_runs(self) -> None:
         """Update next_run_at for all enabled recurring jobs on startup.
@@ -767,18 +766,19 @@ class CronScheduler:
     def get_next_runs(cron_expression: str, count: int = 5) -> list[datetime]:
         """Get the next N run times for a cron expression.
 
+        Cron fields are interpreted in LOCAL_TZ (Europe/Berlin); results are
+        converted to UTC for API responses.
+
         Returns:
             List of next run times in UTC (timezone-aware for API responses)
         """
-        now = utc_now()
-        cron = croniter(cron_expression, now)
+        now_local = datetime.now(LOCAL_TZ)
+        cron = croniter(cron_expression, now_local)
         runs = []
 
         for _ in range(count):
-            next_run = cron.get_next(datetime)
-            if next_run.tzinfo is None:
-                next_run = next_run.replace(tzinfo=timezone.utc)
-            runs.append(next_run)
+            next_run_local = cron.get_next(datetime)
+            runs.append(next_run_local.astimezone(timezone.utc))
 
         return runs
 

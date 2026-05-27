@@ -7,16 +7,26 @@
  */
 
 /**
+ * Parse a backend ISO datetime string as UTC.
+ *
+ * Backend may return either naive UTC ("2026-05-27T07:30:00") or tz-aware
+ * ("2026-05-27T07:30:00+00:00", "...Z"). For naive strings we append "Z" so
+ * the browser parses as UTC instead of local. For tz-aware strings we leave
+ * them alone — appending "Z" to "+00:00" would produce Invalid Date.
+ */
+export function parseUtc(isoString: string): Date {
+  const hasTz = /Z$|[+-]\d{2}:?\d{2}$/.test(isoString);
+  return new Date(hasTz ? isoString : isoString + 'Z');
+}
+
+/**
  * Format an ISO datetime string to full locale datetime.
- * Handles UTC strings from backend (naive ISO strings without Z).
  * @param isoString - ISO datetime string or null
  * @returns Formatted datetime string or 'Never' if null
  */
 export function formatDateTime(isoString: string | null): string {
   if (!isoString) return 'Never';
-  // Backend stores UTC but returns naive ISO strings - append Z to parse as UTC
-  const utcString = isoString.endsWith('Z') ? isoString : isoString + 'Z';
-  const date = new Date(utcString);
+  const date = parseUtc(isoString);
   return date.toLocaleString('de-DE', {
     weekday: 'short',
     day: 'numeric',
@@ -33,8 +43,7 @@ export function formatDateTime(isoString: string | null): string {
  */
 export function formatShortDateTime(isoString: string | null): string {
   if (!isoString) return 'Never';
-  const utcString = isoString.endsWith('Z') ? isoString : isoString + 'Z';
-  const date = new Date(utcString);
+  const date = parseUtc(isoString);
   return date.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' }) +
     ' ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
@@ -55,8 +64,7 @@ export function formatShortDate(date: Date): string {
  */
 export function formatTimeAgo(isoString: string | null): string {
   if (!isoString) return 'Never';
-  const utcString = isoString.endsWith('Z') ? isoString : isoString + 'Z';
-  const date = new Date(utcString);
+  const date = parseUtc(isoString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffSec = Math.floor(diffMs / 1000);
@@ -73,8 +81,7 @@ export function formatTimeAgo(isoString: string | null): string {
  * @returns Relative future time string
  */
 export function formatTimeUntil(isoString: string): string {
-  const utcString = isoString.endsWith('Z') ? isoString : isoString + 'Z';
-  const date = new Date(utcString);
+  const date = parseUtc(isoString);
   const now = new Date();
   const diffMs = date.getTime() - now.getTime();
   const diffSec = Math.floor(diffMs / 1000);
@@ -146,9 +153,7 @@ export function formatSeconds(seconds: number): string {
  * @returns Formatted time string (HH:MM:SS)
  */
 export function formatLogTime(timestamp: string): string {
-  // Backend stores UTC - append Z if missing to parse correctly
-  const utcString = timestamp.endsWith('Z') ? timestamp : timestamp + 'Z';
-  const date = new Date(utcString);
+  const date = parseUtc(timestamp);
   return date.toLocaleTimeString('de-DE', {
     hour: '2-digit',
     minute: '2-digit',
@@ -162,9 +167,7 @@ export function formatLogTime(timestamp: string): string {
  * @returns Formatted datetime string (MM/DD HH:MM:SS)
  */
 export function formatLogTimeFull(timestamp: string): string {
-  // Backend stores UTC - append Z if missing to parse correctly
-  const utcString = timestamp.endsWith('Z') ? timestamp : timestamp + 'Z';
-  const date = new Date(utcString);
+  const date = parseUtc(timestamp);
   return date.toLocaleString('de-DE', {
     month: '2-digit',
     day: '2-digit',

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { Asset, LampHoursLog } from '../types';
 import { Modal } from './ui/Modal';
 import { ConfirmButton } from './ui/ConfirmButton';
+import { parseUtc } from '../utils/dateFormat';
 
 interface AssetBrowserPageProps {
   onClose: () => void;
@@ -107,7 +108,7 @@ function LampHoursTimeline({ assetId }: { assetId: string }) {
           {logs.map((log, index) => {
             const prevLog = logs[index + 1];
             const delta = prevLog ? log.lamp_hours - prevLog.lamp_hours : null;
-            const date = new Date(log.timestamp);
+            const date = parseUtc(log.timestamp);
             const dateStr = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
             const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 

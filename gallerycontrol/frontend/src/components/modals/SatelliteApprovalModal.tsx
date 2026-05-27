@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import type { PendingSatellite, Satellite } from '../../types';
+import { parseUtc } from '../../utils/dateFormat';
 
 interface SatelliteApprovalModalProps {
   isOpen: boolean;
@@ -152,7 +153,7 @@ export function SatelliteApprovalModal({
                           )}
                           <span>
                             <i className="bi bi-clock me-1"></i>
-                            Connected {new Date(sat.connected_at).toLocaleTimeString()}
+                            Connected {parseUtc(sat.connected_at).toLocaleTimeString()}
                           </span>
                         </div>
                       </div>
@@ -231,7 +232,7 @@ export function SatelliteApprovalModal({
                           {sat.last_seen_at && (
                             <span>
                               <i className="bi bi-clock me-1"></i>
-                              Last seen {new Date(sat.last_seen_at).toLocaleString()}
+                              Last seen {parseUtc(sat.last_seen_at).toLocaleString()}
                             </span>
                           )}
                         </div>
