@@ -14,7 +14,6 @@ Assets represent physical projector units identified by their asset numbers. The
 1. Enable **Edit Mode**
 2. Click **Projectors** in the header
 
-![Asset Browser](images/22-assets-view.png)
 
 ## Understanding the Interface
 

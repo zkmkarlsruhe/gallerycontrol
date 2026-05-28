@@ -37,11 +37,9 @@ Open your web browser and navigate to the MuTech Control URL provided by your ad
 
 When you first access the system with no data, you'll see the empty state:
 
-![Empty State - Control Mode](images/01-empty-state-control-mode.png)
 
 To start adding content, enable **Edit Mode** using the checkbox in the top-right corner:
 
-![Empty State - Edit Mode](images/02-empty-state-edit-mode.png)
 
 ---
 
@@ -103,7 +101,6 @@ Each exhibition shows:
 - **Auto/Manual split** - Shows "3 auto / 1 manual" indicating automation vs manual-only devices
 - Expandable artwork list
 
-![Control Mode View](images/19-control-mode-view.png)
 
 ### Controlling Artworks
 
@@ -177,17 +174,14 @@ Click the **Edit Mode** checkbox in the top-right corner. Additional controls wi
 2. Enter the exhibition name in the input field
 3. Click **+ Add**
 
-![Creating First Exhibition](images/03-first-exhibition-typing.png)
 
 The exhibition is created:
 
-![Exhibition Created](images/04-first-exhibition-created.png)
 
 ### Editing an Exhibition
 
 Click the **pencil icon** on an exhibition to edit:
 
-![Edit Exhibition Modal](images/05-edit-exhibition-modal.png)
 
 **Settings:**
 - **Exhibition Name** - Display name
@@ -209,18 +203,15 @@ Click the **trash icon** and confirm. This deletes all artworks and devices with
 2. Enter the artwork name(s)
 3. Click **Add Artwork**
 
-![Add Artwork Modal](images/06-add-artwork-modal-empty.png)
 
 **Tip:** Create multiple artworks at once by separating names with commas:
 ```
 Room 1, Room 2, Room 3
 ```
 
-![Add Artwork Filled](images/07-add-artwork-modal-filled.png)
 
 ### Artwork Created
 
-![Artwork Created](images/08-artwork-created.png)
 
 ---
 
@@ -233,7 +224,6 @@ Room 1, Room 2, Room 3
 3. Fill in the configuration
 4. Click **Save** (button enables when host is reachable)
 
-![Device Type Selector](images/09-add-device-type-selector.png)
 
 ### Device Forms
 
@@ -247,7 +237,6 @@ Each device type has specific configuration options. See [Device Types](#device-
 
 PJLink is the standard protocol for projector control.
 
-![PJLink Form](images/10-add-device-pjlink-filled.png)
 
 **Configuration:**
 | Field | Description |
@@ -268,7 +257,6 @@ PJLink is the standard protocol for projector control.
 
 NETIO devices provide per-outlet power control via HTTP API.
 
-![NETIO Form](images/11-add-device-netio-form.png)
 
 **Configuration:**
 | Field | Description |
@@ -282,7 +270,6 @@ NETIO devices provide per-outlet power control via HTTP API.
 
 ANEL devices use UDP for control (via the ANEL Runner service).
 
-![ANEL Form](images/13-add-device-anel-form.png)
 
 **Configuration:**
 | Field | Description |
@@ -296,7 +283,6 @@ ANEL devices use UDP for control (via the ANEL Runner service).
 
 Shell devices execute custom commands for devices that don't support standard protocols.
 
-![Shell Form](images/12-add-device-shell-form.png)
 
 **Configuration:**
 | Section | Description |
@@ -318,7 +304,6 @@ Shell devices execute custom commands for devices that don't support standard pr
 
 The Credentials Store manages passwords used by devices.
 
-![Credentials Modal](images/14-credentials-modal.png)
 
 ### Adding a Credential
 
@@ -376,7 +361,6 @@ The Email Inventory feature sends device reports via email.
 
 The Shell Library stores reusable command templates for Shell devices.
 
-![Shell Library Modal](images/15-shell-library-modal.png)
 
 ### Creating a Template
 
@@ -411,7 +395,6 @@ This is useful when you've configured a working Shell device and want to reuse t
 
 The Timeline shows device state changes over time using an interactive visualization.
 
-![Timeline View](images/20-timeline-view.png)
 
 **Time Range Selector:**
 | Option | Description |
@@ -448,7 +431,6 @@ The Timeline shows device state changes over time using an interactive visualiza
 
 The Logs view shows real-time operation logs with powerful filtering.
 
-![Logs View](images/21-logs-view.png)
 
 **Information shown:**
 - Timestamp
@@ -476,7 +458,6 @@ When enabled, shows additional panel:
 
 The Assets view tracks projector lamp hours.
 
-![Assets View](images/22-assets-view.png)
 
 **Features:**
 - View all projector assets
@@ -490,7 +471,6 @@ The Assets view tracks projector lamp hours.
 
 The Admin panel provides system management functions.
 
-![Admin Modal](images/16-admin-modal.png)
 
 **Available tools:**
 - Run system tasks manually
@@ -506,13 +486,11 @@ For integration and automation, the system provides interactive API documentatio
 
 ### Swagger UI
 
-![API Swagger](images/23-api-swagger.png)
 
 Access at `/docs` - Interactive API testing interface.
 
 ### ReDoc
 
-![API ReDoc](images/24-api-redoc.png)
 
 Access at `/redoc` - Readable API reference documentation.
 
@@ -524,15 +502,12 @@ The interface is fully responsive and works on mobile devices.
 
 ### Mobile Control View
 
-![Mobile Control](images/25-mobile-control.png)
 
 ### Mobile Edit View
 
-![Mobile Edit](images/26-mobile-edit.png)
 
 ### Tablet View
 
-![Tablet View](images/27-tablet-view.png)
 
 **Mobile features:**
 - Touch-safe buttons (double-tap for destructive actions)

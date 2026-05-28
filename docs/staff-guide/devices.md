@@ -21,7 +21,6 @@ PJLink is an industry-standard protocol for projector control, supported by most
 
 ### Configuration
 
-![PJLink Form](images/10-add-device-pjlink-filled.png)
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -98,7 +97,6 @@ NETIO produces smart power strips with per-outlet control via HTTP API. Each out
 
 ### Configuration
 
-![NETIO Form](images/11-add-device-netio-form.png)
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -163,7 +161,6 @@ The ANEL Runner service must be running for ANEL control.
 
 ### Configuration
 
-![ANEL Form](images/13-add-device-anel-form.png)
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -201,7 +198,6 @@ Shell devices execute custom commands for any device that doesn't support standa
 
 ### Configuration
 
-![Shell Form](images/12-add-device-shell-form.png)
 
 ### Status Detection
 
