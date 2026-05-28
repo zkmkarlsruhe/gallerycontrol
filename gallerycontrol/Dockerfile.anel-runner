@@ -1,0 +1,30 @@
+# ANEL Runner Service - UDP proxy for ANEL power outlets
+
+FROM python:3.14-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install --no-cache-dir \
+    fastapi==0.109.0 \
+    uvicorn==0.25.0 \
+    pydantic==2.5.3 \
+    pydantic-settings==2.1.0
+
+# Copy anel_runner code
+COPY anel_runner/ ./anel_runner/
+
+# Expose API port
+EXPOSE 8001
+
+# Environment variables
+ENV HOST=0.0.0.0
+ENV PORT=8001
+ENV LOG_LEVEL=INFO
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')" || exit 1
+
+# Run the service
+CMD ["python", "-m", "anel_runner.main"]

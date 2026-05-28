@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ artwork_name }} - Display</title>
+    <!-- CSS_VARIABLES -->
+    <!-- BASE_CSS -->
+    <style>
+        /* Gauge: Arc/speedometer style display */
+        .display-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            gap: 1rem;
+        }
+
+        .artwork-name {
+            font-size: 1.75rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .gauge-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .chart-container {
+            width: 100%;
+            aspect-ratio: 2 / 1.2;
+        }
+
+        .gauge-labels {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 1rem;
+            margin-top: -1rem;
+            font-size: 0.875rem;
+            opacity: 0.6;
+        }
+
+        .info-section {
+            text-align: center;
+            margin-top: 2rem;
+            max-width: 600px;
+        }
+
+        .info-text {
+            font-size: 1.25rem;
+            line-height: 1.6;
+            opacity: 0.8;
+        }
+
+        .info-text.en {
+            font-style: italic;
+            opacity: 0.6;
+            margin-top: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .reset-timer {
+            margin-top: 2rem;
+        }
+
+        /* Warning overlay */
+        .warning-overlay {
+            flex-direction: column;
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .warning-gauge {
+            width: 200px;
+            height: 120px;
+            margin-bottom: 2rem;
+        }
+
+        .warning-icon {
+            font-size: 6rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .warning-text {
+            font-size: 1.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .warning-text.en {
+            font-style: italic;
+            opacity: 0.7;
+            font-size: 1.25rem;
+        }
+
+        .cooldown-info {
+            margin-top: 2rem;
+        }
+
+        .cooldown-remaining {
+            font-size: 3rem;
+            font-weight: 600;
+            display: block;
+        }
+
+        .cooldown-label {
+            font-size: 1rem;
+            opacity: 0.6;
+            margin-top: 0.5rem;
+        }
+    </style>
+    <!-- CUSTOM_CSS -->
+</head>
+<body>
+    <div class="display-container">
+        <h1 class="artwork-name">{{ artwork_name }}</h1>
+
+        <div class="gauge-wrapper">
+            <div class="chart-container"></div>
+            <div class="gauge-labels">
+                <span>0</span>
+                <span class="budget-max">--:--</span>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <p class="info-text de">{{ info_de }}</p>
+            <p class="info-text en">{{ info_en }}</p>
+        </div>
+
+        <div class="reset-timer hidden"></div>
+    </div>
+
+    <!-- Warning Overlay -->
+    <div class="warning-overlay">
+        <div class="warning-icon">&#9888;</div>
+        <div class="warning-text de">{{ warning_de }}</div>
+        <div class="warning-text en">{{ warning_en }}</div>
+        <div class="cooldown-info">
+            <span class="cooldown-remaining"></span>
+            <div class="cooldown-label">verbleibende Pause</div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/display/templates/d3.min.js"></script>
+    <!-- SHARED_JS -->
+</body>
+</html>

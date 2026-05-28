@@ -1,0 +1,59 @@
+services:
+  gallerycontrol:
+    build: .
+    container_name: gallerycontrol
+    restart: always
+    ports:
+      - "8000:8000"
+
+    environment:
+      - TZ=Europe/Berlin
+      - DATABASE_URL=postgresql+asyncpg://gallerycontrol:${DB_PASSWORD:-changeme}@gallerycontrol-db:5432/gallerycontrol
+      - ENVIRONMENT=production
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # Email (optional - for inventory reports)
+      # - SMTP_HOST=mail.example.com
+      # - EMAIL_FROM=gallerycontrol@example.com
+
+      # ANEL Runner (optional - only needed for ANEL power strips)
+      # - ANEL_RUNNER_URL=http://anel-runner:8001
+      # - ANEL_API_KEY=your-secure-key
+
+    volumes:
+      - ./logs:/app/logs
+
+    healthcheck:
+      test: curl --fail http://localhost:8000/health || exit 1
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 10s
+
+    depends_on:
+      gallerycontrol-db:
+        condition: service_healthy
+
+  gallerycontrol-db:
+    image: postgres:16-alpine
+    container_name: gallerycontrol-db
+    restart: always
+
+    environment:
+      - TZ=Europe/Berlin
+      - POSTGRES_DB=gallerycontrol
+      - POSTGRES_USER=gallerycontrol
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
+
+    volumes:
+      - gallerycontrol_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gallerycontrol"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  gallerycontrol_data:
+    driver: local

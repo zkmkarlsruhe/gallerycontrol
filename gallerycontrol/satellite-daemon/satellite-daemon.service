@@ -1,0 +1,38 @@
+[Unit]
+Description=GalleryControl Satellite Daemon
+Documentation=https://github.com/your-org/gallerycontrol
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=satellite
+Group=satellite
+ExecStart=/usr/local/bin/satellite-daemon
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+
+# Config and state paths (optional, defaults shown)
+# Environment=SATELLITE_CONFIG=/etc/satellite-daemon/config.yaml
+# Environment=SATELLITE_STATE=/var/lib/satellite-daemon/state.yaml
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/satellite-daemon
+
+# Allow binding to privileged UDP ports for protocols like ANEL (port 77).
+# CAP_NET_BIND_SERVICE lets the non-root `satellite` user bind ports <1024.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+# Allow network access
+PrivateNetwork=false
+
+[Install]
+WantedBy=multi-user.target

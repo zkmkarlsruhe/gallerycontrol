@@ -1,0 +1,355 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
+// API Response Types
+
+export interface DeviceAction {
+  name: string;
+  cmd: string;
+}
+
+// Device-specific configuration types
+export interface ShellCommand {
+  cmd: string;
+  timeout?: number;
+}
+
+export interface ShellDeviceConfig {
+  commands?: Record<string, string | ShellCommand>;
+  actions?: DeviceAction[];
+  credential_id?: string;
+  template_id?: string;
+}
+
+export interface PJLinkDeviceConfig {
+  credential_id?: string;
+  class?: number;
+}
+
+export interface NetioDeviceConfig {
+  credential_id?: string;
+  output?: number;
+}
+
+export interface AnelDeviceConfig {
+  credential_id?: string;
+  output?: number;
+}
+
+// Union type for typed access, with fallback to Record for unknown configs
+export type DeviceConfig = ShellDeviceConfig | PJLinkDeviceConfig | NetioDeviceConfig | AnelDeviceConfig | Record<string, unknown>;
+
+// Device info types (returned from /api/debug/device/{id}/info)
+export interface PJLinkDeviceInfo {
+  manufacturer?: string;
+  product?: string;
+  name?: string;
+  lamp_hours?: number;
+  lamp_on?: boolean;
+  class?: number;
+  has_errors?: boolean;
+  has_warnings?: boolean;
+  errors?: string;
+}
+
+export interface NetioDeviceInfo {
+  model?: string;
+  mac?: string;
+  firmware?: string;
+  device_name?: string;
+  voltage?: number;
+  total_power?: number;
+  uptime?: number;
+}
+
+export interface AnelDeviceInfo {
+  name?: string;
+  mac?: string;
+  ip?: string;
+  temperature?: number;
+  ports?: unknown[];
+}
+
+export type DeviceInfo = PJLinkDeviceInfo | NetioDeviceInfo | AnelDeviceInfo | Record<string, unknown>;
+
+export interface PollStatus {
+  is_fast_polling: boolean;
+  is_verifying: boolean;
+  poll_count: number;
+  poll_interval: number;
+  last_polled_at: string | null;
+  seconds_until_next_poll: number;
+}
+
+export interface Device {
+  id: string;
+  name: string;
+  device_type: 'pjlink' | 'netio' | 'anel' | 'shell';
+  host: string;
+  port: number | null;
+  state: -1 | 0 | 1 | 2 | 3; // -1=error, 0=off, 1=on, 2=cooling, 3=warming
+  enabled: boolean;
+  effective_enabled: boolean;
+  automation_enabled: boolean; // false = manual device, needs inline buttons
+  schedules_enabled: boolean; // Enable schedules feature
+  satellite_id?: string | null; // Picked from device's exhibition.satellites set
+  satellite?: SatelliteInfo | null; // Resolved satellite info (for badge display)
+  last_checked_at: string | null;
+  next_check_allowed_at: string | null;
+  poll_status: PollStatus | null;
+  actions: DeviceAction[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  config?: Record<string, any>; // Device-specific configuration
+  resolved?: string | null; // Resolved hostname/IP from DNS
+  asset_id?: string | null; // Linked asset ID (PJLink only)
+  lamp_hours?: number | null; // Last recorded lamp hours (PJLink only)
+}
+
+export interface Artwork {
+  id: string;
+  name: string;
+  enabled: boolean;
+  effective_enabled: boolean;
+  accepting_triggers: boolean; // Gate for fast-lane API triggers
+  timeslice_enabled: boolean; // Enable time slice protection feature
+  schedules_enabled: boolean; // Enable schedules feature
+  devices: Device[];
+  protection_config?: ProtectionConfig | null;
+}
+
+export interface SatelliteInfo {
+  id: string;
+  name: string;
+  is_connected: boolean;
+}
+
+export interface Exhibition {
+  id: string;
+  name: string;
+  enabled: boolean;
+  schedules_enabled: boolean; // Enable schedules feature
+  satellite_ids?: string[]; // M:N: satellites available for this exhibition (admin endpoint shape)
+  satellites?: SatelliteInfo[]; // Resolved satellites with connection status (state endpoint shape)
+  artworks: Artwork[];
+}
+
+// UI State Types
+
+export type ViewMode = 'control' | 'all';
+
+export interface AppState {
+  exhibitions: Exhibition[];
+  loading: boolean;
+  error: string | null;
+  lastUpdate: Date | null;
+  isLocked: boolean;
+  viewMode: ViewMode;
+  isOnline: boolean;
+}
+
+// Control Result Types
+
+export interface ControlResult {
+  success: boolean;
+  error?: string;
+  action?: string;
+  output?: string;
+}
+
+// Credential Types
+
+export type CredentialType = 'shell' | 'pjlink' | 'netio' | 'anel';
+
+export interface Credential {
+  id: string;
+  name: string;
+  credential_type: CredentialType;
+  username: string | null;
+  password: string; // Always masked as "********" in responses
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  used_by: string[]; // Device names using this credential (max 3, then "and X more")
+  used_by_count: number; // Total count of devices using this credential
+}
+
+export interface CredentialCreate {
+  name: string;
+  credential_type?: CredentialType;
+  username?: string;
+  password: string;
+  description?: string;
+}
+
+export interface CredentialUpdate {
+  name?: string;
+  credential_type?: CredentialType;
+  username?: string;
+  password?: string;
+  description?: string;
+}
+
+// Shell Template Types
+
+export interface ShellTemplateAction {
+  name: string;
+  cmd: string;
+}
+
+export interface ShellTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  status_command: string | null;
+  status_on_pattern: string | null;
+  status_off_pattern: string | null;
+  on_command: string | null;
+  off_command: string | null;
+  actions: ShellTemplateAction[];
+  onoff_mode: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShellTemplateCreate {
+  name: string;
+  description?: string;
+  status_command?: string;
+  status_on_pattern?: string;
+  status_off_pattern?: string;
+  on_command?: string;
+  off_command?: string;
+  actions?: ShellTemplateAction[];
+  onoff_mode?: boolean;
+}
+
+export interface ShellTemplateUpdate {
+  name?: string;
+  description?: string;
+  status_command?: string;
+  status_on_pattern?: string;
+  status_off_pattern?: string;
+  on_command?: string;
+  off_command?: string;
+  actions?: ShellTemplateAction[];
+  onoff_mode?: boolean;
+}
+
+// Asset Types
+
+export interface Asset {
+  id: string;
+  asset_number: string;
+  hostname: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  current_device_id: string | null;
+  current_device_name: string | null;
+  device_state: number | null;
+  artwork_name: string | null;
+  exhibition_name: string | null;
+  last_lamp_hours: number | null;
+  last_event_type: string | null;
+  last_event_at: string | null;
+}
+
+export interface LampHoursLog {
+  id: string;
+  asset_id: string;
+  device_id: string | null;
+  lamp_hours: number;
+  event_type: 'onboard' | 'power_on' | 'power_off' | 'offboard' | 'manual';
+  exhibition_name: string | null;
+  artwork_name: string | null;
+  device_name: string | null;
+  timestamp: string;
+}
+
+export interface AssetUpdate {
+  hostname?: string;
+  notes?: string;
+}
+
+export interface ManualLampHoursRequest {
+  lamp_hours: number;
+  device_id?: string;
+  notes?: string;
+}
+
+// Protection Types
+
+export interface ProtectionTimeSlice {
+  window: number; // Window size in minutes
+  max: number; // Max runtime in minutes
+}
+
+export interface ProtectionConfig {
+  time_slices?: ProtectionTimeSlice[];
+  max_runtime?: number; // Max continuous runtime in seconds
+  cooldown?: number; // Cooldown period in seconds
+  force_completion?: boolean; // Ignore OFF until max_runtime
+  min_budget_to_start?: number; // Minimum budget to start (seconds)
+}
+
+export interface ProtectionTimeSliceStatus {
+  window: number;
+  used: number; // seconds
+  max: number; // seconds
+  remaining: number; // seconds
+  resets_at: string; // ISO timestamp
+}
+
+export interface ProtectionStatus {
+  accepting_triggers: boolean; // Gate for fast-lane API triggers
+  protected: boolean;
+  config?: ProtectionConfig;
+  state?: {
+    is_running: boolean;
+    runtime_seconds: number;
+    cooldown_active: boolean;
+    cooldown_remaining: number;
+    time_slices: ProtectionTimeSliceStatus[];
+    can_start: boolean;
+    block_reason: string | null;
+  };
+}
+
+// Service Health Types
+
+export type ServiceStatus = 'online' | 'offline' | 'degraded' | 'unknown';
+
+export interface ServiceHealth {
+  service_id: string;
+  name: string;
+  description: string;
+  status: ServiceStatus;
+  last_check: string | null;
+  last_seen: string | null;
+  error: string | null;
+  response_time_ms: number | null;
+  affects_device_types: string[];
+  consecutive_failures: number;
+}
+
+// Satellite Types
+
+export type SatelliteStatus = 'pending' | 'approved' | 'offline';
+
+export interface Satellite {
+  id: string;
+  name: string;
+  status: SatelliteStatus;
+  hostname: string | null;
+  version: string | null;
+  is_connected: boolean;
+  approved_at: string | null;
+  last_seen_at: string | null;
+  created_at: string;
+}
+
+export interface PendingSatellite {
+  api_key_hash: string;
+  hostname: string | null;
+  version: string | null;
+  connected_at: string;
+}

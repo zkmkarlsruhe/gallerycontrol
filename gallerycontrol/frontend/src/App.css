@@ -1,0 +1,44 @@
+/* Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+ * SPDX-License-Identifier: MIT
+ *
+ * Main stylesheet - imports all feature-specific styles
+ */
+
+/* CSS Custom Properties (colors, spacing, etc.) */
+@import './styles/variables.css';
+
+/* Common/shared utilities */
+@import './styles/common.css';
+
+/* Base layout (header, body, toast, admin modal) */
+@import './styles/layout.css';
+
+/* Exhibition overview, cards, sections, artwork rows */
+@import './styles/exhibitions.css';
+
+/* Device badges, states, accordion, protection panel */
+@import './styles/devices.css';
+
+/* Forms, modals, inputs, buttons */
+@import './styles/forms.css';
+
+/* Credentials manager, device table */
+@import './styles/credentials.css';
+
+/* Debug section */
+@import './styles/debug.css';
+
+/* Log viewer */
+@import './styles/logs.css';
+
+/* State timeline / Gantt view */
+@import './styles/timeline.css';
+
+/* Asset browser page */
+@import './styles/assets.css';
+
+/* Schedule manager modals */
+@import './styles/schedule.css';
+
+/* Mobile and responsive overrides (must be last) */
+@import './styles/mobile.css';

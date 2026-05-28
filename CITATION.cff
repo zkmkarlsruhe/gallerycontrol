@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+title: GalleryControl
+message: "If you use this software, please cite it using these metadata."
+type: software
+authors:
+  - family-names: Schütze
+    given-names: Marc
+    affiliation: "ZKM | Center for Art and Media Karlsruhe"
+abstract: >-
+  Centralized exhibition device control system for museums and galleries.
+  One-click on/off and scheduled automation across projectors and power
+  devices via PJLink, NETIO, ANEL and SSH, with state monitoring and
+  sensor-triggered artwork protection.
+repository-code: "https://github.com/zkmkarlsruhe/gallerycontrol"
+url: "https://github.com/zkmkarlsruhe/gallerycontrol"
+doi: 10.5281/zenodo.20427498
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.20427498
+    description: "Concept DOI (all versions)"
+license: MIT
+version: 2.4.2
+date-released: "2026-05-28"
+keywords:
+  - museum
+  - exhibition
+  - device-control
+  - pjlink
+  - netio
+  - anel
+  - digital-art

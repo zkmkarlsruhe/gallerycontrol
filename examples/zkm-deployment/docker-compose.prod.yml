@@ -1,0 +1,97 @@
+services:
+
+  gallerycontrol:
+    build: ./gallerycontrol
+    image: registry.example.com/gallerycontrol:latest
+    container_name: "gallerycontrol"
+    restart: always
+    cpus: "1.0"
+    mem_limit: 1gb
+    memswap_limit: 1gb
+
+    environment:
+      # Timezone
+      - TZ=Europe/Berlin
+
+      # Database
+      - DATABASE_URL=postgresql+asyncpg://gallerycontrol:${DB_PASSWORD}@gallerycontrol-postgres:5432/gallerycontrol
+
+      # Application
+      - ENVIRONMENT=production
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+      # Email (defaults in production.yaml, can override here)
+      - EMAIL_RECIPIENT=${EMAIL_RECIPIENT:-admin@example.com}
+
+      # ANEL Runner (runs on a separate host with UDP broadcast access)
+      - ANEL_RUNNER_URL=http://anel-runner.example.com:8001
+      - ANEL_API_KEY=${ANEL_API_KEY:-changeme}
+
+    volumes:
+      - ./logs:/app/logs
+
+    healthcheck:
+      test: curl --fail http://localhost:8000/health || exit 1
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 10s
+
+    depends_on:
+      gallerycontrol-postgres:
+        condition: service_healthy
+
+    labels:
+      # traefik
+      - traefik.enable=true
+      # Main router - protected by whitelist AND guardian auth
+      - traefik.http.routers.gallerycontrol.rule=Host(`gallerycontrol.example.com`)
+      - traefik.http.routers.gallerycontrol.entrypoints=websecure
+      - traefik.http.routers.gallerycontrol.service=gallerycontrol
+      - traefik.http.routers.gallerycontrol.tls=true
+      - traefik.http.routers.gallerycontrol.middlewares=whitelist-and-guardian@file
+      # External API router - only IP whitelist, no guardian auth (for /external/fast and /external/protect)
+      - traefik.http.routers.gallerycontrol-external.rule=Host(`gallerycontrol.example.com`) && PathPrefix(`/external`)
+      - traefik.http.routers.gallerycontrol-external.entrypoints=websecure
+      - traefik.http.routers.gallerycontrol-external.service=gallerycontrol
+      - traefik.http.routers.gallerycontrol-external.tls=true
+      - traefik.http.routers.gallerycontrol-external.middlewares=internal-whitelist@file
+      - traefik.http.routers.gallerycontrol-external.priority=100
+      # Service
+      - traefik.http.services.gallerycontrol.loadbalancer.server.port=8000
+
+  gallerycontrol-postgres:
+    image: postgres:16-alpine
+    container_name: "gallerycontrol-postgres"
+    restart: always
+    cpus: "0.5"
+    mem_limit: 512mb
+    memswap_limit: 512mb
+
+    environment:
+      - TZ=Europe/Berlin
+      - POSTGRES_DB=gallerycontrol
+      - POSTGRES_USER=gallerycontrol
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+
+    volumes:
+      - gallerycontrol_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gallerycontrol"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    labels:
+      # no traefik exposure
+      - traefik.enable=false
+
+volumes:
+  gallerycontrol_postgres_data:
+    driver: local
+
+networks:
+  default:
+    external:
+      name: traefik

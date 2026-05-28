@@ -1,0 +1,484 @@
+/* Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+ * SPDX-License-Identifier: MIT
+ * 
+ * Timeline styles
+ */
+/* ========== State Timeline (Gantt View) ========== */
+.state-timeline {
+  margin: 1rem;
+  border-radius: 0.5rem;
+  background: #1a1f26;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.state-timeline .debug-header {
+  background: #f8f9fa;
+}
+
+.state-timeline .debug-header:hover {
+  background: #e9ecef;
+}
+
+.state-timeline .debug-content {
+  padding: 0.75rem;
+}
+
+/* Timeline Legend */
+.timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  background: #f8f9fa;
+  border-radius: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #495057;
+}
+
+.legend-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.legend-label {
+  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+/* Timeline Chart Container */
+.timeline-chart-container {
+  background: white;
+  border-radius: 0.25rem;
+  overflow-x: auto;
+  padding: 0.5rem;
+}
+
+.timeline-chart-container svg {
+  display: block;
+  min-width: 100%;
+}
+
+/* D3 Chart Styles */
+.timeline-chart-container .x-axis text,
+.timeline-chart-container .y-axis text {
+  fill: #495057;
+  font-size: 11px;
+}
+
+.timeline-chart-container .x-axis path,
+.timeline-chart-container .x-axis line,
+.timeline-chart-container .y-axis path,
+.timeline-chart-container .y-axis line {
+  stroke: #dee2e6;
+}
+
+.timeline-chart-container .grid line {
+  stroke: #dee2e6;
+  stroke-dasharray: 2, 2;
+}
+
+.timeline-chart-container .segment {
+  transition: opacity 0.15s ease;
+}
+
+.timeline-chart-container .now-line {
+  stroke: #58a6ff;
+  stroke-width: 2;
+  stroke-dasharray: 4, 2;
+}
+
+/* Timeline Tooltip */
+.timeline-tooltip {
+  position: fixed;
+  padding: 0.5rem 0.75rem;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: #212529;
+  pointer-events: none;
+  z-index: 1200;
+  max-width: 250px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.timeline-tooltip strong {
+  color: #212529;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+/* Timeline Header Actions */
+.state-timeline .debug-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.state-timeline .debug-header-actions .form-select {
+  background: #ffffff;
+  color: #212529;
+  border: 1px solid #dee2e6;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  height: auto;
+}
+
+.state-timeline .debug-header-actions .form-select:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+}
+
+.state-timeline .debug-header-actions .btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .state-timeline {
+    margin: 0.5rem;
+  }
+
+  .timeline-legend {
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+  }
+
+  .legend-item {
+    font-size: 0.65rem;
+  }
+
+  .legend-color {
+    width: 10px;
+    height: 10px;
+  }
+
+  .timeline-chart-container {
+    padding: 0.25rem;
+  }
+}
+
+/* ========== State Timeline Page (Full Page) ========== */
+.timeline-page {
+  flex: 1;
+  min-height: 0; /* Allow flex shrinking */
+  background: white;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative; /* For absolute positioned hint */
+}
+
+/* ========== Shared Sub-Page Header ========== */
+.sub-page-header,
+.timeline-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  flex-shrink: 0;
+}
+
+.sub-page-header-left,
+.timeline-page-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.sub-page-header-left h2,
+.timeline-page-header-left h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #212529;
+  font-weight: 600;
+}
+
+.sub-page-header-right,
+.timeline-page-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sub-page-header-right .form-select,
+.timeline-page-header-right .form-select {
+  font-size: 0.85rem;
+}
+
+/* Sub-page action row - uses Bootstrap btn-sm for buttons */
+.sub-page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  padding: 0.25rem 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  flex-shrink: 0;
+}
+
+.sub-page-actions .zoom-level {
+  color: #6c757d;
+  font-size: 0.75rem;
+  margin-right: 0.5rem;
+}
+
+/* Sub-page secondary filters row */
+.sub-page-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.sub-page-filters form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.sub-page-filters input.form-control {
+  max-width: 300px;
+}
+
+/* Timeline legend hint (bottom bar) */
+.timeline-legend-hint {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: rgba(248, 249, 250, 0.95);
+  border-top: 1px solid #dee2e6;
+  font-size: 0.75rem;
+  color: #6c757d;
+  z-index: 10;
+}
+
+.legend-inline {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.legend-item-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.zoom-hint-text {
+  color: #6e7681;
+}
+
+.timeline-page-legend {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  flex-shrink: 0;
+}
+
+.timeline-page-legend .legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.timeline-page-legend .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.timeline-page-legend .legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.timeline-page-legend .legend-label {
+  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.timeline-page-legend .zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.timeline-page-legend .zoom-level {
+  font-size: 0.8rem;
+  color: #6c757d;
+  min-width: 50px;
+  text-align: right;
+}
+
+/* Custom date range */
+.timeline-custom-range {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  flex-shrink: 0;
+}
+
+.timeline-custom-range label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6c757d;
+  font-size: 0.85rem;
+}
+
+.timeline-custom-range input[type="datetime-local"] {
+  background: white;
+  border: 1px solid #dee2e6;
+  color: #212529;
+}
+
+/* Zoom hint */
+.timeline-zoom-hint {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(248, 249, 250, 0.95);
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  color: #6c757d;
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+
+.timeline-page-content {
+  flex: 1;
+  min-height: 0; /* Critical for flex overflow */
+  overflow: hidden;
+  padding: 0.5rem 1rem 0 1rem; /* Reduce bottom padding */
+  background: white;
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-chart-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.timeline-chart-scroll svg {
+  display: block;
+}
+
+.timeline-loading,
+.timeline-error,
+.timeline-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #6c757d;
+  font-size: 1rem;
+}
+
+.timeline-error {
+  color: #dc3545;
+}
+
+/* Timeline tooltip (positioned fixed) */
+/* Duplicate tooltip styles removed - using earlier definition */
+
+.timeline-tooltip .tooltip-host {
+  color: #adb5bd;
+  font-size: 0.8rem;
+  margin-bottom: 2px;
+}
+
+.timeline-tooltip .tooltip-type {
+  color: #6c757d;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+
+/* Responsive timeline page */
+@media (max-width: 768px) {
+  .timeline-page-header {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.5rem;
+  }
+
+  .timeline-page-header-left,
+  .timeline-page-header-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .timeline-page-header-left h2 {
+    font-size: 1rem;
+  }
+
+  .timeline-page-header-right .form-select {
+    font-size: 0.75rem;
+    max-width: 120px;
+  }
+
+  .timeline-page-legend {
+    gap: 0.75rem;
+    padding: 0.5rem;
+  }
+
+  .timeline-page-legend .legend-item {
+    font-size: 0.7rem;
+  }
+
+  .timeline-page-legend .legend-color {
+    width: 12px;
+    height: 12px;
+  }
+
+  .timeline-page-content {
+    padding: 0.5rem;
+  }
+}

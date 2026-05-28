@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ artwork_name }} - Display</title>
+    <!-- CSS_VARIABLES -->
+    <!-- BASE_CSS -->
+    <style>
+        /* Info panel: Text-heavy layout with small chart */
+        .display-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 3rem;
+            gap: 2rem;
+        }
+
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 2rem;
+        }
+
+        .title-group {
+            flex: 1;
+        }
+
+        .artwork-name {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            opacity: 0.6;
+        }
+
+        .mini-chart {
+            width: 120px;
+            height: 120px;
+            flex-shrink: 0;
+        }
+
+        .content-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .info-block {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .info-block h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            opacity: 0.6;
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .info-block p {
+            font-size: 1.25rem;
+            line-height: 1.6;
+        }
+
+        .info-block.en p {
+            font-style: italic;
+            opacity: 0.8;
+        }
+
+        .footer-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .budget-group {
+            display: flex;
+            align-items: baseline;
+            gap: 1rem;
+        }
+
+        .budget-display {
+            font-size: 2.5rem;
+            font-weight: 600;
+        }
+
+        .budget-label {
+            font-size: 1rem;
+            opacity: 0.6;
+        }
+
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.available {
+            background: var(--available-color);
+            color: #000;
+        }
+
+        .status-badge.warning {
+            background: var(--warning-color);
+            color: #000;
+        }
+
+        .status-badge.cooldown {
+            background: var(--used-color);
+            color: #000;
+        }
+
+        /* Warning overlay */
+        .warning-overlay {
+            flex-direction: column;
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .warning-icon {
+            font-size: 5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .warning-text {
+            font-size: 1.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .warning-text.en {
+            font-style: italic;
+            opacity: 0.7;
+            font-size: 1.25rem;
+        }
+
+        .cooldown-info {
+            margin-top: 2rem;
+            font-size: 2rem;
+        }
+    </style>
+    <!-- CUSTOM_CSS -->
+</head>
+<body>
+    <div class="display-container">
+        <div class="header-section">
+            <div class="title-group">
+                <h1 class="artwork-name">{{ artwork_name }}</h1>
+                <p class="subtitle">Kinetische Installation / Kinetic Installation</p>
+            </div>
+            <div class="mini-chart chart-container"></div>
+        </div>
+
+        <div class="content-section">
+            <div class="info-block de">
+                <h3>Information</h3>
+                <p>{{ info_de }}</p>
+            </div>
+
+            <div class="info-block en">
+                <h3>Information (EN)</h3>
+                <p>{{ info_en }}</p>
+            </div>
+        </div>
+
+        <div class="footer-section">
+            <div class="budget-group">
+                <div class="budget-display status-available" data-running-indicator>
+                    <span class="budget-value">--:--</span>
+                </div>
+                <span class="budget-label">verbleibend</span>
+            </div>
+            <div class="status-badge available" id="statusBadge">Verfügbar</div>
+        </div>
+
+        <div class="reset-timer hidden"></div>
+    </div>
+
+    <!-- Warning Overlay -->
+    <div class="warning-overlay">
+        <div class="warning-icon">&#9888;</div>
+        <div class="warning-text de">{{ warning_de }}</div>
+        <div class="warning-text en">{{ warning_en }}</div>
+        <div class="cooldown-info">
+            <span class="cooldown-remaining"></span>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/display/templates/d3.min.js"></script>
+    <!-- SHARED_JS -->
+    <script>
+        // Info panel specific updates
+        document.addEventListener('display-status-update', function(e) {
+            const status = e.detail;
+            const badge = document.getElementById('statusBadge');
+
+            if (badge) {
+                badge.classList.remove('available', 'warning', 'cooldown');
+
+                if (status.cooldown_active) {
+                    badge.textContent = 'Pause';
+                    badge.classList.add('cooldown');
+                } else if (status.budget_percent < 20) {
+                    badge.textContent = 'Niedrig';
+                    badge.classList.add('warning');
+                } else {
+                    badge.textContent = 'Verfügbar';
+                    badge.classList.add('available');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,341 @@
+/* Base styles for visitor display system */
+/* Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe */
+/* SPDX-License-Identifier: MIT */
+
+/* Font face declarations - Hero New */
+@font-face {
+    font-family: 'Hero New';
+    src: url('/display/fonts/HeroNew-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Hero New';
+    src: url('/display/fonts/HeroNew-SemiBold.woff2') format('woff2');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* CSS Reset */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* Root variables (defaults, overridden by template injection) */
+:root {
+    --bg-color: #000000;
+    --available-color: #4CAF50;
+    --used-color: #FFC107;
+    --warning-color: #f44336;
+    --text-color: #FFFFFF;
+    --font-family: 'Hero New', sans-serif;
+    --font-size-budget: 4rem;
+    --font-size-info: 1.5rem;
+    --scale: 1;
+}
+
+/* Base body styles */
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transform: scale(var(--scale));
+    transform-origin: center center;
+}
+
+/* Typography */
+.artwork-name {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.budget-display {
+    font-size: var(--font-size-budget);
+    font-weight: 600;
+    text-align: center;
+}
+
+.info-text {
+    font-size: var(--font-size-info);
+    line-height: 1.6;
+    text-align: center;
+    max-width: 80%;
+}
+
+/* Status indicators */
+.status-available {
+    color: var(--available-color);
+}
+
+.status-warning {
+    color: var(--warning-color);
+}
+
+.status-cooldown {
+    color: var(--used-color);
+}
+
+/* Chart container */
+.chart-container {
+    width: 100%;
+    max-width: 400px;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chart-container svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* D3 chart styles */
+.chart-arc {
+    transition: d 0.3s ease;
+}
+
+.chart-arc-available {
+    fill: var(--available-color);
+}
+
+.chart-arc-used {
+    fill: var(--used-color);
+}
+
+.chart-center-text {
+    fill: var(--text-color);
+    font-family: var(--font-family);
+    font-size: 3rem;
+    font-weight: 600;
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+
+.chart-center-label {
+    fill: var(--text-color);
+    font-family: var(--font-family);
+    font-size: 1rem;
+    text-anchor: middle;
+    opacity: 0.7;
+}
+
+/* Bar chart styles */
+.bar-container {
+    width: 80%;
+    max-width: 600px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+}
+
+.bar-fill {
+    height: 100%;
+    background: var(--available-color);
+    transition: width 0.5s ease;
+    border-radius: 8px;
+}
+
+.bar-fill.warning {
+    background: var(--warning-color);
+}
+
+.bar-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem;
+    font-weight: 600;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+/* Gauge styles */
+.gauge-container {
+    position: relative;
+    width: 300px;
+    height: 200px;
+}
+
+.gauge-arc-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.1);
+    stroke-width: 20;
+}
+
+.gauge-arc-fill {
+    fill: none;
+    stroke: var(--available-color);
+    stroke-width: 20;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s ease;
+}
+
+.gauge-arc-fill.warning {
+    stroke: var(--warning-color);
+}
+
+/* Digits-only large display */
+.digits-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.digits-main {
+    font-size: 8rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    font-variant-numeric: tabular-nums;
+}
+
+.digits-label {
+    font-size: 1.5rem;
+    opacity: 0.7;
+}
+
+/* Warning overlay */
+.warning-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.warning-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.warning-icon {
+    font-size: 4rem;
+    color: var(--warning-color);
+    margin-bottom: 2rem;
+}
+
+.warning-text {
+    font-size: 2rem;
+    text-align: center;
+    max-width: 80%;
+    line-height: 1.4;
+}
+
+/* Countdown timer */
+.countdown-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.countdown-value {
+    font-size: 6rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.countdown-label {
+    font-size: 1.25rem;
+    opacity: 0.7;
+}
+
+/* Reset timer */
+.reset-timer {
+    margin-top: 2rem;
+    font-size: 1rem;
+    opacity: 0.6;
+}
+
+/* Layout helpers */
+.flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.flex-column {
+    flex-direction: column;
+}
+
+.gap-1 { gap: 0.5rem; }
+.gap-2 { gap: 1rem; }
+.gap-3 { gap: 1.5rem; }
+.gap-4 { gap: 2rem; }
+
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+.mt-4 { margin-top: 2rem; }
+
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-2 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 1.5rem; }
+.mb-4 { margin-bottom: 2rem; }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .artwork-name {
+        font-size: 1.5rem;
+    }
+
+    .budget-display {
+        font-size: 3rem;
+    }
+
+    .info-text {
+        font-size: 1.25rem;
+    }
+
+    .digits-main {
+        font-size: 5rem;
+    }
+
+    .warning-text {
+        font-size: 1.5rem;
+    }
+}
+
+/* Animation for running state */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.is-running {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Hidden state */
+.hidden {
+    display: none !important;
+}

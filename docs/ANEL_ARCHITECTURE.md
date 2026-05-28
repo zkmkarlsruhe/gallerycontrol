@@ -1,0 +1,874 @@
+# ANEL Runner Architecture - Why Separation is Critical
+
+**Date:** 2026-01-12
+**Status:** Architecture Documentation
+
+---
+
+## Executive Summary
+
+The ANEL runner **MUST** remain a separate service because ANEL devices use **bidirectional UDP communication**:
+- **Outbound:** Send commands on UDP port 9975
+- **Inbound:** Receive status broadcasts on UDP port 9977
+
+**Critical Insight:** ANEL devices spontaneously broadcast their status via UDP. If we move the ANEL logic into the main app, we **lose the ability to receive these broadcasts** unless the main app also has `network_mode: host`, which creates other complications.
+
+---
+
+## UDP Protocol Details
+
+### Communication Ports
+
+```
+┌─────────────────┐                    ┌──────────────────┐
+│  ANEL Runner    │                    │   ANEL Device    │
+│  (Main Service) │                    │  (192.168.1.100) │
+└─────────────────┘                    └──────────────────┘
+         │                                      │
+         │  Command (UDP port 9975)             │
+         │─────────────────────────────────────>│
+         │  "Sw_on8,1,255"                      │
+         │                                      │
+         │  Status Broadcast (UDP port 9977)    │
+         │<─────────────────────────────────────│
+         │  "NET-PwrCtrl:192.168.1.100..."      │
+         │  (sent periodically or on change)    │
+         │                                      │
+```
+
+### Broadcast Behavior
+
+**ANEL devices broadcast their status:**
+1. **Periodically** - Every few seconds (device-dependent)
+2. **On state change** - When port state changes
+3. **On request** - When explicitly queried
+
+**Broadcast Format:**
+```
+NET-PwrCtrl:192.168.1.100:Net-Control:Nr.1:80:255:8:1,1,1,1,1,1,1,1:0,0,0,0,0,0,0,0:255.255.255.0:192.168.1.1:Ports,Port1,Port2,Port3,Port4,Port5,Port6,Port7,Port8
+```
+
+**Parsed Fields:**
+- IP address
+- Device name
+- Number of ports
+- Port states (1=on, 0=off)
+- Port names
+
+---
+
+## Current Implementation (Node.js)
+
+### ANELManager - Event Emitter Pattern
+
+**File:** `/context/gallerycontrol/anel-runner/lib/anel-manager/src/ANELManager.js`
+
+```javascript
+class ANELManager extends EventEmitter {
+  constructor() {
+    super();
+    this.config = {
+      sendPort: 9975,      // Send commands TO devices
+      receivePort: 9977,   // Receive broadcasts FROM devices
+      commandDelay: 0.5
+    };
+    this.connection = null;
+  }
+
+  async start() {
+    // Initialize UDP connection
+    this.connection = new ANELConnection(this.config);
+
+    // CRITICAL: Listen for status messages FROM ANEL devices
+    this.connection.on('message', (msg, rinfo) => {
+      this.handleStatusMessage(msg, rinfo);
+    });
+
+    await this.connection.start();
+    console.log('ANELManager started - listening for broadcasts');
+  }
+
+  /**
+   * Handle incoming UDP broadcasts from ANEL devices
+   * This is PUSHED from devices, not polled by us
+   */
+  handleStatusMessage(msg, rinfo) {
+    const msgStr = msg.toString();
+
+    // Parse "NET-PwrCtrl:..." format
+    const status = this.parseStatusResponse(msgStr);
+
+    if (status) {
+      // Emit status event for EACH port on the device
+      status.ports.forEach((portInfo, index) => {
+        this.emit('status', {
+          ip: status.ip,
+          port: index + 1,
+          state: portInfo.state,  // 1=on, 0=off
+          name: portInfo.name,
+          timestamp: Date.now()
+        });
+      });
+    }
+  }
+
+  /**
+   * Send command TO device
+   */
+  async setState(ip, port, targetState) {
+    const command = `Sw_${targetState ? 'on' : 'off'}8,${port},255`;
+
+    await this.connection.send(command, this.config.sendPort, ip);
+
+    // Device will broadcast new state via UDP
+    // We'll receive it in handleStatusMessage()
+  }
+}
+```
+
+### Runner → Main Service Communication (Socket.IO)
+
+**File:** `/context/gallerycontrol/gallerycontrol-backend/src/connectors/anelConnector.js`
+
+```javascript
+class AnelConnector {
+  setupAnelNamespace() {
+    // ANEL runner connects TO main service
+    this.anelNamespace = this.io.of('/runner-anel');
+
+    this.anelNamespace.on('connection', (socket) => {
+      this.isRunnerConnected = true;
+      this.runnerSocket = socket;
+
+      // Listen for status events FROM runner
+      socket.on('anelStatus', (statusData) => {
+        // statusData: { ip, port, state, name }
+        this.handleAnelStatus(statusData);
+      });
+
+      socket.on('disconnect', () => {
+        this.isRunnerConnected = false;
+      });
+    });
+  }
+
+  async setState(unit, targetState) {
+    if (!this.isRunnerConnected) {
+      throw new Error('ANEL runner not connected');
+    }
+
+    // Send command request TO runner via Socket.IO
+    const response = await this.sendRequestWithTimeout('executeCommand', {
+      unitId: unit.id,
+      operation: 'setState',
+      ip: unit.host,
+      port: unit.args?.port,
+      targetState: targetState ? 1 : 0
+    });
+
+    return response;
+  }
+
+  handleAnelStatus(statusData) {
+    // Find device by IP + port
+    const device = this.findDeviceByIpPort(statusData.ip, statusData.port);
+
+    if (device) {
+      // Update device state in database
+      this.updateDeviceState(device.id, statusData.state);
+
+      // Emit to frontend via Socket.IO
+      this.io.emit('deviceStateChanged', {
+        deviceId: device.id,
+        state: statusData.state,
+        timestamp: Date.now()
+      });
+    }
+  }
+}
+```
+
+---
+
+## Why Separation is Mandatory
+
+### Network Isolation
+
+**Deployment Architecture:**
+The ANEL runner container runs in a **separate subnet** from the main control service (Steuerung).
+
+**Two subnets:**
+- **Subnet A (192.168.1.0/24):** Main application network with control service, PostgreSQL, frontend
+- **Subnet B (192.168.50.0/24):** Isolated control network with ANEL runner and ANEL devices
+
+**Why this separation:**
+1. **Security:** Power control devices isolated from main application network
+2. **Network segmentation:** Different VLANs or physical networks
+3. **UDP broadcast domain:** ANEL broadcasts stay within control network
+4. **Access control:** Only ANEL runner has access to control devices
+
+**ANEL Runner Deployment Options:**
+
+```yaml
+# Option 1: Separate physical host on control network
+# Deploy on host with interface on 192.168.50.0/24
+services:
+  anel-runner:
+    image: anel-runner:latest
+    network_mode: host  # Direct access to host's 192.168.50.x interface
+    ports:
+      - "8001:8001"  # REST API accessible from main service
+    environment:
+      - BIND_ADDRESS=192.168.50.2  # Bind to control network interface
+
+# Option 2: Same host with multiple NICs
+# Host has eth0 (192.168.1.x) and eth1 (192.168.50.x)
+services:
+  anel-runner:
+    image: anel-runner:latest
+    network_mode: host
+    environment:
+      - BIND_ADDRESS=192.168.50.2  # Listen on control network NIC
+```
+
+**Communication between subnets:**
+- Main service connects to ANEL runner via: `http://192.168.50.2:8001`
+- Network routing configured between subnets
+- Firewall rules allow HTTP from main service subnet to runner:8001
+- ANEL runner does NOT need access to main service (one-way communication)
+
+### UDP Broadcast Reception
+
+**Problem:**
+UDP broadcasts are sent to `255.255.255.255` or subnet broadcast address (e.g., `192.168.1.255`). These don't cross Docker bridge networks.
+
+**Solution:**
+Host network mode allows the runner to:
+- Listen on the actual network interface
+- Receive broadcasts from ANEL devices
+- No NAT or port mapping complications
+
+### Real-Time Event Stream
+
+**Advantage:**
+ANEL devices push state changes immediately via UDP broadcast. No polling required!
+
+**Example Timeline:**
+```
+T+0s:   User clicks "Turn Off" in web UI
+T+0.1s: Main service sends command to ANEL runner via REST
+T+0.2s: Runner sends UDP command to ANEL device
+T+0.3s: ANEL device changes state and broadcasts new status
+T+0.4s: Runner receives broadcast, emits event to main service
+T+0.5s: Main service updates database and notifies frontend
+
+Total: 500ms from click to UI update (no polling delay!)
+```
+
+Compare to polling:
+```
+T+0s:   User clicks "Turn Off"
+T+0.1s: Command sent and executed
+...
+T+30s:  Next scheduled poll detects change
+
+Total: Up to 30 seconds delay before UI updates
+```
+
+---
+
+## Python Implementation Strategy
+
+### 1. ANEL Runner Service (Separate)
+
+**File:** `gallerycontrol/anel_runner/core/anel_service.py`
+
+```python
+import asyncio
+from asyncio import DatagramProtocol
+from typing import Callable
+import logging
+
+logger = logging.getLogger(__name__)
+
+class ANELProtocol(DatagramProtocol):
+    """UDP protocol handler for ANEL broadcasts"""
+
+    def __init__(self, on_status_received: Callable):
+        self.on_status_received = on_status_received
+        self.transport = None
+
+    def connection_made(self, transport):
+        self.transport = transport
+        logger.info("ANEL UDP listener started on port 9977")
+
+    def datagram_received(self, data, addr):
+        """Called when UDP broadcast received"""
+        try:
+            msg = data.decode('ascii')
+            if msg.startswith('NET-PwrCtrl:'):
+                status = self.parse_status(msg)
+                if status:
+                    # Call callback with parsed status
+                    self.on_status_received(status)
+        except Exception as e:
+            logger.error(f"Error parsing ANEL broadcast: {e}")
+
+    def parse_status(self, msg: str) -> dict:
+        """Parse ANEL status broadcast"""
+        parts = msg.split(':')
+        if len(parts) < 8:
+            return None
+
+        ip = parts[1]
+        port_states = parts[6].split(',')  # "1,1,0,0,1,1,1,1"
+        port_names = parts[8].split(',') if len(parts) > 8 else []
+
+        return {
+            'ip': ip,
+            'ports': [
+                {'port': i+1, 'state': int(state), 'name': port_names[i] if i < len(port_names) else f'Port{i+1}'}
+                for i, state in enumerate(port_states)
+            ],
+            'timestamp': asyncio.get_event_loop().time()
+        }
+
+
+class ANELManager:
+    """Manages ANEL device communication and broadcasts"""
+
+    def __init__(self, send_port: int = 9975, receive_port: int = 9977):
+        self.send_port = send_port
+        self.receive_port = receive_port
+        self.protocol = None
+        self.transport = None
+        self.status_callbacks = []  # List of async callbacks
+
+    async def start(self):
+        """Start listening for ANEL broadcasts"""
+        loop = asyncio.get_event_loop()
+
+        # Create UDP endpoint for receiving broadcasts
+        self.transport, self.protocol = await loop.create_datagram_endpoint(
+            lambda: ANELProtocol(self._handle_status),
+            local_addr=('0.0.0.0', self.receive_port),
+            reuse_port=True
+        )
+
+        logger.info(f"ANEL Manager started - listening on port {self.receive_port}")
+
+    def _handle_status(self, status: dict):
+        """Handle received status broadcast"""
+        # Emit to all registered callbacks
+        for callback in self.status_callbacks:
+            try:
+                asyncio.create_task(callback(status))
+            except Exception as e:
+                logger.error(f"Error in status callback: {e}")
+
+    def on_status(self, callback: Callable):
+        """Register callback for status events"""
+        self.status_callbacks.append(callback)
+
+    async def set_state(self, ip: str, port: int, state: bool) -> bool:
+        """Send command to ANEL device"""
+        try:
+            # Build command: "Sw_on8,1,255" or "Sw_off8,1,255"
+            command = f"Sw_{'on' if state else 'off'}8,{port},255"
+
+            # Send UDP command
+            loop = asyncio.get_event_loop()
+            transport, _ = await loop.create_datagram_endpoint(
+                lambda: asyncio.DatagramProtocol(),
+                remote_addr=(ip, self.send_port)
+            )
+
+            transport.sendto(command.encode('ascii'))
+            transport.close()
+
+            logger.info(f"Sent command to {ip}:{port} - {command}")
+
+            # Device will broadcast new state via UDP
+            # We'll receive it in ANELProtocol.datagram_received()
+
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send command to {ip}:{port}: {e}")
+            return False
+
+    async def get_state(self, ip: str, port: int) -> dict:
+        """Query device state (triggers broadcast)"""
+        # Send query command
+        command = f"Sw_get8,{port}"
+
+        # ... similar to set_state
+        # Device will respond with broadcast
+
+        # For now, return last known state or trigger poll
+        pass
+
+    async def stop(self):
+        """Stop listening"""
+        if self.transport:
+            self.transport.close()
+```
+
+### 2. ANEL Runner REST API
+
+**File:** `gallerycontrol/anel_runner/main.py`
+
+```python
+from fastapi import FastAPI, HTTPException, Depends, Header
+from pydantic import BaseModel
+import asyncio
+import logging
+
+from .anel_manager import ANELManager
+from .auth import verify_api_key
+
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="ANEL Runner Service")
+
+# Global ANEL manager instance
+anel_manager = ANELManager()
+
+# Store latest status from broadcasts
+device_status_cache = {}  # {(ip, port): {'state': 1, 'timestamp': ...}}
+
+
+@app.on_event("startup")
+async def startup():
+    """Start ANEL manager on service startup"""
+
+    # Register callback for status broadcasts
+    anel_manager.on_status(handle_anel_broadcast)
+
+    # Start listening for broadcasts
+    await anel_manager.start()
+
+    logger.info("ANEL Runner Service started")
+
+
+async def handle_anel_broadcast(status: dict):
+    """Handle ANEL device status broadcast"""
+    ip = status['ip']
+
+    for port_info in status['ports']:
+        port = port_info['port']
+        state = port_info['state']
+
+        # Update cache
+        device_status_cache[(ip, port)] = {
+            'state': state,
+            'name': port_info['name'],
+            'timestamp': status['timestamp']
+        }
+
+        # TODO: Send status update to main service via HTTP webhook or event stream
+        # await notify_main_service(ip, port, state)
+
+        logger.debug(f"Status broadcast: {ip}:{port} = {state}")
+
+
+@app.post("/devices/{ip}/on")
+async def turn_device_on(
+    ip: str,
+    port: int,
+    authorization: str = Header(...)
+):
+    """Turn ANEL device port ON"""
+    verify_api_key(authorization)
+
+    success = await anel_manager.set_state(ip, port, True)
+
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to send command")
+
+    # Wait briefly for broadcast response
+    await asyncio.sleep(0.5)
+
+    # Return latest known state from broadcast
+    cached = device_status_cache.get((ip, port))
+    return {
+        "success": True,
+        "state": cached['state'] if cached else 1,
+        "timestamp": cached['timestamp'] if cached else None
+    }
+
+
+@app.post("/devices/{ip}/off")
+async def turn_device_off(
+    ip: str,
+    port: int,
+    authorization: str = Header(...)
+):
+    """Turn ANEL device port OFF"""
+    verify_api_key(authorization)
+
+    success = await anel_manager.set_state(ip, port, False)
+
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to send command")
+
+    await asyncio.sleep(0.5)
+
+    cached = device_status_cache.get((ip, port))
+    return {
+        "success": True,
+        "state": cached['state'] if cached else 0,
+        "timestamp": cached['timestamp'] if cached else None
+    }
+
+
+@app.get("/devices/{ip}/state")
+async def get_device_state(
+    ip: str,
+    port: int,
+    authorization: str = Header(...)
+):
+    """Get ANEL device port state from cache"""
+    verify_api_key(authorization)
+
+    cached = device_status_cache.get((ip, port))
+
+    if not cached:
+        # Trigger poll
+        await anel_manager.get_state(ip, port)
+        await asyncio.sleep(0.5)
+        cached = device_status_cache.get((ip, port))
+
+    if not cached:
+        raise HTTPException(status_code=404, detail="Device not responding")
+
+    return {
+        "ip": ip,
+        "port": port,
+        "state": cached['state'],
+        "name": cached.get('name', f'Port{port}'),
+        "timestamp": cached['timestamp']
+    }
+
+
+@app.get("/devices/{ip}/info")
+async def get_device_info(
+    ip: str,
+    authorization: str = Header(...)
+):
+    """Get all ports info for an ANEL device"""
+    verify_api_key(authorization)
+
+    # Collect all ports for this IP from cache
+    ports = [
+        {
+            "port": port,
+            "state": info['state'],
+            "name": info['name'],
+            "timestamp": info['timestamp']
+        }
+        for (cached_ip, port), info in device_status_cache.items()
+        if cached_ip == ip
+    ]
+
+    if not ports:
+        raise HTTPException(status_code=404, detail="No data for device")
+
+    return {
+        "ip": ip,
+        "ports": ports
+    }
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint"""
+    return {"status": "ok", "listening": True}
+```
+
+### 3. Main Service Integration
+
+**File:** `/workspace/gallerycontrol/gallerycontrol/devices/anel_client.py`
+
+```python
+import httpx
+import logging
+from typing import Tuple
+
+from ..database.models import Device
+from .base import DeviceManager, DeviceState
+
+logger = logging.getLogger(__name__)
+
+
+class ANELClient(DeviceManager):
+    """ANEL device client - communicates with ANEL runner via REST"""
+
+    def __init__(self, config: dict):
+        self.runner_url = config['runner_url']
+        self.api_key = config['runner_api_key']
+        self.timeout = config['request_timeout']
+        self.http_client = httpx.AsyncClient(timeout=self.timeout)
+
+    def _headers(self) -> dict:
+        return {"Authorization": f"Bearer {self.api_key}"}
+
+    async def get_state(self, device: Device) -> Tuple[bool, DeviceState, str | None]:
+        """Get device state from ANEL runner"""
+        try:
+            url = f"{self.runner_url}/devices/{device.host}/state"
+            params = {"port": device.port}
+
+            response = await self.http_client.get(
+                url,
+                params=params,
+                headers=self._headers()
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                state = 1 if data['state'] == 1 else 0
+                return True, state, None
+            else:
+                return False, -1, f"HTTP {response.status_code}"
+
+        except httpx.TimeoutException:
+            return False, -1, "Request timeout"
+        except Exception as e:
+            logger.error(f"ANEL get_state failed for {device.id}: {e}")
+            return False, -1, str(e)
+
+    async def set_power(self, device: Device, on: bool) -> Tuple[bool, DeviceState, str | None]:
+        """Send power command to ANEL runner"""
+        try:
+            endpoint = "on" if on else "off"
+            url = f"{self.runner_url}/devices/{device.host}/{endpoint}"
+            params = {"port": device.port}
+
+            response = await self.http_client.post(
+                url,
+                params=params,
+                headers=self._headers()
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                state = 1 if data['state'] == 1 else 0
+                return True, state, None
+            else:
+                return False, -1, f"HTTP {response.status_code}"
+
+        except Exception as e:
+            logger.error(f"ANEL set_power failed for {device.id}: {e}")
+            return False, -1, str(e)
+
+    async def test_connection(self, device: Device) -> Tuple[bool, str | None]:
+        """Test connection to device via runner"""
+        success, state, error = await self.get_state(device)
+        return success, error
+```
+
+---
+
+## Alternative: Event Stream from Runner
+
+Instead of REST polling, we could use **Server-Sent Events (SSE)** for real-time status updates:
+
+```python
+# In ANEL runner
+from sse_starlette.sse import EventSourceResponse
+
+@app.get("/events/stream")
+async def event_stream(authorization: str = Header(...)):
+    """SSE stream of ANEL status broadcasts"""
+    verify_api_key(authorization)
+
+    async def event_generator():
+        queue = asyncio.Queue()
+
+        # Register callback
+        async def callback(status):
+            await queue.put(status)
+
+        anel_manager.on_status(callback)
+
+        try:
+            while True:
+                status = await queue.get()
+                yield {
+                    "event": "status",
+                    "data": json.dumps(status)
+                }
+        finally:
+            # Cleanup
+            anel_manager.status_callbacks.remove(callback)
+
+    return EventSourceResponse(event_generator())
+```
+
+```python
+# In main service
+async def subscribe_to_anel_events():
+    """Subscribe to ANEL runner event stream"""
+    url = f"{anel_runner_url}/events/stream"
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    async with httpx.AsyncClient() as client:
+        async with client.stream("GET", url, headers=headers) as response:
+            async for line in response.aiter_lines():
+                if line.startswith("data:"):
+                    data = json.loads(line[5:])
+                    await handle_anel_status_update(data)
+```
+
+---
+
+## Network Architecture
+
+### Deployment Topology
+
+The ANEL runner container runs in a **separate subnet** from the main control service for security and network isolation.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  SUBNET A - Main Application Network (192.168.1.0/24)      │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  Docker Host / Server 1                              │  │
+│  │                                                      │  │
+│  │  ┌────────────────────────────────────────────┐     │  │
+│  │  │  Main Service Container                    │     │  │
+│  │  │  (gallerycontrol)                  │     │  │
+│  │  │  IP: 192.168.1.10                          │     │  │
+│  │  │                                            │     │  │
+│  │  │  - FastAPI REST API                        │     │  │
+│  │  │  - Orchestrator                            │     │  │
+│  │  │  - Device Managers (PJLink, NETIO, Shell)  │     │  │
+│  │  │  - ANELClient (HTTP to runner)             │     │  │
+│  │  └────────────────────────────────────────────┘     │  │
+│  │                                                      │  │
+│  │  ┌────────────────────────────────────────────┐     │  │
+│  │  │  PostgreSQL Container                      │     │  │
+│  │  │  IP: 192.168.1.11                          │     │  │
+│  │  └────────────────────────────────────────────┘     │  │
+│  │                                                      │  │
+│  │  ┌────────────────────────────────────────────┐     │  │
+│  │  │  Frontend Container                        │     │  │
+│  │  │  IP: 192.168.1.12                          │     │  │
+│  │  └────────────────────────────────────────────┘     │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            │ HTTP REST API
+                            │ (routed across subnets)
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  SUBNET B - Control/ANEL Network (192.168.50.0/24)         │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  Docker Host / Server 2 (or same host, different NIC)│  │
+│  │                                                      │  │
+│  │  ┌────────────────────────────────────────────┐     │  │
+│  │  │  ANEL Runner Container                     │     │  │
+│  │  │  (gallerycontrol/anel_runner)              │     │  │
+│  │  │  IP: 192.168.50.2                          │     │  │
+│  │  │                                            │     │  │
+│  │  │  - FastAPI REST API (port 8001)            │     │  │
+│  │  │  - ANELManager (UDP listener)              │     │  │
+│  │  │  - Listens: UDP port 9977 (broadcasts)     │     │  │
+│  │  │  - Sends: UDP port 9975 (commands)         │     │  │
+│  │  └────────────────────────────────────────────┘     │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                            │                                │
+│                            │ UDP 9975/9977                   │
+│                            ↓                                │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐           │
+│  │ ANEL Device│  │ ANEL Device│  │ ANEL Device│           │
+│  │ 192.168    │  │ 192.168    │  │ 192.168    │           │
+│  │ .50.10     │  │ .50.11     │  │ .50.12     │           │
+│  └────────────┘  └────────────┘  └────────────┘           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Communication Flow
+
+**Command Flow (Main Service → ANEL Device):**
+```
+User clicks "Turn On"
+    ↓
+Main Service (192.168.1.10)
+    ↓ HTTP POST to http://192.168.50.2:8001/devices/{ip}/on
+ANEL Runner (192.168.50.2)
+    ↓ UDP command to port 9975
+ANEL Device (192.168.50.10)
+    ↓ Executes command
+    ↓ Broadcasts new state on UDP port 9977
+ANEL Runner receives broadcast
+    ↓ Updates cache
+    ↓ Returns state to Main Service
+Main Service updates database
+    ↓
+Frontend shows new state
+```
+
+**Status Update Flow (ANEL Device → Main Service):**
+```
+ANEL Device (192.168.50.10)
+    ↓ UDP broadcast on port 9977 (spontaneous)
+ANEL Runner (192.168.50.2)
+    ↓ Receives broadcast, parses, caches
+    ↓ Main Service polls for state OR
+    ↓ Runner pushes via webhook/SSE (optional)
+Main Service updates database
+    ↓
+Frontend polls and shows state
+```
+
+---
+
+## Summary
+
+### Why ANEL Runner Must Be Separate
+
+1. **UDP Broadcast Reception:**
+   - ANEL devices push status via UDP broadcasts
+   - Requires binding to physical network interface
+   - Docker bridge networks don't forward broadcasts
+   - Solution: `network_mode: host`
+
+2. **Network Isolation:**
+   - ANEL devices on separate subnet (security/physical isolation)
+   - Runner can access both main network (REST API) and ANEL subnet (UDP)
+
+3. **Real-Time Updates:**
+   - No polling required - devices push state changes
+   - Sub-second latency from device action to UI update
+   - Event-driven architecture, not request-response
+
+### Communication Flow
+
+**Command Flow (Web UI → Device):**
+```
+Frontend → Main Service → ANEL Runner → ANEL Device
+         (HTTP REST)    (HTTP REST)    (UDP command)
+```
+
+**Status Flow (Device → Web UI):**
+```
+ANEL Device → ANEL Runner → Main Service → Frontend
+(UDP broadcast) (event/webhook) (polling/SSE)
+```
+
+### This is NOT "Stupid Command Execution"
+
+The ANEL runner is a **sophisticated bidirectional UDP gateway** that:
+- Listens continuously for device broadcasts
+- Maintains real-time state cache
+- Provides REST abstraction for main service
+- Enables event-driven architecture
+- Eliminates polling overhead
+
+---
+
+**Last Updated:** 2026-01-12
+**Status:** Architecture Documented
+**Next:** Update implementation plan to reflect this architecture

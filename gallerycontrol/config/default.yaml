@@ -1,0 +1,147 @@
+server:
+  host: "0.0.0.0"
+  port: 8000
+  reload: false
+
+database:
+  url: "${DATABASE_URL}"
+  pool_size: 20
+  pool_pre_ping: true
+  echo: false
+
+device_types:
+  pjlink:
+    cooldown_seconds: 30
+    request_timeout: 10
+    verify:
+      enabled: true
+      interval_seconds: 30           # poll interval
+      initial_timeout_seconds: 300   # 5 min - give up if state never reached
+      stable_duration_seconds: 300   # 5 min - wait after state reached
+      max_retries: 3                 # only for stability failures
+      "on":
+        success_states: [1, 3]       # on, warming
+      "off":
+        success_states: [0, 2]       # off, cooling
+
+  netio:
+    cooldown_seconds: 5
+    request_timeout: 5
+    verify:
+      enabled: true
+      interval_seconds: 30
+      initial_timeout_seconds: 180
+      stable_duration_seconds: 300
+      max_retries: 3
+      "on":
+        success_states: [1]
+      "off":
+        success_states: [0]
+
+  anel:
+    cooldown_seconds: 5
+    request_timeout: 5
+    runner_url: "${ANEL_RUNNER_URL}"
+    runner_api_key: "${ANEL_API_KEY}"
+    verify:
+      enabled: true
+      interval_seconds: 30
+      initial_timeout_seconds: 180
+      stable_duration_seconds: 300
+      max_retries: 3
+      "on":
+        success_states: [1]
+      "off":
+        success_states: [0]
+
+  shell:
+    cooldown_seconds: 2
+    request_timeout: 30
+    verify:
+      enabled: false
+
+orchestrator:
+  on_stagger_delay_seconds: 1.0
+  max_concurrent_on_commands: 10     # Limit concurrent ON commands (with stagger)
+  max_concurrent_off_commands: 20    # Limit concurrent OFF commands
+  max_concurrent_fast_commands: 20   # Limit concurrent fast-lane commands
+  max_concurrent_verification_polls: 10  # Limit concurrent verification state queries
+  enable_verification: true
+
+monitoring:
+  enabled: true
+  poll_interval_seconds: 60       # Normal polling interval
+  fast_poll_interval_seconds: 30  # Fast polling during verification (30s min for projectors)
+  batch_size: 30                  # Devices per batch (all batches run in parallel)
+  batch_delay_seconds: 0          # No delay - batches run in parallel
+  device_timeout_seconds: 5       # Per-device timeout (prevents slow devices blocking)
+
+scheduler:
+  enabled: true
+  check_interval_seconds: 60      # How often to check for tasks due to run
+
+  tasks:
+    asset_linker:
+      enabled: true
+      interval_minutes: 10        # Run every 10 minutes
+      batch_size: 20              # Max devices per run
+
+    log_cleanup:
+      enabled: true
+      interval_minutes: 60        # Run every hour
+      retention_hours: 24         # Keep 24 hours of operation logs
+
+    device_info_cache:
+      enabled: true
+      interval_minutes: 30        # Run every 30 minutes
+      max_concurrent: 5           # Max concurrent device queries
+      timeout_seconds: 10         # Per-device timeout
+
+services:
+  anel_runner:
+    name: "ANEL Runner"
+    description: "UDP relay for ANEL power strips"
+    url: "${ANEL_RUNNER_URL}"
+    health_endpoint: "/health"
+    check_interval_seconds: 30
+    timeout_seconds: 5
+    affects_device_types: ["anel"]
+
+logging:
+  level: "INFO"
+  format: "json"
+  file: null
+
+api:
+  cors_origins:
+    - "*"
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+
+email:
+  smtp_host: "${SMTP_HOST}"
+  smtp_port: 587
+  smtp_user: "${SMTP_USER}"
+  smtp_password: "${SMTP_PASSWORD}"
+  smtp_use_tls: true
+  from_address: "${EMAIL_FROM}"
+  subject: "GalleryControl Device Inventory"
+  recipients: []
+
+# Hostname templates for quick-generate buttons in device forms
+# Use {num} for the device number, {num:03d} for zero-padded
+# Leave empty to disable the quick-generate feature
+hostname_templates:
+  netio: ""    # e.g., "netio-{num:03d}.example.com"
+  anel: ""     # e.g., "anel-{num}.example.com"
+
+# Visitor display system for kiosk screens showing protection status
+display:
+  enabled: true
+  # Cache TTL for config.yaml files (seconds) - enables hot-reload
+  config_cache_ttl: 5
+  # Default template if not specified in artwork config
+  default_template: "mack-style"
+  # Default chart type if not specified in artwork config
+  default_chart_type: "donut"

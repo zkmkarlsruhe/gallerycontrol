@@ -1,0 +1,34 @@
+# Production configuration overrides
+# These values override default.yaml when ENVIRONMENT=production
+# Replace the example hostnames/addresses below with your own.
+
+server:
+  reload: false
+
+logging:
+  level: "${LOG_LEVEL:-INFO}"
+  format: "json"
+  file: "/app/logs/gallerycontrol.log"
+
+# Email configuration for status reports
+email:
+  smtp_host: "smtp.example.com"
+  smtp_port: 25
+  smtp_user: ""
+  smtp_password: ""
+  smtp_use_tls: false
+  from_address: "gallerycontrol@example.com"
+  from_name: "GalleryControl"
+  subject: "GalleryControl Device Status Report"
+  recipients:
+    - "admin@example.com"
+
+# Hostname quick-generate templates for device forms
+hostname_templates:
+  netio: "netio-{num:03d}.example.com"
+  anel: "anel-{num}.example.com"
+
+# API settings
+api:
+  cors_origins:
+    - "https://gallerycontrol.example.com"

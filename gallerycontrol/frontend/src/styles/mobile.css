@@ -1,0 +1,165 @@
+/* Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+ * SPDX-License-Identifier: MIT
+ *
+ * Mobile and responsive styles
+ * Contains all @media queries for compact/mobile views
+ */
+
+/* ========== Anchor scroll offset for sticky header ========== */
+[id] {
+  scroll-margin-top: 60px;
+}
+
+/* ========== Compact Mobile View (< 900px) ========== */
+@media (max-width: 900px) {
+  /* Smaller scroll offset for compact header */
+  [id] {
+    scroll-margin-top: 45px;
+  }
+
+  /* Header */
+  .app-header {
+    padding: 0.35rem 0.5rem;
+  }
+
+  .app-header h1 {
+    font-size: 1rem;
+  }
+
+  .header-controls {
+    gap: 0.5rem;
+  }
+
+  .edit-mode-toggle label {
+    font-size: 0.75rem;
+  }
+
+  .edit-mode-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Overview section */
+  .overview-section {
+    padding: 0.35rem;
+    border-bottom-width: 1px;
+  }
+
+  /* Global controls - mobile */
+  .global-controls {
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .btn-global-on,
+  .btn-global-off {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  /* Exhibition cards */
+  .exhibition-cards {
+    gap: 0.35rem;
+  }
+
+  .exhibition-card {
+    padding: 0.35rem;
+    min-width: 120px;
+    border-radius: 0.35rem;
+  }
+
+  .exhibition-card-header {
+    margin-bottom: 0.25rem;
+  }
+
+  .exhibition-card-name {
+    font-size: 0.8rem;
+  }
+
+  .exhibition-card-stats {
+    margin-bottom: 0.25rem;
+    gap: 0.35rem;
+  }
+
+  .exhibition-card-controls {
+    gap: 0.15rem;
+  }
+
+  .exhibition-card-controls .btn {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.7rem;
+  }
+
+  /* Exhibition sections */
+  .exhibition-section {
+    margin: 0.35rem;
+    border-radius: 0.35rem;
+  }
+
+  .exhibition-header {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  /* Artwork rows */
+  .artwork-row {
+    padding: 0.35rem 0.5rem;
+    min-height: 44px;
+    gap: 0.25rem;
+  }
+
+  /* Inline layout */
+  .artwork-inline-layout {
+    gap: 0.35rem;
+    grid-template-columns: auto minmax(60px, 100px) 1fr auto;
+    align-items: start;
+  }
+
+  .artwork-name-inline {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    max-width: 100px;
+    align-self: start;
+  }
+
+  .artwork-devices-inline {
+    gap: 0.25rem;
+  }
+
+  /* Device badge */
+  .device-badge {
+    padding: 0.2rem 0.35rem;
+    font-size: 0.8rem;
+    border-radius: 0.3rem;
+  }
+
+  /* Buttons - compact but still touch-safe (44px minimum) */
+  .btn.btn-sm {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* API links - keep readable */
+  .api-link {
+    font-size: 0.7rem;
+  }
+
+  /* Stat dots */
+  .stat-dot {
+    width: 10px;
+    height: 10px;
+  }
+
+  .stat-count {
+    font-size: 0.7rem;
+  }
+
+  /* Manual device content */
+  .manual-device-content {
+    padding: 0.35rem 0.5rem;
+    gap: 0.35rem;
+  }
+}

@@ -1,0 +1,32 @@
+// Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+// SPDX-License-Identifier: MIT
+/**
+ * Reachability status indicator for device forms.
+ */
+
+import type { ReachabilityStatus } from '../../../hooks/useHostReachability';
+
+interface ReachabilityIndicatorProps {
+  status: ReachabilityStatus;
+  error?: string | null;
+}
+
+export function ReachabilityIndicator({ status, error }: ReachabilityIndicatorProps) {
+  return (
+    <span className={`reachability-indicator status-${status}`} title={error || ''}>
+      {status === 'checking' && <i className="bi bi-arrow-repeat spin"></i>}
+      {status === 'reachable' && <i className="bi bi-check-circle-fill"></i>}
+      {status === 'unreachable' && <i className="bi bi-x-circle-fill"></i>}
+    </span>
+  );
+}
+
+/**
+ * Get CSS class for host input based on reachability status.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function getHostInputClass(status: ReachabilityStatus): string {
+  if (status === 'unreachable') return 'is-invalid';
+  if (status === 'reachable') return 'is-valid';
+  return '';
+}

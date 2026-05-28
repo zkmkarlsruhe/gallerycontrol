@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ artwork_name }} - Display</title>
+    <!-- CSS_VARIABLES -->
+    <!-- BASE_CSS -->
+    <style>
+        /* Fullscreen countdown: Giant centered digits */
+        .display-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .artwork-name {
+            font-size: 1.5rem;
+            font-weight: 400;
+            opacity: 0.6;
+            margin-bottom: 1rem;
+        }
+
+        .countdown-container {
+            text-align: center;
+        }
+
+        .countdown-value {
+            font-size: 12rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+        }
+
+        .countdown-label {
+            font-size: 1.5rem;
+            opacity: 0.5;
+            margin-top: 1rem;
+        }
+
+        .status-indicator {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--available-color);
+        }
+
+        .status-indicator.running {
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        .status-indicator.warning {
+            background: var(--warning-color);
+        }
+
+        .reset-timer {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Warning overlay */
+        .warning-overlay {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .warning-icon {
+            font-size: 10rem;
+            margin-bottom: 2rem;
+        }
+
+        .warning-text {
+            font-size: 2.5rem;
+            max-width: 80%;
+        }
+
+        .cooldown-info {
+            margin-top: 3rem;
+            font-size: 6rem;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .countdown-value {
+                font-size: 6rem;
+            }
+
+            .cooldown-info {
+                font-size: 4rem;
+            }
+        }
+    </style>
+    <!-- CUSTOM_CSS -->
+</head>
+<body>
+    <div class="display-container">
+        <h1 class="artwork-name">{{ artwork_name }}</h1>
+        <div class="countdown-container" data-running-indicator>
+            <div class="countdown-value status-available">--:--</div>
+            <div class="countdown-label">verbleibend / remaining</div>
+        </div>
+        <div class="status-indicator" id="statusIndicator"></div>
+        <div class="reset-timer hidden"></div>
+    </div>
+
+    <!-- Warning Overlay -->
+    <div class="warning-overlay">
+        <div class="warning-icon">&#9888;</div>
+        <div class="warning-text">{{ warning_de }}</div>
+        <div class="cooldown-info">
+            <span class="cooldown-remaining"></span>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/display/templates/d3.min.js"></script>
+    <!-- SHARED_JS -->
+    <script>
+        // Additional fullscreen-specific logic
+        document.addEventListener('display-status-update', function(e) {
+            const status = e.detail;
+            const indicator = document.getElementById('statusIndicator');
+
+            if (indicator) {
+                indicator.classList.toggle('running', status.is_running);
+                indicator.classList.toggle('warning', status.budget_percent < 20);
+            }
+        });
+    </script>
+</body>
+</html>

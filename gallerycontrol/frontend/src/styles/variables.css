@@ -1,0 +1,44 @@
+/* Copyright (c) 2026 Marc Schütze @ ZKM | Center for Art and Media Karlsruhe
+ * SPDX-License-Identifier: MIT
+ */
+:root {
+  /* State colors */
+  --state-error: #e74c3c;
+  --state-off: #7f8c8d;
+  --state-on: #27ae60;
+  --state-cooling: #f39c12;
+
+  /* UI colors */
+  --primary: #5c6bc0;
+  --primary-dark: #3f51b5;
+  --secondary: #78909c;
+  --accent: #26a69a;
+
+  /* Button colors */
+  --btn-on: #2ecc71;
+  --btn-on-hover: #27ae60;
+  --btn-off: #95a5a6;
+  --btn-off-hover: #7f8c8d;
+  --btn-edit: #3498db;
+  --btn-edit-hover: #2980b9;
+  --btn-delete: #e74c3c;
+  --btn-delete-hover: #c0392b;
+  --btn-add: #9b59b6;
+  --btn-add-hover: #8e44ad;
+
+  /* Backgrounds */
+  --bg-card: #eceff1;
+  --bg-section: #fafafa;
+  --bg-header: #37474f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-size: 13px;
+  background: #f8f9fa;
+  margin: 0;
+}
+
