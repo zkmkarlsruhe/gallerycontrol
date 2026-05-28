@@ -129,9 +129,9 @@ POST /api/control/exhibition/{id}/off
 # Get exhibition state
 GET /api/state/exhibition/{id}
 
-# Fast lane - direct device control
-POST /api/fast/device/{id}/on
-POST /api/fast/device/{id}/off
+# Fast lane - external triggers (artwork-level, GET or POST)
+POST /external/fast/artwork/{id}/on
+POST /external/fast/artwork/{id}/off
 ```
 
 ## Development

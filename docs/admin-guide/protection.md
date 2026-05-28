@@ -75,8 +75,8 @@ The feature flag allows temporarily disabling protection without deleting the co
 The `accepting_triggers` flag on artworks controls whether the Fast-Lane API can trigger the artwork.
 
 ```
-POST /api/fast/artwork/{id}/on
-POST /api/fast/artwork/{id}/off
+POST /external/fast/artwork/{id}/on
+POST /external/fast/artwork/{id}/off
 ```
 
 When staff turns an exhibition OFF via web interface, `accepting_triggers` is set to `false` for all artworks, preventing motion sensors from turning things back on.

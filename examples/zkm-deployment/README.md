@@ -21,4 +21,4 @@ docker compose -f docker-compose.prod.yml up -d
 
 This deployment assumes Traefik is running on the `traefik` network with:
 - `whitelist-and-guardian@file` middleware for main UI
-- `zkm-intern-whitelist@file` middleware for external API endpoints (`/api/sensor`, `/api/fast`)
+- `zkm-intern-whitelist@file` middleware for external API endpoints (`/external/protect`, `/external/fast`)

@@ -22,7 +22,7 @@ Server-Sent Events provide real-time updates to connected frontends.
 ### Connecting
 
 ```javascript
-const eventSource = new EventSource('/api/state/events');
+const eventSource = new EventSource('/api/state/stream');
 eventSource.onmessage = (event) => {
   const data = JSON.parse(event.data);
   // Handle event based on data.type

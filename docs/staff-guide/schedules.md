@@ -267,13 +267,13 @@ For days the museum is closed:
 ### List Schedules
 
 ```
-GET /api/admin/schedules
+GET /api/admin/scheduled-jobs
 ```
 
 ### Create Schedule
 
 ```
-POST /api/admin/schedules
+POST /api/admin/scheduled-jobs
 {
   "name": "Morning Startup",
   "job_type": "device",
@@ -288,7 +288,7 @@ POST /api/admin/schedules
 ### Update Schedule
 
 ```
-PATCH /api/admin/schedules/{id}
+PUT /api/admin/scheduled-jobs/{id}
 {
   "enabled": false
 }
@@ -297,11 +297,11 @@ PATCH /api/admin/schedules/{id}
 ### Delete Schedule
 
 ```
-DELETE /api/admin/schedules/{id}
+DELETE /api/admin/scheduled-jobs/{id}
 ```
 
 ### Run Schedule Now
 
 ```
-POST /api/admin/schedules/{id}/run
+POST /api/admin/scheduled-jobs/{id}/trigger
 ```

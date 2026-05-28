@@ -180,8 +180,8 @@ Add multiple time windows with runtime limits:
 The `accepting_triggers` flag controls whether external systems can trigger the artwork:
 
 ```
-POST /api/fast/artwork/{id}/on
-POST /api/fast/artwork/{id}/off
+POST /external/fast/artwork/{id}/on
+POST /external/fast/artwork/{id}/off
 ```
 
 **When enabled:**
@@ -196,7 +196,7 @@ POST /api/fast/artwork/{id}/off
 ### Typical Integration
 
 ```
-Motion Sensor → API Gateway → POST /api/fast/artwork/123/on
+Motion Sensor → API Gateway → POST /external/fast/artwork/123/on
                                       ↓
                               Protection Check
                                       ↓

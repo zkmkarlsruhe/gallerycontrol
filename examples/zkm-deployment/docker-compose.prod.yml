@@ -50,8 +50,8 @@ services:
       - traefik.http.routers.gallerycontrol.service=gallerycontrol
       - traefik.http.routers.gallerycontrol.tls=true
       - traefik.http.routers.gallerycontrol.middlewares=whitelist-and-guardian@file
-      # External API router - only IP whitelist, no guardian auth (for /api/sensor and /api/fast)
-      - traefik.http.routers.gallerycontrol-external.rule=Host(`control.mutech.zkm.de`) && (PathPrefix(`/api/sensor`) || PathPrefix(`/api/fast`))
+      # External API router - only IP whitelist, no guardian auth (for /external/fast and /external/protect)
+      - traefik.http.routers.gallerycontrol-external.rule=Host(`control.mutech.zkm.de`) && PathPrefix(`/external`)
       - traefik.http.routers.gallerycontrol-external.entrypoints=websecure
       - traefik.http.routers.gallerycontrol-external.service=gallerycontrol
       - traefik.http.routers.gallerycontrol-external.tls=true

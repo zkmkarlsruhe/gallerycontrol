@@ -125,8 +125,8 @@ device_types:
 External triggers (motion sensors, buttons) use the **Fast Lane API**:
 
 ```
-POST /api/fast/artwork/{id}/on
-POST /api/fast/artwork/{id}/off
+POST /external/fast/artwork/{id}/on
+POST /external/fast/artwork/{id}/off
 ```
 
 **Differences from Web/Scheduler commands:**
@@ -399,7 +399,7 @@ async with db.session() as session:
 The frontend receives real-time updates via Server-Sent Events:
 
 ```
-Browser connects to /api/state/events
+Browser connects to /api/state/stream
     ↓
 SSEBroadcaster adds client queue
     ↓

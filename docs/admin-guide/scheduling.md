@@ -4,6 +4,8 @@
 
 Standard cron format: `minute hour day month weekday`
 
+> **Timezone:** cron expressions are evaluated in the **server's local timezone**, set by the container's `TZ` environment variable (e.g. `TZ=Europe/Berlin`). So `30 9 * * *` fires at 09:30 local wall-clock, not UTC. Timestamps are stored in UTC internally and converted for display.
+
 **Examples:**
 
 | Expression | Description |

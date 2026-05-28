@@ -38,10 +38,12 @@ POST /api/control/device/{id}/action/{name}
 External trigger endpoints for motion sensors, buttons, etc.
 
 ```
-POST /api/fast/artwork/{id}/on
-POST /api/fast/artwork/{id}/off
-GET  /api/fast/artwork/{id}/state
+POST /external/fast/artwork/{id}/on
+POST /external/fast/artwork/{id}/off
+GET  /external/fast/artwork/{id}/state
 ```
+
+Both `GET` and `POST` are accepted on the `{command}` route for easy integration.
 
 **Requirements:**
 - Artwork must have `accepting_triggers = true`
@@ -61,9 +63,9 @@ GET  /api/fast/artwork/{id}/state
 ```
 GET /api/state/exhibitions          # All exhibitions with state
 GET /api/state/exhibition/{id}      # Single exhibition
-GET /api/state/artwork/{id}         # Single artwork
 GET /api/state/device/{id}          # Single device
-GET /api/state/events               # SSE stream
+GET /api/state/stream               # SSE stream
+GET /api/state/changes              # State-change history
 ```
 
 ---
@@ -84,8 +86,8 @@ Same pattern for:
 - `/api/admin/artworks`
 - `/api/admin/devices`
 - `/api/admin/credentials`
-- `/api/admin/shell_templates`
-- `/api/admin/schedules`
+- `/api/admin/shell-templates`
+- `/api/admin/scheduled-jobs`
 
 ---
 
@@ -119,9 +121,11 @@ POST /api/assets/lamp-history/csv       # Export CSV
 ## Scheduler Endpoints
 
 ```
-GET  /api/admin/scheduler/status        # Scheduler status
-POST /api/admin/scheduler/trigger/{task}  # Trigger task
-POST /api/admin/scheduler/reset/{job_id}  # Reset circuit
+GET  /api/admin/scheduler/status                       # Scheduler status
+POST /api/admin/scheduler/trigger/{task_name}          # Trigger a system task
+POST /api/admin/scheduler/reset/{task_name}            # Reset a failed system task
+POST /api/admin/scheduled-jobs/{job_id}/trigger        # Trigger a scheduled job now
+POST /api/admin/scheduled-jobs/{job_id}/reset-circuit  # Reset a job's circuit breaker
 ```
 
 ---
