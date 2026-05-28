@@ -160,4 +160,4 @@ For issues and feature requests, contact the ZKM technical team.
 
 ## License
 
-GPL-3.0
+MIT License - see [LICENSE](../LICENSE) for details.
