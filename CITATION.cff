@@ -13,6 +13,11 @@ abstract: >-
   sensor-triggered artwork protection.
 repository-code: "https://github.com/zkmkarlsruhe/gallerycontrol"
 url: "https://github.com/zkmkarlsruhe/gallerycontrol"
+doi: 10.5281/zenodo.20427498
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.20427498
+    description: "Concept DOI (all versions)"
 license: MIT
 version: 2.4.2
 date-released: "2026-05-28"
