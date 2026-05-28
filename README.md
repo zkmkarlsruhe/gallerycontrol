@@ -100,18 +100,21 @@ open http://localhost:8000
 Configuration is managed via YAML files in `gallerycontrol/config/`:
 
 ```yaml
-# config/default.yaml
+# config/default.yaml (excerpt)
 server:
   host: 0.0.0.0
   port: 8000
 
-polling:
-  interval_seconds: 30
+monitoring:
+  poll_interval_seconds: 60        # Normal device-state polling
+  fast_poll_interval_seconds: 30   # During command verification
 
 email:
-  enabled: false
-  # smtp_host: smtp.example.com
+  smtp_host: "${SMTP_HOST}"
+  recipients: []                   # leave empty to disable status emails
 ```
+
+`production.yaml` overrides `default.yaml` when `ENVIRONMENT=production`. See [the configuration guide](docs/admin-guide/configuration.md) for the full reference.
 
 ## API
 
@@ -155,11 +158,15 @@ See [examples/zkm-deployment/](examples/zkm-deployment/) for a production deploy
 
 ### ANEL Runner
 
-ANEL devices require UDP broadcast access. For network-isolated deployments, run the ANEL Runner service separately:
+ANEL devices require UDP broadcast access. For network-isolated deployments, run the ANEL Runner as a separate service (built from `gallerycontrol/Dockerfile.anel-runner`, listens on `:8001`) on a host that can reach the ANEL devices, then point the main service at it:
 
 ```bash
-cd anel-runner-service
-docker compose up -d
+# On the host with UDP access to the ANEL devices
+docker build -f gallerycontrol/Dockerfile.anel-runner -t gallerycontrol-anel-runner ./gallerycontrol
+docker run -d -p 8001:8001 --name anel-runner gallerycontrol-anel-runner
+
+# Then set on the main service:
+#   ANEL_RUNNER_URL=http://<runner-host>:8001
 ```
 
 ## License

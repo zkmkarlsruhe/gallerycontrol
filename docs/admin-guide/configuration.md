@@ -38,11 +38,10 @@ MuTech Control uses YAML configuration files in the `config/` directory.
 ```
 config/
 ├── default.yaml      # Base configuration
-├── development.yaml  # Development overrides
-└── production.yaml   # Production overrides
+└── production.yaml   # Production overrides (loaded when ENVIRONMENT=production)
 ```
 
-Environment-specific files override `default.yaml`. The active environment is set via `ENVIRONMENT` env var.
+`production.yaml` overrides `default.yaml` when the `ENVIRONMENT` env var is set to `production`.
 
 ### Environment Variable Substitution
 
@@ -86,9 +85,9 @@ device_types:
       initial_timeout_seconds: 300  # Max wait for initial state
       stable_duration_seconds: 300  # Enforcement period duration
       max_retries: 3           # Retries for stability failures
-      on:
+      "on":
         success_states: [1, 3] # 1=ON, 3=WARMING
-      off:
+      "off":
         success_states: [0, 2] # 0=OFF, 2=COOLING
 
   netio:
@@ -100,9 +99,9 @@ device_types:
       initial_timeout_seconds: 180
       stable_duration_seconds: 300
       max_retries: 3
-      on:
+      "on":
         success_states: [1]
-      off:
+      "off":
         success_states: [0]
 
   anel:
@@ -116,9 +115,9 @@ device_types:
       initial_timeout_seconds: 180
       stable_duration_seconds: 300
       max_retries: 3
-      on:
+      "on":
         success_states: [1]
-      off:
+      "off":
         success_states: [0]
 
   shell:
@@ -155,6 +154,20 @@ monitoring:
 scheduler:
   enabled: true
   check_interval_seconds: 60       # How often to check for due jobs
+  tasks:                           # Built-in maintenance jobs (seeded on startup)
+    asset_linker:
+      enabled: true
+      interval_minutes: 10         # Link devices to asset records
+      batch_size: 20
+    log_cleanup:
+      enabled: true
+      interval_minutes: 60
+      retention_hours: 24          # Keep 24h of operation logs
+    device_info_cache:
+      enabled: true
+      interval_minutes: 30
+      max_concurrent: 5
+      timeout_seconds: 10
 
 # ======================
 # EXTERNAL SERVICES
@@ -199,7 +212,23 @@ email:
   from_address: "${EMAIL_FROM}"
   subject: "MuTech Device Inventory"
   recipients:
-    - "technik@zkm.de"
+    - "technik@zkm.de"           # empty list ([]) disables status emails
+
+# ======================
+# HOSTNAME TEMPLATES (device-form quick-generate buttons)
+# ======================
+hostname_templates:
+  netio: ""    # e.g. "netio-{num:03d}.example.com" ({num:03d} = zero-padded); "" disables
+  anel: ""     # e.g. "anel-{num}.example.com"
+
+# ======================
+# DISPLAY (kiosk protection-status screens)
+# ======================
+display:
+  enabled: true
+  config_cache_ttl: 5            # Cache TTL for per-artwork config.yaml (enables hot-reload)
+  default_template: "mack-style"
+  default_chart_type: "donut"
 ```
 
 ## Tuning Guidelines

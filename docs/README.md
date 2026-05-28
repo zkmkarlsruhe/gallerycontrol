@@ -20,8 +20,8 @@ MuTech Control is a web-based system for controlling museum exhibition devices i
 
 - [Staff Guide](staff-guide/README.md) - How to use the control interface
 - [Admin Guide](admin-guide/README.md) - System configuration and maintenance
-- [API Documentation](/docs) - Interactive Swagger UI
-- [API Reference](/redoc) - ReDoc documentation
+- [API Reference](admin-guide/api.md) - REST API endpoints
+- Interactive API docs are served by the running app at `/docs` (Swagger UI) and `/redoc` (ReDoc)
 
 ## Features
 
@@ -152,7 +152,7 @@ Key settings:
 | [Protection System](staff-guide/protection.md) | Artwork protection configuration |
 | [Scheduling](staff-guide/schedules.md) | Automated scheduling |
 | [Satellite Relays](staff-guide/satellites.md) | Remote network device control |
-| [API Reference](/redoc) | REST API documentation |
+| [API Reference](admin-guide/api.md) | REST API documentation |
 
 ## Support
 

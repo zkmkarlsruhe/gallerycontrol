@@ -551,4 +551,4 @@ The interface is fully responsive and works on mobile devices.
 
 For technical support, contact your system administrator.
 
-For API integration, see the [API Documentation](/docs).
+For API integration, see the [API Reference](../admin-guide/api.md), or the running app's interactive docs at `/docs` (Swagger UI).

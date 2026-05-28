@@ -14,12 +14,14 @@ Industry-standard projector control protocol.
 ```yaml
 device_types:
   pjlink:
-    timeout: 5.0
-    verify_enabled: true
-    verify_max_attempts: 10
-    verify_interval: 3.0
-    cooldown_on: 5      # Wait after ON before state is reliable
-    cooldown_off: 30    # Wait after OFF for cooling
+    cooldown_seconds: 30       # Min time between requests to same device
+    request_timeout: 10        # TCP connection timeout
+    verify:
+      enabled: true
+      interval_seconds: 30           # Poll interval during verification
+      initial_timeout_seconds: 300   # Give up if state never reached
+      stable_duration_seconds: 300   # Hold-stable window after state reached
+      max_retries: 3
 ```
 
 **PJLink States:**
@@ -85,10 +87,14 @@ The ANEL Runner service handles UDP communication and exposes an HTTP API. This 
 2. ANEL devices require specific timing/retry logic
 3. Centralizes UDP handling for multiple MuTech instances
 
-**Starting ANEL Runner:**
+**Starting ANEL Runner** (on a host with UDP access to the ANEL devices; listens on `:8001`):
 ```bash
-cd anel-runner-service
-poetry run python -m anel_runner
+# Container (recommended)
+docker build -f gallerycontrol/Dockerfile.anel-runner -t gallerycontrol-anel-runner ./gallerycontrol
+docker run -d -p 8001:8001 gallerycontrol-anel-runner
+
+# Or run the module directly
+cd gallerycontrol && python -m anel_runner.main
 ```
 
 **Configuration:**

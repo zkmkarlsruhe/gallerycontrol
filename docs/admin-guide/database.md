@@ -29,6 +29,7 @@ poetry run alembic downgrade -1
 
 | Table | Description |
 |-------|-------------|
+| `command_log` | Command executions (issued by the orchestrator) |
 | `state_change_logs` | Device state transitions |
 | `device_operation_logs` | Detailed operation logs |
 | `scheduled_job_logs` | Schedule execution history |

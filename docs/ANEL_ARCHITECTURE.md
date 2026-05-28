@@ -281,7 +281,7 @@ Total: Up to 30 seconds delay before UI updates
 
 ### 1. ANEL Runner Service (Separate)
 
-**File:** `/workspace/anel-runner-service/anel_runner/anel_manager.py`
+**File:** `gallerycontrol/anel_runner/core/anel_service.py`
 
 ```python
 import asyncio
@@ -415,7 +415,7 @@ class ANELManager:
 
 ### 2. ANEL Runner REST API
 
-**File:** `/workspace/anel-runner-service/anel_runner/main.py`
+**File:** `gallerycontrol/anel_runner/main.py`
 
 ```python
 from fastapi import FastAPI, HTTPException, Depends, Header
@@ -769,7 +769,7 @@ The ANEL runner container runs in a **separate subnet** from the main control se
 │  │                                                      │  │
 │  │  ┌────────────────────────────────────────────┐     │  │
 │  │  │  ANEL Runner Container                     │     │  │
-│  │  │  (anel-runner-service)                     │     │  │
+│  │  │  (gallerycontrol/anel_runner)              │     │  │
 │  │  │  IP: 192.168.50.2                          │     │  │
 │  │  │                                            │     │  │
 │  │  │  - FastAPI REST API (port 8001)            │     │  │
