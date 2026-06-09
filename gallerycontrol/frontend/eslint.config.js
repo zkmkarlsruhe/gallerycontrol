@@ -21,5 +21,13 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // New rules introduced by eslint-plugin-react-hooks 7.1 (pulled in for
+      // eslint 10 support). They flag pre-existing patterns across the app;
+      // kept as warnings so the upgrade lands clean, to be addressed separately.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/static-components': 'warn',
+      'react-hooks/immutability': 'warn',
+    },
   },
 ])
