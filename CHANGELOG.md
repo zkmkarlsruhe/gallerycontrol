@@ -5,6 +5,11 @@ All notable changes to GalleryControl will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.3] - 2026-06-25
+
+### Fixed
+- **Read-after-write race in the admin/asset write API.** Create, update and delete handlers in `api/admin.py` and `api/assets.py` only flushed (or executed) their mutation and left the commit to the `get_session` dependency teardown, which FastAPI runs *after* the response is sent. A fast follow-up request could race the commit: `GET /<resource>/{id}` right after a `POST` returned 404, `GET` right after a `DELETE` returned a stale row, and a colliding follow-up write occasionally 500'd. Each handler now `await session.commit()`s before returning, so writes are durable before the response. Covers exhibitions, artworks, devices, credentials, shell-templates, scheduled-jobs and assets.
+
 ## [2.4.2] - 2026-05-27
 
 ### Fixed

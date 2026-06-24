@@ -19,8 +19,8 @@ identifiers:
     value: 10.5281/zenodo.20427498
     description: "Concept DOI (all versions)"
 license: MIT
-version: 2.4.2
-date-released: "2026-05-28"
+version: 2.4.3
+date-released: "2026-06-25"
 keywords:
   - museum
   - exhibition

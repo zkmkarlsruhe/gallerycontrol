@@ -1,0 +1,50 @@
+# GitLab CI: build the steuerung (GalleryControl) image with kaniko and push
+# to Harbor. Deploy is handled by Portainer GitOps from the deploy repo
+# MuTech/gitops/mutech.docker/steuerung — no deploy step in CI.
+#
+# Authentication uses the MuTech group's standard CI variables (inherited
+# because this project lives under MuTech/):
+#   CI_REGISTRY        = harbor.zkm.de
+#   CI_REGISTRY_USER   = robot-mutech+automator-marc
+#   CI_REGISTRY_TOKEN  = (masked)
+#
+# Build context is the gallerycontrol/ subdir — the Dockerfile lives there and
+# COPYs the pre-built frontend from gallerycontrol/static/ (no node build step).
+#
+# Tags pushed:
+#   - every default-branch / MR build:  :<short-sha>  (+ :<ref-slug>, + :latest on default branch)
+#   - tag pipelines (e.g. v2.4.3):       :<tag>        (+ :<short-sha>)
+# The deploy repo pins an explicit :vX.Y.Z tag, so cut a release by tagging.
+
+variables:
+  IMAGE: $CI_REGISTRY/mutech/steuerung
+
+stages:
+  - build
+
+build:image:
+  stage: build
+  # Kaniko is mirrored manually into mutech/ since Harbor has no gcr proxy
+  # (same image the other MuTech/infra builds use — see status-system).
+  image:
+    name: $CI_REGISTRY/mutech/kaniko-executor:debug
+    entrypoint: [""]
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - |
+      cat > /kaniko/.docker/config.json <<EOF
+      {"auths":{"$CI_REGISTRY":{"auth":"$(printf '%s:%s' "$CI_REGISTRY_USER" "$CI_REGISTRY_TOKEN" | base64 -w0)"}}}
+      EOF
+  script:
+    - >
+      /kaniko/executor
+      --context $CI_PROJECT_DIR/gallerycontrol
+      --dockerfile $CI_PROJECT_DIR/gallerycontrol/Dockerfile
+      --destination $IMAGE:$CI_COMMIT_SHORT_SHA
+      $( [ -n "$CI_COMMIT_TAG" ] && echo --destination $IMAGE:$CI_COMMIT_TAG )
+      $( [ -z "$CI_COMMIT_TAG" ] && echo --destination $IMAGE:$CI_COMMIT_REF_SLUG )
+      $( [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ] && echo --destination $IMAGE:latest )
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
