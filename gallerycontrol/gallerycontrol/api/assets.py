@@ -524,6 +524,7 @@ async def update_asset(
             asset.notes = asset_update.notes
 
         await session.flush()
+        await session.commit()
 
         return {
             "id": str(asset.id),
@@ -567,6 +568,8 @@ async def delete_asset(asset_id: str = Path(pattern=UUID_PATTERN), session=Depen
 
         if result.rowcount == 0:
             raise HTTPException(status_code=404, detail="Asset not found")
+
+        await session.commit()
 
     except HTTPException:
         raise

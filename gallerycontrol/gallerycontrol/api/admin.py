@@ -203,6 +203,7 @@ async def create_exhibition(
         new_exhibition = Exhibition(name=exhibition.name, enabled=exhibition.enabled)
         session.add(new_exhibition)
         await session.flush()
+        await session.commit()
 
         return {
             "id": str(new_exhibition.id),
@@ -269,6 +270,8 @@ async def update_exhibition(
                         if dev.satellite_id in removed_ids:
                             dev.satellite_id = None
 
+        await session.commit()
+
         return {
             "id": str(updated.id),
             "name": updated.name,
@@ -293,6 +296,8 @@ async def delete_exhibition(exhibition_id: str, session=Depends(get_session)):
 
         if result.rowcount == 0:
             raise HTTPException(status_code=404, detail="Exhibition not found")
+
+        await session.commit()
 
     except HTTPException:
         raise
@@ -384,6 +389,7 @@ async def create_artwork(artwork: ArtworkCreate, session=Depends(get_session)):
         )
         session.add(new_artwork)
         await session.flush()
+        await session.commit()
 
         return {
             "id": str(new_artwork.id),
@@ -488,6 +494,8 @@ async def update_artwork(
                     timeslice_enabled=updated.timeslice_enabled,
                 )
 
+        await session.commit()
+
         return {
             "id": str(updated.id),
             "name": updated.name,
@@ -514,6 +522,8 @@ async def delete_artwork(artwork_id: str, session=Depends(get_session)):
 
         if result.rowcount == 0:
             raise HTTPException(status_code=404, detail="Artwork not found")
+
+        await session.commit()
 
     except HTTPException:
         raise
@@ -676,6 +686,7 @@ async def create_device(device: DeviceCreate, request: Request, session=Depends(
         )
         session.add(new_device)
         await session.flush()
+        await session.commit()
 
         # For PJLink devices, link to asset and schedule onboard lamp hours recording
         asset_number = None
@@ -786,6 +797,8 @@ async def update_device(
                 # Record onboard lamp hours for new asset
                 await asset_service.record_lamp_hours(updated.id, 'onboard', session)
 
+        await session.commit()
+
         return {
             "id": str(updated.id),
             "name": updated.name,
@@ -827,6 +840,7 @@ async def delete_device(device_id: str, request: Request, session=Depends(get_se
         # Now delete the device
         stmt = delete(Device).where(Device.id == UUID(device_id))
         await session.execute(stmt)
+        await session.commit()
 
     except HTTPException:
         raise
@@ -1033,6 +1047,7 @@ async def create_credential(credential: CredentialCreate, session=Depends(get_se
         )
         session.add(new_credential)
         await session.flush()
+        await session.commit()
 
         # Reload credentials cache
         await load_credentials(session)
@@ -1075,6 +1090,8 @@ async def update_credential(
 
         # Reload credentials cache
         await load_credentials(session)
+
+        await session.commit()
 
         return {
             "id": str(updated.id),
@@ -1147,6 +1164,8 @@ async def delete_credential(credential_id: str, session=Depends(get_session)):
 
         if result.rowcount == 0:
             raise HTTPException(status_code=404, detail="Credential not found")
+
+        await session.commit()
 
         # Reload credentials cache
         await load_credentials(session)
@@ -1269,6 +1288,7 @@ async def create_shell_template(template: ShellTemplateCreate, session=Depends(g
         )
         session.add(new_template)
         await session.flush()
+        await session.commit()
 
         return {
             "id": str(new_template.id),
@@ -1305,6 +1325,8 @@ async def update_shell_template(
         if not updated:
             raise HTTPException(status_code=404, detail="Shell template not found")
 
+        await session.commit()
+
         return {
             "id": str(updated.id),
             "name": updated.name,
@@ -1327,6 +1349,8 @@ async def delete_shell_template(template_id: str, session=Depends(get_session)):
 
         if result.rowcount == 0:
             raise HTTPException(status_code=404, detail="Shell template not found")
+
+        await session.commit()
 
     except HTTPException:
         raise
@@ -1381,6 +1405,7 @@ async def save_device_as_template(
         )
         session.add(new_template)
         await session.flush()
+        await session.commit()
 
         return {
             "id": str(new_template.id),
@@ -2165,6 +2190,7 @@ async def create_one_shot_job(
         )
         session.add(new_job)
         await session.flush()
+        await session.commit()
 
         # Build target_id for response
         response_target_id = None
@@ -2372,6 +2398,7 @@ async def create_scheduled_job(
         )
         session.add(new_job)
         await session.flush()
+        await session.commit()
 
         return {
             "id": str(new_job.id),
@@ -2431,6 +2458,7 @@ async def update_scheduled_job(
             setattr(existing, key, value)
 
         await session.flush()
+        await session.commit()
 
         return {
             "id": str(existing.id),
@@ -2455,6 +2483,8 @@ async def delete_scheduled_job(job_id: str, session=Depends(get_session)):
 
         if result.rowcount == 0:
             raise HTTPException(status_code=404, detail="Scheduled job not found")
+
+        await session.commit()
 
     except HTTPException:
         raise
