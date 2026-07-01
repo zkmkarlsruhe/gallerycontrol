@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gallerycontrol"
-version = "2.4.3"
+version = "2.4.4"
 description = "Museum device control system for daily operations"
 authors = ["Marc Schütze @ ZKM | Center for Art and Media Karlsruhe"]
 readme = "README.md"

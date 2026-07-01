@@ -5,6 +5,11 @@ All notable changes to GalleryControl will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.4] - 2026-07-01
+
+### Fixed
+- **Manual single-device ON/OFF was silently dropped for devices with `automation_enabled=false`.** `CommandOrchestrator._filter_devices` applied the `automation_enabled` skip to *every* non-scheduler command, so an explicit `POST /api/control/device/{id}/{on|off}` (the per-device ON/OFF buttons) returned `devices_targeted: 0` and did nothing — even though the UI still shows those buttons plus a "Manual" badge promising manual control, and migration 006 defines the flag as "excluded from **bulk** operations". The filter now takes `target_type`: `automation_enabled` only gates bulk targets (`artwork`/`exhibition`); an explicit single-device command is manual control and always passes through. Bulk exclusion, the scheduler bypass, and the fast/protect trigger paths are unchanged. Added `tests/unit/test_filter_devices.py` covering the target/source/flag matrix.
+
 ## [2.4.3] - 2026-06-25
 
 ### Fixed
