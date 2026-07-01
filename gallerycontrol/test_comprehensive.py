@@ -286,7 +286,15 @@ def test_feature_flags():
     time.sleep(1)
 
     r = api_post(f"/api/control/artwork/{test_artwork_id}/on")
-    test("Web respects automation_enabled", r.get("devices_successful") == 1)
+    test("Bulk (artwork) ON respects automation_enabled", r.get("devices_successful") == 1)
+
+    # automation_enabled only gates BULK targets - an explicit single-device
+    # command is manual control and must still go through.
+    r = api_post(f"/api/control/device/{test_device_ids[0]}/on")
+    test("Single-device manual control bypasses automation_enabled",
+         r.get("devices_successful") == 1)
+    api_post(f"/api/control/device/{test_device_ids[0]}/off")
+    time.sleep(1)
 
     # Re-enable
     api_put(f"/api/admin/devices/{test_device_ids[0]}", {"automation_enabled": True})

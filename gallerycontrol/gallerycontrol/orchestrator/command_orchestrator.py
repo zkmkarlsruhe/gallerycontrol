@@ -160,7 +160,7 @@ class CommandOrchestrator:
                 return {"success": True, "devices_targeted": 0, "results": [], "request_id": request_id}
 
             # 2. Filter devices based on enabled flags
-            devices = self._filter_devices(devices, command, source)
+            devices = self._filter_devices(devices, command, source, target_type)
 
             logger.info("Devices resolved and filtered",
                        total_devices=len(devices),
@@ -439,7 +439,8 @@ class CommandOrchestrator:
         return True
 
     def _filter_devices(
-        self, devices: List[Device], command: str, source: str = "web"
+        self, devices: List[Device], command: str, source: str = "web",
+        target_type: str = "device",
     ) -> List[Device]:
         """Filter devices based on enabled flags (including parent inheritance).
 
@@ -449,6 +450,10 @@ class CommandOrchestrator:
             source: Command source (web/fast/scheduler). Scheduler bypasses
                    automation_enabled check since schedules should work
                    independently - use device.enabled to disable scheduling.
+            target_type: Original command target (device/artwork/exhibition).
+                   automation_enabled only gates BULK targets (artwork/exhibition);
+                   an explicit single-device command is manual control and always
+                   goes through - matches the "Manual" badge in the UI.
         """
         filtered = []
 
@@ -458,10 +463,16 @@ class CommandOrchestrator:
                 logger.debug(f"Skipping effectively disabled device: {device.name}")
                 continue
 
-            # Skip devices with automation disabled (requires manual control)
-            # Scheduler bypasses this - schedules work on enabled devices regardless
-            # of automation_enabled flag. Use device.enabled to disable scheduling.
-            if source != "scheduler" and not device.automation_enabled and command in ["on", "off"]:
+            # Skip devices with automation disabled (requires manual control).
+            # Only applies to BULK targets: automation_enabled=false excludes a
+            # device from artwork/exhibition ON/OFF but still allows explicit
+            # single-device manual control. Scheduler bypasses this entirely -
+            # schedules work on enabled devices regardless of the flag; use
+            # device.enabled to disable scheduling.
+            if (target_type != "device"
+                    and source != "scheduler"
+                    and not device.automation_enabled
+                    and command in ["on", "off"]):
                 logger.debug(
                     f"Skipping device with automation disabled: {device.name}"
                 )
