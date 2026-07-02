@@ -66,6 +66,11 @@ class StateMonitor:
         self._batch_size = monitor_config.get("batch_size", 30)  # Parallel batches
         self.batch_delay = monitor_config.get("batch_delay_seconds", 0)  # No delay for parallel
         self._device_timeout = monitor_config.get("device_timeout_seconds", 5)  # Per-device timeout
+        # Satellite-routed devices are polled over the WebSocket relay
+        # (steuerung -> satellite -> device -> back), so the extra hop needs more
+        # headroom than the direct-LAN timeout — otherwise a normal latency spike
+        # trips a false "error"/off flap (e.g. Mercurial II via silveregg-kim).
+        self._satellite_device_timeout = monitor_config.get("satellite_device_timeout_seconds", 15)
 
         # Lock for thread-safe config updates
         self._config_lock = asyncio.Lock()
@@ -123,6 +128,19 @@ class StateMonitor:
     @device_timeout.setter
     def device_timeout(self, value: int) -> None:
         self._device_timeout = value
+
+    @property
+    def satellite_device_timeout(self) -> int:
+        return self._satellite_device_timeout
+
+    @satellite_device_timeout.setter
+    def satellite_device_timeout(self, value: int) -> None:
+        self._satellite_device_timeout = value
+
+    def _timeout_for(self, device: Device) -> int:
+        """Poll timeout for a device: satellite-routed devices get the larger
+        timeout to absorb the WebSocket-relay hop; direct devices use the base."""
+        return self._satellite_device_timeout if device.satellite_id else self._device_timeout
 
     def _create_background_task(self, coro, name: str = None) -> asyncio.Task:
         """Create a tracked background task with error handling."""
@@ -373,10 +391,11 @@ class StateMonitor:
                 """Poll a batch of devices with per-device timeout."""
                 batch_results = []
                 for device in batch:
+                    device_timeout = self._timeout_for(device)
                     try:
                         result = await asyncio.wait_for(
                             self._poll_single_device(device),
-                            timeout=self.device_timeout
+                            timeout=device_timeout
                         )
                         batch_results.append(("success" if result else "failed", device.name))
                     except asyncio.TimeoutError:
@@ -398,8 +417,8 @@ class StateMonitor:
                                 success=False,
                                 state_before=device.state,
                                 state_after=None,
-                                error_message=f"Timeout after {self.device_timeout}s",
-                                duration_ms=self.device_timeout * 1000,
+                                error_message=f"Timeout after {device_timeout}s",
+                                duration_ms=device_timeout * 1000,
                             )
                         except Exception as log_err:
                             logger.warning(f"Failed to log timeout for {device.name}: {log_err}")
@@ -422,7 +441,7 @@ class StateMonitor:
                                     device_id=device_id,
                                     success=False,
                                     state=device.state if is_enforcing else -1,
-                                    duration_ms=self.device_timeout * 1000,
+                                    duration_ms=device_timeout * 1000,
                                     next_poll_at=next_poll_at,
                                     poll_interval=poll_interval,
                                 ),

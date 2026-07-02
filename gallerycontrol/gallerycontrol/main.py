@@ -217,6 +217,7 @@ async def lifespan(app: FastAPI):
             "fast_poll_interval_seconds": new_config.get("monitoring.fast_poll_interval_seconds", 30),
             "batch_size": new_config.get("monitoring.batch_size", 30),
             "device_timeout_seconds": new_config.get("monitoring.device_timeout_seconds", 5),
+            "satellite_device_timeout_seconds": new_config.get("monitoring.satellite_device_timeout_seconds", 15),
         }
 
         # Update state monitor intervals (thread-safe via properties)
@@ -224,6 +225,7 @@ async def lifespan(app: FastAPI):
         state_monitor.fast_interval = monitoring_config["fast_poll_interval_seconds"]
         state_monitor.batch_size = monitoring_config["batch_size"]
         state_monitor.device_timeout = monitoring_config["device_timeout_seconds"]
+        state_monitor.satellite_device_timeout = monitoring_config["satellite_device_timeout_seconds"]
 
         # Broadcast config change to SSE clients (use tracked task)
         state_monitor._create_background_task(

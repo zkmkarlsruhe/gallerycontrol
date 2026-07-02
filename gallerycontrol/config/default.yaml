@@ -75,6 +75,7 @@ monitoring:
   batch_size: 30                  # Devices per batch (all batches run in parallel)
   batch_delay_seconds: 0          # No delay - batches run in parallel
   device_timeout_seconds: 5       # Per-device timeout (prevents slow devices blocking)
+  satellite_device_timeout_seconds: 15  # Longer timeout for satellite-routed devices (extra WS-relay hop)
 
 scheduler:
   enabled: true

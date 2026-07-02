@@ -5,6 +5,11 @@ All notable changes to GalleryControl will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.5] - 2026-07-02
+
+### Fixed
+- **Satellite-routed devices flapped to `error`/off on normal latency.** The state monitor polled every device with a single global `device_timeout_seconds` (5 s). Devices reached via a satellite daemon (steuerung → WSS relay → device → back) have an extra network hop, so an ordinary latency spike tripped the 5 s cap → `"Timeout after 5s"` → state briefly went to `error` and recovered on the next poll (observed on **Mercurial II** via satellite `silveregg-kim`). Polls are now timed per device: satellite-routed devices (`device.satellite_id` set) use the new, larger `monitoring.satellite_device_timeout_seconds` (default 15 s) while direct-LAN devices keep the tight 5 s so polling stays fast. The value is config-tunable and hot-reloadable.
+
 ## [2.4.4] - 2026-07-01
 
 ### Fixed
